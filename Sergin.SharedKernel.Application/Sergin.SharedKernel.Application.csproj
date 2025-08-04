@@ -1,0 +1,10 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+  <ItemGroup>
+    <PackageReference Include="FluentValidation" Version="12.0.0" />
+    <PackageReference Include="MediatR" Version="12.5.0" />
+    <PackageReference Include="Microsoft.Extensions.Localization.Abstractions" Version="9.0.7" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\Sergin.SharedKernel.Domain\Sergin.SharedKernel.Domain.csproj" />
+  </ItemGroup>
+</Project>
