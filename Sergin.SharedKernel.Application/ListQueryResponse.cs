@@ -2,9 +2,9 @@
 
 public sealed record ListQueryResponse<TData>
 {
-    public ListQueryResponse(IEnumerable<TData> data, int total)
+    public ListQueryResponse(IReadOnlyCollection<TData> data, int total)
     {
-        Data = [.. data];
+        Data = data;
         Total = total;
     }
 
