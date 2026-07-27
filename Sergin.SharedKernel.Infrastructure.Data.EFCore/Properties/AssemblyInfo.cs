@@ -13,6 +13,4 @@ using System.Runtime.InteropServices;
 
 [assembly: ComVisible(false)]
 
-[assembly: InternalsVisibleTo("Sergin.Hosts.WebApi.All")]
-[assembly: InternalsVisibleTo("Sergin.HeadEnd")]
-[assembly: InternalsVisibleTo("Sergin.UserAccess")]
+[assembly: InternalsVisibleTo("Sergin.Hosts.Shared")]
