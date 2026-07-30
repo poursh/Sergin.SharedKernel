@@ -1,0 +1,35 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+
+    <PackageReference Include="MediatR" />
+    <PackageReference Include="Microsoft.AspNetCore.OpenApi" />
+    <PackageReference Include="Scalar.AspNetCore" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Sergin.SharedKernel.Application\Sergin.SharedKernel.Application.csproj" />
+    <ProjectReference Include="..\Sergin.SharedKernel.Hosts\Sergin.SharedKernel.Hosts.csproj" />
+    <ProjectReference Include="..\Sergin.SharedKernel.Infrastracture.Data\Sergin.SharedKernel.Infrastracture.Data.csproj" />
+    <ProjectReference Include="..\Sergin.SharedKernel.Infrastracture.WebApi\Sergin.SharedKernel.Infrastracture.WebApi.csproj" />
+    <ProjectReference Include="..\Sergin.SharedKernel.Infrastructure.Data.EFCore\Sergin.SharedKernel.Infrastructure.Data.EFCore.csproj" />
+    <ProjectReference Include="..\Sergin.SharedKernel.Infrastructure\Sergin.SharedKernel.Infrastructure.csproj" />
+    <ProjectReference Include="..\Sergin.SharedKernel.Modules\Sergin.SharedKernel.Modules.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Update="Microsoft.Extensions.Options" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!--
+      GHSA-v5pm-xwqc-g5wc (CVE-2026-49451): stack overflow when PARSING untrusted OpenAPI
+      documents in Microsoft.OpenApi. Pulled in transitively (2.x) by Microsoft.AspNetCore.OpenApi
+      10.0.9; the only fixed line is 3.x, which is API-incompatible with the .NET 10 OpenAPI stack.
+      This service only GENERATES its own OpenAPI document (for Scalar) and never parses external
+      documents, so it is not exposed. Revisit when an AspNetCore.OpenApi patch ships on a fixed 2.x.
+    -->
+    <NuGetAuditSuppress Include="https://github.com/advisories/GHSA-v5pm-xwqc-g5wc" />
+  </ItemGroup>
+
+</Project>

@@ -13,4 +13,5 @@ using System.Runtime.InteropServices;
 
 [assembly: ComVisible(false)]
 
-[assembly: InternalsVisibleTo("Sergin.Hosts.Shared")]
+[assembly: InternalsVisibleTo("Sergin.SharedKernel.Hosts")]
+[assembly: InternalsVisibleTo("Sergin.SharedKernel.Hosts.WebApi")]
