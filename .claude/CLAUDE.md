@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Overview
 
-Sergin.SharedKernel is the building-block library for the **Sergin** platform — a .NET 10 modular monolith HES (Head-End System) for utility smart metering (electricity/gas/water meters). This repo holds the framework-level abstractions — `Domain`, `Application`, `Infrastructure`, `Presentation`, and host-bootstrap plumbing — shared by every Sergin module.
+Sergin.SharedKernel is the building-block library for the **Sergin** platform — a .NET 10 modular monolith whose **MeterMinder** module is a Head-End System (HES) for smart electricity/gas/water meters. This repo holds the framework-level abstractions — `Domain`, `Application`, `Infrastructure`, `Presentation`, and host-bootstrap plumbing — shared by every Sergin module.
 
 **This repo has zero dependencies on any other Sergin repo** and is not runnable on its own — it's a pure library. It's consumed as a **git submodule**:
 - By [Sergin.MeterMinder](https://github.com/poursh/Sergin.MeterMinder) (the host repo) at `src/SharedKernel/`.
