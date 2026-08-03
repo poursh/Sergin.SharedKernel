@@ -1,0 +1,46 @@
+{
+  "env": {
+    "EDITOR": "code --wait",
+    "CLAUDE_CODE_NEW_INIT": "1"
+  },
+  "permissions": {
+    "allow": [
+      "Bash(find . -type d -not -path '*/\\\\.*' -not -path '*/bin/*' -not -path '*/obj/*')",
+      "Bash(dotnet restore *)",
+      "Bash(dotnet build *)",
+      "Bash(dotnet clean *)",
+      "Bash(dotnet test *)",
+      "Bash(* --version)",
+      "Bash(* --help *)"
+    ],
+    "deny": [
+      "Bash(git push --force*)",
+      "Bash(git push -f*)",
+      "Bash(git reset --hard*)",
+      "Bash(git clean -f*)",
+      "Bash(git branch -D*)",
+      "Bash(rm -rf *)",
+      "Bash(Remove-Item * -Recurse -Force*)"
+    ],
+    "ask": []
+  },
+  "enabledMcpjsonServers": [],
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Write|Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "pwsh -NoProfile -NonInteractive -Command '$i = [Console]::In.ReadToEnd() | ConvertFrom-Json; if ($i.tool_input.file_path -like \"*.cs\") { $r = [System.IO.Path]::GetRelativePath((Get-Location).Path, $i.tool_input.file_path).Replace(\"\\\",\"/\"); dotnet format Sergin.SharedKernel.slnx --include $r --no-restore -v quiet }' 2>$null"
+          }
+        ]
+      }
+    ]
+  },
+  "enabledPlugins": {
+    "csharp-lsp@claude-plugins-official": true,
+    "compound-engineering@compound-engineering-plugin": false,
+    "dotnet-claude-kit@dotnet-claude-kit": false
+  }
+}
