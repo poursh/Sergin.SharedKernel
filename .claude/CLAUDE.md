@@ -18,13 +18,13 @@ Because of this, changes here ripple into every module and host repo that pins a
 dotnet build Sergin.SharedKernel.slnx
 ```
 
-Requires the .NET 10 SDK. There is no test project in this repo today.
+Requires the .NET 10 SDK. There is no project with its own `[Fact]`s in this repo — `Sergin.SharedKernel.IntegrationTests` provides shared integration-test *infrastructure* (`SerginWebApiFactory<TEntryPoint>`) consumed by a host repo's own test project, not a runnable test suite of its own.
 
 ## Critical build constraint
 
 `Directory.Build.props` sets `TreatWarningsAsErrors=true`, `AnalysisMode=All`, and enables **SonarAnalyzer.CSharp** + `EnforceCodeStyleInBuild`. Any analyzer warning, style violation, or nullable warning **fails the build**. Nullable and implicit usings are enabled solution-wide. Write code that passes analysis cleanly the first time.
 
-**Central Package Management is on.** `Directory.Packages.props` holds every package version as a `<PackageVersion>` entry, trimmed to just the packages this repo's 11 projects actually use (a subset of the full Sergin monorepo's package list — host- and test-only packages like `Testcontainers.PostgreSql`/`xunit`/`Microsoft.EntityFrameworkCore.Design` were dropped when this repo was extracted). `PackageReference` items in `.csproj` files carry **no `Version` attribute** — add new packages version-less and add the matching `<PackageVersion>` entry here, keeping the list alphabetical.
+**Central Package Management is on.** `Directory.Packages.props` holds every package version as a `<PackageVersion>` entry, trimmed to just the packages this repo's 12 projects actually use (a subset of the full Sergin monorepo's package list — most host- and test-only packages, e.g. `Microsoft.EntityFrameworkCore.Design`, were dropped when this repo was extracted; `Testcontainers.PostgreSql`/`Microsoft.AspNetCore.Mvc.Testing`/`xunit` came back once `Sergin.SharedKernel.IntegrationTests` needed them). `PackageReference` items in `.csproj` files carry **no `Version` attribute** — add new packages version-less and add the matching `<PackageVersion>` entry here, keeping the list alphabetical.
 
 ## Project layering
 
@@ -38,6 +38,7 @@ Requires the .NET 10 SDK. There is no test project in this repo today.
 - **`Sergin.SharedKernel.Hosts`** — Aspire service defaults (OpenTelemetry, health checks, resilience, service discovery) via `AddServiceDefaults`.
 - **`Sergin.SharedKernel.Hosts.WebApi`** (namespace `Microsoft.Extensions.Hosting`) — `SerginWebApiExtensions`: `AddSerginWebApi` registers MediatR (scanning every module's `ApplicationAssembly`) + the pipeline behaviors above, OpenAPI, the event dispatcher/interceptor, `IDbConnectionFactory`, user context, localizer, then loops `module.AddServices(...)`; `UseSerginWebApiAsync` migrates every module (Development environment only), maps each `ISerginWebApiModule`'s endpoints under `MapGroup(module.Schema)`, then maps OpenAPI and (Development-only) Scalar.
 - **`Sergin.SharedKernel.Modules`** — the module contract every Sergin module implements: `ISerginModule` (core: `MigrateAsync`, `AddServices`) and `ISerginWebApiModule` (adds `Schema`, `ApplicationAssembly`, `MapEndpoints`). This is the seam a host uses to compose modules — see `docs/superpowers/specs/2026-07-26-module-registration-design.md` in the [Sergin.MeterMinder](https://github.com/poursh/Sergin.MeterMinder) repo for the original design rationale (that repo is where the doc lives; it predates this repo's extraction).
+- **`Sergin.SharedKernel.IntegrationTests`** — `SerginWebApiFactory<TEntryPoint>` (`WebApplicationFactory<TEntryPoint>, IAsyncLifetime`, generic over a host's entry point), the shared fixture every module's own integration-test project references. Starts a real `Testcontainers.PostgreSql` container in `InitializeAsync` and sets `Sergin__ConnectionStrings__Database` *before* the host builds (a `ConfigureWebHost` override runs too late for this). Not a test project itself — no `[Fact]`s, just the reusable base. A consumer typically pairs it with its own `[CollectionDefinition]`/`ICollectionFixture<SerginWebApiFactory<Program>>` so every test class in that suite shares one container.
 
 ## Value converter template
 

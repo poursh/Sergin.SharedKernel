@@ -1,0 +1,18 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+	<ItemGroup>
+		<PackageReference Include="Microsoft.AspNetCore.Mvc.Testing" />
+		<PackageReference Include="Testcontainers.PostgreSql" />
+		<PackageReference Include="xunit" />
+	</ItemGroup>
+
+	<ItemGroup>
+		<!--
+			GHSA-v5pm-xwqc-g5wc (CVE-2026-49451): stack overflow when PARSING untrusted OpenAPI
+			documents in Microsoft.OpenApi. Pulled in transitively (2.x) via Microsoft.AspNetCore.Mvc.Testing's
+			reference to Microsoft.AspNetCore.OpenApi; this project never parses external OpenAPI documents.
+		-->
+		<NuGetAuditSuppress Include="https://github.com/advisories/GHSA-v5pm-xwqc-g5wc" />
+	</ItemGroup>
+
+</Project>

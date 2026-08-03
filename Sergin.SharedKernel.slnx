@@ -33,5 +33,6 @@
   </Folder>
   <Project Path="Sergin.SharedKernel.Application/Sergin.SharedKernel.Application.csproj" />
   <Project Path="Sergin.SharedKernel.Domain/Sergin.SharedKernel.Domain.csproj" />
+  <Project Path="Sergin.SharedKernel.IntegrationTests/Sergin.SharedKernel.IntegrationTests.csproj" />
   <Project Path="Sergin.SharedKernel.Modules/Sergin.SharedKernel.Modules.csproj" />
 </Solution>
