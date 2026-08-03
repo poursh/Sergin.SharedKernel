@@ -1,6 +1,6 @@
 ﻿using Sergin.SharedKernel.Application.Times;
 
-namespace Sergin.HeadEnd.SharedKernel.Infrastructure.Times;
+namespace Sergin.SharedKernel.Infrastructure.Times;
 
 public class DefaultDateTimeProvider : IDateTimeProvider
 {
