@@ -18,12 +18,21 @@ Requires the .NET 10 SDK. `Directory.Build.props` treats every analyzer/style wa
 
 ## Structure
 
+12 projects in total:
+
 - `Sergin.SharedKernel.Domain` — `AggregateRoot`, `Entity`, guard clauses, `RowVersion`. No dependencies.
 - `Sergin.SharedKernel.Application` — command/query abstractions, pipeline behaviors, security, localization, time.
-- `Sergin.SharedKernel.Infrastructure` / `Sergin.SharedKernel.Infrastructure.Data.EFCore` — `SerginDbContext` base, `IDbConnectionFactory`, EF interceptors.
+- `Sergin.SharedKernel.Infrastructure` — `SerginDbContext` base, `IDbConnectionFactory` implementation, EF interceptors, `DefaultDateTimeProvider`.
+- `Sergin.SharedKernel.Infrastracture.Data` *(sic — real, existing project name)* — near-empty leaf project holding the `IDbConnectionFactory` interface itself. Don't "fix" the typo without checking every consumer's `ProjectReference` path first.
+- `Sergin.SharedKernel.Infrastructure.Data.EFCore` *(spelled correctly — the inconsistency with the project above is real)* — the `AddModuleDbContext<TContext, TIContext, TIUnitOfWork>` helper (wires a module's `DbContext`, schema, and per-schema migrations-history table) and `MigrateDbContextAsync<TContext>()`.
 - `Sergin.SharedKernel.Presentation` / `Sergin.SharedKernel.Presentation.WebApi` — `IEndpoint`, result-to-ProblemDetails mapping.
+- `Sergin.SharedKernel.Infrastracture.WebApi` *(sic, matches the typo above)* — web-specific infrastructure glue; currently just `InternalUserContextFactory` (a `SYSTEM`/`ANONYMOUS` stub — real auth isn't wired yet).
 - `Sergin.SharedKernel.Hosts` / `Sergin.SharedKernel.Hosts.WebApi` — Aspire service defaults + the Sergin web-host bootstrap (`AddSerginWebApi`/`UseSerginWebApiAsync`) that every host project wires up.
 - `Sergin.SharedKernel.Modules` — the `ISerginModule`/`ISerginWebApiModule` contract every module implements to register itself with a host.
 - `Sergin.SharedKernel.IntegrationTests` — `SerginWebApiFactory<TEntryPoint>`, a shared `WebApplicationFactory`/Testcontainers fixture that a host repo's own integration-test project references; not a runnable test suite itself.
 
 See `.claude/CLAUDE.md` for the full architecture reference (project layering, value-converter template, naming conventions).
+
+## License
+
+[MIT](LICENSE) © Pejman Pourshirazi.
