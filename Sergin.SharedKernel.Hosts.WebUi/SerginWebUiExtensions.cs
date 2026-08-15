@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Components;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Options;
 using Sergin.SharedKernel.Application.Securities.Users;
 using Sergin.SharedKernel.Hosts.WebUi.Users;
 using Sergin.SharedKernel.Modules;
@@ -32,8 +33,9 @@ public static class SerginWebUiExtensions
 
         builder.Services.AddOptions<DevUserOptions>()
             .Bind(serginSection.GetSection(DevUserOptions.SectionName))
-            .Validate(options => options.Validate(out _), "Invalid Sergin:DevUser configuration.")
             .ValidateOnStart();
+
+        builder.Services.AddSingleton<IValidateOptions<DevUserOptions>, DevUserOptionsValidator>();
 
         builder.Services.AddTransient<IUserContextFactory, ConfiguredUserContextFactory>();
 
