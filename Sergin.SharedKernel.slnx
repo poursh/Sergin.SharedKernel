@@ -20,6 +20,7 @@
   <Folder Name="/Hosts/">
     <Project Path="Sergin.SharedKernel.Hosts/Sergin.SharedKernel.Hosts.csproj" />
     <Project Path="Sergin.SharedKernel.Hosts.WebApi/Sergin.SharedKernel.Hosts.WebApi.csproj" />
+    <Project Path="Sergin.SharedKernel.Hosts.WebUi/Sergin.SharedKernel.Hosts.WebUi.csproj" />
   </Folder>
   <Folder Name="/Infrastracture/">
     <Project Path="Sergin.SharedKernel.Infrastracture.Data/Sergin.SharedKernel.Infrastracture.Data.csproj" />
