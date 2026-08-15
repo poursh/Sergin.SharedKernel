@@ -1,0 +1,8 @@
+<MudNavMenu>
+    @foreach (SerginNavItem item in Catalog.NavItems)
+    {
+        <MudNavLink Href="@item.Href" Icon="@item.Icon" Match="NavLinkMatch.Prefix">
+            @Localizer[item.Label]
+        </MudNavLink>
+    }
+</MudNavMenu>
