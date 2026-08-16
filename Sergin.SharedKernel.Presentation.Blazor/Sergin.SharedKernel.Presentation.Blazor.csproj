@@ -1,0 +1,14 @@
+<Project Sdk="Microsoft.NET.Sdk.Razor">
+	<ItemGroup>
+		<FrameworkReference Include="Microsoft.AspNetCore.App" />
+
+		<PackageReference Include="MediatR" />
+		<PackageReference Include="MudBlazor" />
+	</ItemGroup>
+
+	<ItemGroup>
+		<ProjectReference Include="..\Sergin.SharedKernel.Application\Sergin.SharedKernel.Application.csproj" />
+		<ProjectReference Include="..\Sergin.SharedKernel.Modules\Sergin.SharedKernel.Modules.csproj" />
+		<ProjectReference Include="..\Sergin.SharedKernel.Presentation\Sergin.SharedKernel.Presentation.csproj" />
+	</ItemGroup>
+</Project>

@@ -1,0 +1,7 @@
+@if (Problem is not null)
+{
+    <MudAlert Severity="@AlertSeverity" Variant="Variant.Outlined" Class="my-4">
+        <MudText Typo="Typo.subtitle2">@Problem.Title</MudText>
+        <MudText Typo="Typo.body2">@Problem.Detail</MudText>
+    </MudAlert>
+}

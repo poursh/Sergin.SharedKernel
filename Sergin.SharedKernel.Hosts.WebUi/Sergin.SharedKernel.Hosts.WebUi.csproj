@@ -1,0 +1,12 @@
+<Project Sdk="Microsoft.NET.Sdk.Razor">
+	<ItemGroup>
+		<FrameworkReference Include="Microsoft.AspNetCore.App" />
+	</ItemGroup>
+
+	<ItemGroup>
+		<ProjectReference Include="..\Sergin.SharedKernel.Application\Sergin.SharedKernel.Application.csproj" />
+		<ProjectReference Include="..\Sergin.SharedKernel.Hosts\Sergin.SharedKernel.Hosts.csproj" />
+		<ProjectReference Include="..\Sergin.SharedKernel.Modules\Sergin.SharedKernel.Modules.csproj" />
+		<ProjectReference Include="..\Sergin.SharedKernel.Presentation.Blazor\Sergin.SharedKernel.Presentation.Blazor.csproj" />
+	</ItemGroup>
+</Project>

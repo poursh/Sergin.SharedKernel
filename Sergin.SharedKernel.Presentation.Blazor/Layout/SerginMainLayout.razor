@@ -1,0 +1,28 @@
+@inherits LayoutComponentBase
+
+@* Default browser-tab title. A page rendering its own <PageTitle> overrides this, because HeadOutlet
+   keeps the last one rendered and the body renders after the layout. *@
+<PageTitle>@ApplicationName</PageTitle>
+
+<MudThemeProvider />
+<MudPopoverProvider />
+<MudDialogProvider />
+<MudSnackbarProvider />
+
+<MudLayout>
+    <MudAppBar Elevation="1">
+        <MudIconButton Icon="@Icons.Material.Filled.Menu" Color="Color.Inherit" Edge="Edge.Start"
+                       OnClick="ToggleDrawer" />
+        <MudText Typo="Typo.h6">@ApplicationName</MudText>
+    </MudAppBar>
+
+    <MudDrawer @bind-Open="drawerOpen" Elevation="1">
+        <SerginNavMenu />
+    </MudDrawer>
+
+    <MudMainContent>
+        <MudContainer MaxWidth="MaxWidth.Large" Class="my-6">
+            @Body
+        </MudContainer>
+    </MudMainContent>
+</MudLayout>

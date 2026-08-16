@@ -2,6 +2,7 @@
   <ItemGroup>
     <FrameworkReference Include="Microsoft.AspNetCore.App" />
 
+    <PackageReference Include="MediatR" />
     <PackageReference Include="Microsoft.Extensions.Http.Resilience" />
     <PackageReference Include="Microsoft.Extensions.ServiceDiscovery" />
     <PackageReference Include="OpenTelemetry.Exporter.OpenTelemetryProtocol" />
@@ -13,6 +14,14 @@
 
   <ItemGroup>
     <PackageReference Update="Microsoft.Extensions.Options" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Sergin.SharedKernel.Application\Sergin.SharedKernel.Application.csproj" />
+    <ProjectReference Include="..\Sergin.SharedKernel.Infrastracture.Data\Sergin.SharedKernel.Infrastracture.Data.csproj" />
+    <ProjectReference Include="..\Sergin.SharedKernel.Infrastructure\Sergin.SharedKernel.Infrastructure.csproj" />
+    <ProjectReference Include="..\Sergin.SharedKernel.Infrastructure.Data.EFCore\Sergin.SharedKernel.Infrastructure.Data.EFCore.csproj" />
+    <ProjectReference Include="..\Sergin.SharedKernel.Modules\Sergin.SharedKernel.Modules.csproj" />
   </ItemGroup>
 
 </Project>
