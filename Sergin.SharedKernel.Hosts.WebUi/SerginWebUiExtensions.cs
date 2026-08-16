@@ -5,8 +5,10 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
 using Sergin.SharedKernel.Application.Securities.Users;
+using Sergin.SharedKernel.Hosts.WebUi;
 using Sergin.SharedKernel.Hosts.WebUi.Users;
 using Sergin.SharedKernel.Modules;
+using Sergin.SharedKernel.Presentation;
 using Sergin.SharedKernel.Presentation.Blazor.Modules;
 
 namespace Microsoft.Extensions.Hosting;
@@ -36,6 +38,15 @@ public static class SerginWebUiExtensions
             .ValidateOnStart();
 
         builder.Services.AddSingleton<IValidateOptions<DevUserOptions>, DevUserOptionsValidator>();
+
+        // Bound against the whole Sergin section, not a subsection: ApplicationName is a scalar sitting
+        // directly under it (Sergin:ApplicationName). Sibling keys the class has no property for are ignored.
+        builder.Services.AddOptions<SerginApplicationOptions>()
+            .Bind(serginSection)
+            .ValidateOnStart();
+
+        builder.Services
+            .AddSingleton<IValidateOptions<SerginApplicationOptions>, SerginApplicationOptionsValidator>();
 
         builder.Services.AddTransient<IUserContextFactory, ConfiguredUserContextFactory>();
 
