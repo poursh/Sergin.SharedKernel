@@ -4,25 +4,41 @@
    keeps the last one rendered and the body renders after the layout. *@
 <PageTitle>@ApplicationName</PageTitle>
 
-<MudThemeProvider />
+<MudThemeProvider Theme="themeManagerTheme.Theme" @bind-IsDarkMode="isDarkMode" />
 <MudPopoverProvider />
 <MudDialogProvider />
 <MudSnackbarProvider />
 
 <MudLayout>
-    <MudAppBar Elevation="1">
+    <MudAppBar Elevation="themeManagerTheme.AppBarElevation" >
         <MudIconButton Icon="@Icons.Material.Filled.Menu" Color="Color.Inherit" Edge="Edge.Start"
                        OnClick="ToggleDrawer" />
         <MudText Typo="Typo.h6">@ApplicationName</MudText>
+        <MudSpacer />
+        <MudIconButton Icon="@DarkModeIcon" Color="Color.Inherit" Edge="Edge.End"
+                       title="@DarkModeLabel" aria-label="@DarkModeLabel"
+                       OnClick="ToggleDarkMode" />
     </MudAppBar>
 
-    <MudDrawer @bind-Open="drawerOpen" Elevation="1">
+    <MudDrawer @bind-Open="drawerOpen" Elevation="themeManagerTheme.DrawerElevation"
+               ClipMode="themeManagerTheme.DrawerClipMode">
         <SerginNavMenu />
     </MudDrawer>
 
     <MudMainContent>
-        <MudContainer MaxWidth="MaxWidth.Large" Class="my-6">
+        <MudContainer MaxWidth="MaxWidth.ExtraLarge" Class="my-6">
             @Body
         </MudContainer>
     </MudMainContent>
+
+    @* Design-time tool for live-editing the MudTheme. Gated on the environment rather than compiled
+       out, so a host that does run outside Development never exposes it — see ShowThemeManager. *@
+    @if (ShowThemeManager)
+    {
+        <MudThemeManagerButton OnClick="OpenThemeManager" />
+        <MudThemeManager @bind-Open="themeManagerOpen"
+                         Theme="themeManagerTheme"
+                         ThemeChanged="OnThemeChanged"
+                         IsDarkMode="isDarkMode" />
+    }
 </MudLayout>
