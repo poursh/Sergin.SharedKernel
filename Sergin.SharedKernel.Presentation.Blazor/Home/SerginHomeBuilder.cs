@@ -5,7 +5,7 @@ using Sergin.SharedKernel.Modules;
 namespace Sergin.SharedKernel.Presentation.Blazor.Home;
 
 /// <summary>
-/// Configures the home slot. Handed to <c>AddSerginWebUi</c>'s <c>configureHome</c> callback; a host that
+/// Configures the home slot. Handed to <c>AddSerginBlazorApp</c>'s <c>configureHome</c> callback; a host that
 /// passes no callback gets <see cref="SerginWelcome"/> under a "Home" nav entry.
 /// </summary>
 public sealed class SerginHomeBuilder

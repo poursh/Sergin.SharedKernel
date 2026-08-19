@@ -8,7 +8,7 @@ namespace Sergin.SharedKernel.Presentation.Blazor.Home;
 /// <remarks>
 /// Registered as a singleton and injected as itself, mirroring <c>SerginUiModuleCatalog</c>. It is
 /// deliberately <em>not</em> an <c>IOptions&lt;T&gt;</c>: unlike <c>DevUserOptions</c> or
-/// <c>SerginApplicationOptions</c> this is composed in code through <c>AddSerginWebUi</c>'s
+/// <c>SerginApplicationOptions</c> this is composed in code through <c>AddSerginBlazorApp</c>'s
 /// <c>configureHome</c> callback and is bound to no <c>appsettings.json</c> key, so none of the
 /// options machinery — section binding, named options, reload, validation — would carry anything.
 /// </remarks>

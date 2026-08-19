@@ -23,10 +23,10 @@ public static class SerginWebUiExtensions
     /// </param>
     /// <example>
     /// <code>
-    /// builder.AddSerginWebUi(modules, configureHome: home => home.UseComponent&lt;MyDashboard&gt;());
+    /// builder.AddSerginBlazorApp(modules, configureHome: home => home.UseComponent&lt;MyDashboard&gt;());
     /// </code>
     /// </example>
-    public static WebApplicationBuilder AddSerginWebUi(
+    public static WebApplicationBuilder AddSerginBlazorApp(
         this WebApplicationBuilder builder,
         IReadOnlyCollection<ISerginModule> modules,
         Action<SerginHomeBuilder>? configureHome = null)
