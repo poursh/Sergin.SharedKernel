@@ -1,7 +1,7 @@
 <MudNavMenu>
-    @foreach (SerginNavItem item in Catalog.NavItems)
+    @foreach (SerginNavItem item in navItems)
     {
-        <MudNavLink Href="@item.Href" Icon="@item.Icon" Match="NavLinkMatch.Prefix">
+        <MudNavLink Href="@item.Href" Icon="@item.Icon" Match="@MatchFor(item)">
             @Localizer[item.Label]
         </MudNavLink>
     }
