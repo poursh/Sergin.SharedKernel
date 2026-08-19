@@ -9,14 +9,27 @@ using Sergin.SharedKernel.Hosts.WebUi;
 using Sergin.SharedKernel.Hosts.WebUi.Users;
 using Sergin.SharedKernel.Modules;
 using Sergin.SharedKernel.Presentation;
+using Sergin.SharedKernel.Presentation.Blazor.Home;
 using Sergin.SharedKernel.Presentation.Blazor.Modules;
 
 namespace Microsoft.Extensions.Hosting;
 
 public static class SerginWebUiExtensions
 {
+    /// <param name="configureHome">
+    /// Chooses what the site root renders. Omit it and the root shows <c>SerginWelcome</c> under a "Home"
+    /// nav entry; supply it to swap in the application's own landing page, which is the seam that lets one
+    /// codebase serve a device overview in one deployment and a dashboard in another.
+    /// </param>
+    /// <example>
+    /// <code>
+    /// builder.AddSerginWebUi(modules, configureHome: home => home.UseComponent&lt;MyDashboard&gt;());
+    /// </code>
+    /// </example>
     public static WebApplicationBuilder AddSerginWebUi(
-        this WebApplicationBuilder builder, IReadOnlyCollection<ISerginModule> modules)
+        this WebApplicationBuilder builder,
+        IReadOnlyCollection<ISerginModule> modules,
+        Action<SerginHomeBuilder>? configureHome = null)
     {
         if (!builder.Environment.IsDevelopment())
         {
@@ -53,6 +66,12 @@ public static class SerginWebUiExtensions
         builder.AddSerginCore(modules);
 
         builder.Services.AddSingleton(new SerginUiModuleCatalog([.. modules.OfType<ISerginWebUiModule>()]));
+
+        SerginHomeBuilder homeBuilder = new();
+
+        configureHome?.Invoke(homeBuilder);
+
+        builder.Services.AddSingleton(homeBuilder.Build());
 
         return builder;
     }
