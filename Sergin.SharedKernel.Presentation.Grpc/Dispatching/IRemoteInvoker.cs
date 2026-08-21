@@ -7,6 +7,15 @@ namespace Sergin.SharedKernel.Presentation.Grpc.Dispatching;
 /// server-side counterpart, added in the DeviceManagement module) for why: it still ends in
 /// ISender.Send.
 /// </summary>
+/// <remarks>
+/// Identity/permission metadata propagation is not yet implemented on this interface. The design spec
+/// (<c>docs/superpowers/specs/2026-08-21-dispatch-contract-design.md</c> §5) describes attaching the
+/// caller's <c>UserId</c> and resolved <c>Permissions</c> to the gRPC call's metadata headers so the
+/// remote side can log/assert against them; the shipped <c>RoutingSerginUiDispatcher</c> resolves
+/// <c>IUserContext</c> for its own permission gate but never forwards it here. Closing that gap requires
+/// widening <see cref="InvokeAsync"/>'s signature to accept identity information — a breaking change for
+/// every existing implementer (currently just <c>GetDeviceByIdGrpcInvoker</c>).
+/// </remarks>
 public interface IRemoteInvoker<TRequest, TResponse>
     where TRequest : IRequest<ErrorOr<TResponse>>
 {

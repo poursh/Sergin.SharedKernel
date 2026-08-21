@@ -67,6 +67,15 @@ public static class SerginWebUiExtensions
 
         builder.AddSerginCore(modules);
 
+        IReadOnlyCollection<string> schemas = [.. modules.Select(module => module.Schema)];
+
+        builder.Services.AddOptions<DispatchModeOptions>()
+            .Bind(serginSection.GetSection(DispatchModeOptions.SectionName))
+            .ValidateOnStart();
+
+        builder.Services.AddSingleton<IValidateOptions<DispatchModeOptions>>(
+            _ => new DispatchModeOptionsValidator(schemas));
+
         builder.Services.AddSingleton<IDispatchRouteResolver>(p => new ModuleDispatchRouteResolver(
             modules.ToDictionary(module => module.ApplicationAssembly, module => module.Schema),
             p.GetRequiredService<IOptions<DispatchModeOptions>>()));

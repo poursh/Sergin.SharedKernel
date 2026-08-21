@@ -13,13 +13,15 @@ namespace Sergin.SharedKernel.Presentation.Blazor.Dispatching;
 /// DispatchModeOptionsValidator's precedent.
 /// </summary>
 /// <remarks>
-/// Public, not internal: it is constructed directly (<c>new ModuleDispatchRouteResolver(...)</c>) from
-/// <c>Sergin.SharedKernel.Hosts.WebUi</c>, a separate assembly — the same cross-assembly-construction
-/// situation <see cref="Modules.SerginUiModuleCatalog"/> is in, resolved the same way there and per the
-/// same reasoning documented on <c>SerginHomeBuilder.Build()</c>: an <c>InternalsVisibleTo</c> for one
-/// call site costs more than the encapsulation it buys.
+/// Internal: its only construction site is <see cref="SerginWebUiExtensions.AddSerginBlazorApp"/>, which
+/// lives in this same project (<c>Sergin.SharedKernel.Hosts.WebUi</c>) — even though its namespace stays
+/// <c>Sergin.SharedKernel.Presentation.Blazor.Dispatching</c> (matching <see cref="IDispatchRouteResolver"/>,
+/// which it implements and which stays declared in <c>Sergin.SharedKernel.Presentation.Blazor</c>). The type
+/// physically lives here specifically so it can see <see cref="DispatchModeOptions"/> without that project
+/// needing a <c>ProjectReference</c> to <c>Sergin.SharedKernel.Hosts</c> — a Blazor RCL must never reference
+/// anything below <c>.Application</c>.
 /// </remarks>
-public sealed class ModuleDispatchRouteResolver(
+internal sealed class ModuleDispatchRouteResolver(
     IReadOnlyDictionary<Assembly, string> schemaByAssembly,
     IOptions<DispatchModeOptions> options) : IDispatchRouteResolver
 {
