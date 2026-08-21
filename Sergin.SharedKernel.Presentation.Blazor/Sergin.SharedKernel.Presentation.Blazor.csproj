@@ -9,7 +9,9 @@
 
 	<ItemGroup>
 		<ProjectReference Include="..\Sergin.SharedKernel.Application\Sergin.SharedKernel.Application.csproj" />
+		<ProjectReference Include="..\Sergin.SharedKernel.Hosts\Sergin.SharedKernel.Hosts.csproj" />
 		<ProjectReference Include="..\Sergin.SharedKernel.Modules\Sergin.SharedKernel.Modules.csproj" />
 		<ProjectReference Include="..\Sergin.SharedKernel.Presentation\Sergin.SharedKernel.Presentation.csproj" />
+		<ProjectReference Include="..\Sergin.SharedKernel.Presentation.Grpc\Sergin.SharedKernel.Presentation.Grpc.csproj" />
 	</ItemGroup>
 </Project>

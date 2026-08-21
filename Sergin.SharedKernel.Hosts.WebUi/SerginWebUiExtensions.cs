@@ -5,10 +5,12 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
 using Sergin.SharedKernel.Application.Securities.Users;
+using Sergin.SharedKernel.Hosts.Dispatching;
 using Sergin.SharedKernel.Hosts.WebUi;
 using Sergin.SharedKernel.Hosts.WebUi.Users;
 using Sergin.SharedKernel.Modules;
 using Sergin.SharedKernel.Presentation;
+using Sergin.SharedKernel.Presentation.Blazor.Dispatching;
 using Sergin.SharedKernel.Presentation.Blazor.Home;
 using Sergin.SharedKernel.Presentation.Blazor.Modules;
 
@@ -64,6 +66,10 @@ public static class SerginWebUiExtensions
         builder.Services.AddTransient<IUserContextFactory, ConfiguredUserContextFactory>();
 
         builder.AddSerginCore(modules);
+
+        builder.Services.AddSingleton<IDispatchRouteResolver>(p => new ModuleDispatchRouteResolver(
+            modules.ToDictionary(module => module.ApplicationAssembly, module => module.Schema),
+            p.GetRequiredService<IOptions<DispatchModeOptions>>()));
 
         builder.Services.AddSingleton(new SerginUiModuleCatalog([.. modules.OfType<ISerginWebUiModule>()]));
 

@@ -11,7 +11,7 @@ public static class SerginBlazorKitExtensions
     {
         services.AddMudServices();
 
-        services.AddSingleton<ISerginUiDispatcher, ScopedSerginUiDispatcher>();
+        services.AddSingleton<ISerginUiDispatcher, RoutingSerginUiDispatcher>();
         services.AddScoped<IUiErrorPresenter, MudUiErrorPresenter>();
 
         // Scoped, not singleton: it depends on IJSRuntime, which in Blazor Server is per-circuit.
