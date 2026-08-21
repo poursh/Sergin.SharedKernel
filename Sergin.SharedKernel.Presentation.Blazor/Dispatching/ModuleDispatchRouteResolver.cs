@@ -1,5 +1,6 @@
 using System.Reflection;
 using Microsoft.Extensions.Options;
+using Sergin.SharedKernel.Application.Commands.Queries;
 using Sergin.SharedKernel.Hosts.Dispatching;
 
 namespace Sergin.SharedKernel.Presentation.Blazor.Dispatching;
@@ -24,7 +25,9 @@ public sealed class ModuleDispatchRouteResolver(
 {
     public bool IsRemote(Type requestType)
     {
-        if (!schemaByAssembly.TryGetValue(requestType.Assembly, out string? schema))
+        Type schemaSourceType = ResolveSchemaSourceType(requestType);
+
+        if (!schemaByAssembly.TryGetValue(schemaSourceType.Assembly, out string? schema))
         {
             throw new InvalidOperationException(
                 $"'{requestType.FullName}' does not belong to any registered module's ApplicationAssembly.");
@@ -36,5 +39,30 @@ public sealed class ModuleDispatchRouteResolver(
         }
 
         return mode == DispatchMode.Remote;
+    }
+
+    /// <summary>
+    /// List queries have no module-specific request type (see the "CQRS structural gotchas" note in the
+    /// host repo's CLAUDE.md): SendListAsync always builds a closed ListQuery&lt;TResponseData&gt; or
+    /// ListQuery&lt;TRequestData, TResponseData&gt;, and both generic type definitions live in
+    /// Sergin.SharedKernel.Application itself, not in any module's ApplicationAssembly. Type.Assembly on
+    /// a closed generic type returns where the *generic type definition* is declared, so
+    /// requestType.Assembly for ListQuery&lt;GetUserListItem&gt; is always this SharedKernel assembly,
+    /// never Sergin.UserAccess.Application — which would make every list-query dispatch throw below,
+    /// regardless of configured DispatchMode. Unwrap to the last type argument (the response-item type,
+    /// e.g. GetUserListItem) instead, which does belong to a module's ApplicationAssembly.
+    /// </summary>
+    private static Type ResolveSchemaSourceType(Type requestType)
+    {
+        if (!requestType.IsGenericType)
+        {
+            return requestType;
+        }
+
+        Type definition = requestType.GetGenericTypeDefinition();
+
+        return definition == typeof(ListQuery<>) || definition == typeof(ListQuery<,>)
+            ? requestType.GetGenericArguments()[^1]
+            : requestType;
     }
 }
