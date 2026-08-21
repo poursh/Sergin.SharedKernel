@@ -30,6 +30,7 @@
   </Folder>
   <Folder Name="/Presentation/">
     <Project Path="Sergin.SharedKernel.Presentation.Blazor/Sergin.SharedKernel.Presentation.Blazor.csproj" />
+    <Project Path="Sergin.SharedKernel.Presentation.Grpc/Sergin.SharedKernel.Presentation.Grpc.csproj" />
     <Project Path="Sergin.SharedKernel.Presentation.WebApi/Sergin.SharedKernel.Presentation.WebApi.csproj" />
     <Project Path="Sergin.SharedKernel.Presentation/Sergin.SharedKernel.Presentation.csproj" />
   </Folder>

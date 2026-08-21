@@ -1,0 +1,26 @@
+syntax = "proto3";
+
+package sergin.shared;
+
+option csharp_namespace = "Sergin.SharedKernel.Presentation.Grpc";
+
+// Numeric values are chosen to align 1:1 with ErrorOr.ErrorType (verified against the installed
+// ErrorOr 2.1.1 package: Failure=0, Unexpected=1, Validation=2, Conflict=3, NotFound=4,
+// Unauthorized=5, Forbidden=6) so the C# mapping in ErrorReplyExtensions is a plain numeric cast,
+// not a switch. Named ProtoErrorType, not ErrorType, to avoid colliding with ErrorOr's own type
+// of the same name once both are in scope in the same file.
+enum ProtoErrorType {
+  FAILURE = 0;
+  UNEXPECTED = 1;
+  VALIDATION = 2;
+  CONFLICT = 3;
+  NOT_FOUND = 4;
+  UNAUTHORIZED = 5;
+  FORBIDDEN = 6;
+}
+
+message ErrorReply {
+  string code = 1;
+  string description = 2;
+  ProtoErrorType type = 3;
+}
