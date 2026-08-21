@@ -1,4 +1,3 @@
-using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Options;
 
 namespace Sergin.SharedKernel.Hosts.Dispatching;
@@ -19,7 +18,7 @@ internal sealed class DispatchModeOptionsValidator(IReadOnlyCollection<string> r
         return missing.Length == 0
             ? ValidateOptionsResult.Success
             : ValidateOptionsResult.Fail(
-                $"Sergin:{SerginCoreExtensions.SectionName}:{DispatchModeOptions.SectionName}:Modules is missing "
+                $"Sergin:{DispatchModeOptions.SectionName}:Modules is missing "
                 + $"an entry for: {string.Join(", ", missing)}.");
     }
 }
