@@ -1,5 +1,6 @@
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Options;
 using Sergin.SharedKernel.Application.Commands;
 using Sergin.SharedKernel.Application.Events;
 using Sergin.SharedKernel.Application.Localizations;
@@ -9,6 +10,7 @@ using Sergin.SharedKernel.Infrastracture.Data;
 using Sergin.SharedKernel.Infrastructure.Data.EFCore;
 using Sergin.SharedKernel.Infrastructure.Data.EFCore.Interceptors;
 using Sergin.SharedKernel.Infrastructure.Events;
+using Sergin.SharedKernel.Hosts.Dispatching;
 using Sergin.SharedKernel.Infrastructure.Localizations;
 using Sergin.SharedKernel.Modules;
 
@@ -70,6 +72,15 @@ public static class SerginCoreExtensions
         {
             module.AddServices(builder.Services, serginSection);
         }
+
+        IReadOnlyCollection<string> schemas = [.. modules.Select(module => module.Schema)];
+
+        builder.Services.AddOptions<DispatchModeOptions>()
+            .Bind(serginSection.GetSection(DispatchModeOptions.SectionName))
+            .ValidateOnStart();
+
+        builder.Services.AddSingleton<IValidateOptions<DispatchModeOptions>>(
+            _ => new DispatchModeOptionsValidator(schemas));
 
         return serginSection;
     }
