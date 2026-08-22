@@ -8,9 +8,11 @@ namespace Sergin.SharedKernel.Presentation.Blazor.Dispatching;
 /// <summary>
 /// Maps a request type to its owning module's schema via the request's declaring assembly (the same
 /// reflection style UseSerginWebUiAsync's @page prefix guard already uses), then looks that schema up
-/// in DispatchModeOptions. Constructed with a closure over the registered modules by whichever host
-/// bootstrap calls AddSerginBlazorApp — not resolved from DI, matching SerginUiModuleCatalog's and
-/// DispatchModeOptionsValidator's precedent.
+/// in DispatchModeOptions. The lookup dictionary maps both a module's ApplicationAssembly and its
+/// ContractsAssembly to the same schema, since a request's record type may be declared in either
+/// assembly depending on whether the module has adopted the Application Contracts split. Constructed
+/// with a closure over the registered modules by whichever host bootstrap calls AddSerginBlazorApp —
+/// not resolved from DI, matching SerginUiModuleCatalog's and DispatchModeOptionsValidator's precedent.
 /// </summary>
 /// <remarks>
 /// Internal: its only construction site is <see cref="SerginWebUiExtensions.AddSerginBlazorApp"/>, which
@@ -32,7 +34,8 @@ internal sealed class ModuleDispatchRouteResolver(
         if (!schemaByAssembly.TryGetValue(schemaSourceType.Assembly, out string? schema))
         {
             throw new InvalidOperationException(
-                $"'{requestType.FullName}' does not belong to any registered module's ApplicationAssembly.");
+                $"'{requestType.FullName}' does not belong to any registered module's ApplicationAssembly "
+                + "or ContractsAssembly.");
         }
 
         if (!options.Value.Modules.TryGetValue(schema, out DispatchMode mode))
