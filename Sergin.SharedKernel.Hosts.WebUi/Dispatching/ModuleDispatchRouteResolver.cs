@@ -55,7 +55,8 @@ internal sealed class ModuleDispatchRouteResolver(
     /// requestType.Assembly for ListQuery&lt;GetUserListItem&gt; is always this SharedKernel assembly,
     /// never Sergin.UserAccess.Application — which would make every list-query dispatch throw below,
     /// regardless of configured DispatchMode. Unwrap to the last type argument (the response-item type,
-    /// e.g. GetUserListItem) instead, which does belong to a module's ApplicationAssembly.
+    /// e.g. GetUserListItem) instead, which does belong to a module's ApplicationAssembly or
+    /// ContractsAssembly.
     /// </summary>
     private static Type ResolveSchemaSourceType(Type requestType)
     {

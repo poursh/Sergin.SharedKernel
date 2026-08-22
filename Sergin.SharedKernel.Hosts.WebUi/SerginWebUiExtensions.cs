@@ -79,6 +79,7 @@ public static class SerginWebUiExtensions
         IReadOnlyDictionary<Assembly, string> schemaByAssembly = modules
             .Select(module => (Assembly: module.ApplicationAssembly, module.Schema))
             .Concat(modules.Select(module => (Assembly: module.ContractsAssembly, module.Schema)))
+            .DistinctBy(entry => entry.Assembly)
             .ToDictionary(entry => entry.Assembly, entry => entry.Schema);
 
         builder.Services.AddSingleton<IDispatchRouteResolver>(p => new ModuleDispatchRouteResolver(
