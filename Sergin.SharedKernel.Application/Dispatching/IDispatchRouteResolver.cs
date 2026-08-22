@@ -1,4 +1,4 @@
-namespace Sergin.SharedKernel.Presentation.Blazor.Dispatching;
+namespace Sergin.SharedKernel.Application.Dispatching;
 
 public interface IDispatchRouteResolver
 {
