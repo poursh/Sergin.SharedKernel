@@ -1,6 +1,9 @@
+using System.Reflection;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Options;
 using Sergin.SharedKernel.Application.Commands;
+using Sergin.SharedKernel.Application.Dispatching;
 using Sergin.SharedKernel.Application.Events;
 using Sergin.SharedKernel.Application.Localizations;
 using Sergin.SharedKernel.Application.Securities.Authorization;
@@ -8,6 +11,7 @@ using Sergin.SharedKernel.Application.Securities.Users;
 using Sergin.SharedKernel.Infrastracture.Data;
 using Sergin.SharedKernel.Infrastructure.Data.EFCore;
 using Sergin.SharedKernel.Infrastructure.Data.EFCore.Interceptors;
+using Sergin.SharedKernel.Infrastructure.Dispatching;
 using Sergin.SharedKernel.Infrastructure.Events;
 using Sergin.SharedKernel.Infrastructure.Localizations;
 using Sergin.SharedKernel.Modules;
@@ -65,6 +69,27 @@ public static class SerginCoreExtensions
         builder.Services.AddScoped(p => p.GetRequiredService<IUserContextFactory>().CreateUserContext());
 
         builder.Services.AddSingleton<ILocalizer, DefaultLocalizer>();
+
+        IReadOnlyCollection<string> schemas = [.. modules.Select(module => module.Schema)];
+
+        builder.Services.AddOptions<DispatchModeOptions>()
+            .Bind(serginSection.GetSection(DispatchModeOptions.SectionName))
+            .ValidateOnStart();
+
+        builder.Services.AddSingleton<IValidateOptions<DispatchModeOptions>>(
+            _ => new DispatchModeOptionsValidator(schemas));
+
+        IReadOnlyDictionary<Assembly, string> schemaByAssembly = modules
+            .Select(module => (Assembly: module.ApplicationAssembly, module.Schema))
+            .Concat(modules.Select(module => (Assembly: module.ContractsAssembly, module.Schema)))
+            .DistinctBy(entry => entry.Assembly)
+            .ToDictionary(entry => entry.Assembly, entry => entry.Schema);
+
+        builder.Services.AddSingleton<IDispatchRouteResolver>(p => new ModuleDispatchRouteResolver(
+            schemaByAssembly,
+            p.GetRequiredService<IOptions<DispatchModeOptions>>()));
+
+        builder.Services.AddSingleton<ISerginSender, RoutingSerginSender>();
 
         foreach (ISerginModule module in modules)
         {
