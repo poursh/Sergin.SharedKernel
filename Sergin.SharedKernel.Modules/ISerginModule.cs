@@ -10,6 +10,8 @@ public interface ISerginModule
 
     Assembly ApplicationAssembly { get; }
 
+    Assembly ContractsAssembly { get; }
+
     void AddServices(IServiceCollection services, IConfigurationSection configuration);
 
     Task MigrateAsync(IServiceProvider services);

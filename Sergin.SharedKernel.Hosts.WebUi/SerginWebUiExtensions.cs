@@ -76,8 +76,14 @@ public static class SerginWebUiExtensions
         builder.Services.AddSingleton<IValidateOptions<DispatchModeOptions>>(
             _ => new DispatchModeOptionsValidator(schemas));
 
+        IReadOnlyDictionary<Assembly, string> schemaByAssembly = modules
+            .Select(module => (Assembly: module.ApplicationAssembly, module.Schema))
+            .Concat(modules.Select(module => (Assembly: module.ContractsAssembly, module.Schema)))
+            .DistinctBy(entry => entry.Assembly)
+            .ToDictionary(entry => entry.Assembly, entry => entry.Schema);
+
         builder.Services.AddSingleton<IDispatchRouteResolver>(p => new ModuleDispatchRouteResolver(
-            modules.ToDictionary(module => module.ApplicationAssembly, module => module.Schema),
+            schemaByAssembly,
             p.GetRequiredService<IOptions<DispatchModeOptions>>()));
 
         builder.Services.AddSingleton(new SerginUiModuleCatalog([.. modules.OfType<ISerginWebUiModule>()]));
