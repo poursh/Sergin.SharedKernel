@@ -1,4 +1,4 @@
-namespace Sergin.SharedKernel.Hosts.Dispatching;
+namespace Sergin.SharedKernel.Infrastructure.Dispatching;
 
 public sealed class DispatchModeOptions
 {

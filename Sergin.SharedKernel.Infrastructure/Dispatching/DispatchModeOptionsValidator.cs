@@ -1,6 +1,6 @@
 using Microsoft.Extensions.Options;
 
-namespace Sergin.SharedKernel.Hosts.Dispatching;
+namespace Sergin.SharedKernel.Infrastructure.Dispatching;
 
 /// <summary>
 /// Fails startup naming exactly which module schema has no Sergin:Dispatch:Modules entry, rather than
