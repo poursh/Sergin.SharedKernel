@@ -9,14 +9,14 @@ namespace Sergin.SharedKernel.Infrastructure.Dispatching;
 /// the collection isn't itself resolved from DI.
 /// </summary>
 /// <remarks>
-/// Public, not internal: its only construction site, <c>AddSerginBlazorApp</c>, lives in
-/// <c>Sergin.SharedKernel.Hosts.WebUi</c> — a separate assembly from this type's own
-/// (<c>Sergin.SharedKernel.Hosts</c>) — and an <c>InternalsVisibleTo</c> for one call site costs more than
-/// the encapsulation it buys (same reasoning as <c>SerginHomeBuilder.Build()</c>). The registration calls
-/// that construct it moved here from <c>AddSerginCore</c>, which no longer references
-/// <see cref="DispatchModeOptions"/> at all: a future Web API host that also calls <c>AddSerginCore</c> has
-/// no <c>ISerginUiDispatcher</c> and no route resolver, so it must not be forced to configure
-/// <c>Sergin:Dispatch:Modules</c> at startup.
+/// Public, not internal: its only construction site, <c>AddSerginCore</c>, lives in
+/// <c>Sergin.SharedKernel.Hosts</c> — the same assembly as this type's own
+/// (<c>Sergin.SharedKernel.Infrastructure</c> is referenced by it), so this stays visible across that
+/// boundary without an <c>InternalsVisibleTo</c>. Registration of <see cref="DispatchModeOptions"/>,
+/// <c>ModuleDispatchRouteResolver</c>, and <c>ISerginSender</c>/<c>RoutingSerginSender</c> all live in
+/// <c>AddSerginCore</c> itself now, so every Sergin host — Web API included, not just the Blazor UI host —
+/// gets dispatch for free and must configure <c>Sergin:Dispatch:Modules</c> at startup, whether or not it
+/// ever calls <c>ISerginSender</c>.
 /// </remarks>
 public sealed class DispatchModeOptionsValidator(IReadOnlyCollection<string> requiredSchemas)
     : IValidateOptions<DispatchModeOptions>
