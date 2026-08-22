@@ -1,3 +1,5 @@
+using MediatR;
+
 namespace Sergin.SharedKernel.Application.Dispatching;
 
 /// <summary>
