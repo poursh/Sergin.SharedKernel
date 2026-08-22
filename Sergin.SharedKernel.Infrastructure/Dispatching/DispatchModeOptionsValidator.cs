@@ -5,8 +5,7 @@ namespace Sergin.SharedKernel.Infrastructure.Dispatching;
 /// <summary>
 /// Fails startup naming exactly which module schema has no Sergin:Dispatch:Modules entry, rather than
 /// letting an unlisted module silently fall through to a default. Constructed with a closure over the
-/// registered modules' schemas by AddSerginBlazorApp, matching how SerginUiModuleCatalog is built there —
-/// the collection isn't itself resolved from DI.
+/// registered modules' schemas by AddSerginCore — the collection isn't itself resolved from DI.
 /// </summary>
 /// <remarks>
 /// Public, not internal: its only construction site, <c>AddSerginCore</c>, lives in
