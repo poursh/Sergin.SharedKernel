@@ -1,5 +1,6 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 	<ItemGroup>
+		<ProjectReference Include="..\Sergin.SharedKernel.Application\Sergin.SharedKernel.Application.csproj" />
 		<ProjectReference Include="..\Sergin.SharedKernel.Presentation\Sergin.SharedKernel.Presentation.csproj" />
 	</ItemGroup>
 	<ItemGroup>

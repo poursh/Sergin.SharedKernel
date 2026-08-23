@@ -5,12 +5,10 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
 using Sergin.SharedKernel.Application.Securities.Users;
-using Sergin.SharedKernel.Hosts.Dispatching;
 using Sergin.SharedKernel.Hosts.WebUi;
 using Sergin.SharedKernel.Hosts.WebUi.Users;
 using Sergin.SharedKernel.Modules;
 using Sergin.SharedKernel.Presentation;
-using Sergin.SharedKernel.Presentation.Blazor.Dispatching;
 using Sergin.SharedKernel.Presentation.Blazor.Home;
 using Sergin.SharedKernel.Presentation.Blazor.Modules;
 
@@ -31,6 +29,7 @@ public static class SerginWebUiExtensions
     public static WebApplicationBuilder AddSerginBlazorApp(
         this WebApplicationBuilder builder,
         IReadOnlyCollection<ISerginModule> modules,
+        IReadOnlyCollection<ISerginRemoteModule>? remoteModules = null,
         Action<SerginHomeBuilder>? configureHome = null)
     {
         if (!builder.Environment.IsDevelopment())
@@ -65,26 +64,7 @@ public static class SerginWebUiExtensions
 
         builder.Services.AddTransient<IUserContextFactory, ConfiguredUserContextFactory>();
 
-        builder.AddSerginCore(modules);
-
-        IReadOnlyCollection<string> schemas = [.. modules.Select(module => module.Schema)];
-
-        builder.Services.AddOptions<DispatchModeOptions>()
-            .Bind(serginSection.GetSection(DispatchModeOptions.SectionName))
-            .ValidateOnStart();
-
-        builder.Services.AddSingleton<IValidateOptions<DispatchModeOptions>>(
-            _ => new DispatchModeOptionsValidator(schemas));
-
-        IReadOnlyDictionary<Assembly, string> schemaByAssembly = modules
-            .Select(module => (Assembly: module.ApplicationAssembly, module.Schema))
-            .Concat(modules.Select(module => (Assembly: module.ContractsAssembly, module.Schema)))
-            .DistinctBy(entry => entry.Assembly)
-            .ToDictionary(entry => entry.Assembly, entry => entry.Schema);
-
-        builder.Services.AddSingleton<IDispatchRouteResolver>(p => new ModuleDispatchRouteResolver(
-            schemaByAssembly,
-            p.GetRequiredService<IOptions<DispatchModeOptions>>()));
+        builder.AddSerginCore(modules, remoteModules);
 
         builder.Services.AddSingleton(new SerginUiModuleCatalog([.. modules.OfType<ISerginWebUiModule>()]));
 

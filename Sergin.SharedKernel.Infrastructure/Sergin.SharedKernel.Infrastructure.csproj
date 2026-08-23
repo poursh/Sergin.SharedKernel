@@ -1,8 +1,13 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
 	<ItemGroup>
+		<PackageReference Include="MediatR" />
+	</ItemGroup>
+
+	<ItemGroup>
 		<ProjectReference Include="..\Sergin.SharedKernel.Application\Sergin.SharedKernel.Application.csproj" />
 		<ProjectReference Include="..\Sergin.SharedKernel.Domain\Sergin.SharedKernel.Domain.csproj" />
+		<ProjectReference Include="..\Sergin.SharedKernel.Presentation.Grpc\Sergin.SharedKernel.Presentation.Grpc.csproj" />
 	</ItemGroup>
 
 </Project>
