@@ -22,7 +22,8 @@ internal sealed class ModuleDispatchRouteResolver(
         if (!schemaByAssembly.TryGetValue(schemaSourceType.Assembly, out string? schema))
         {
             throw new InvalidOperationException(
-                $"'{requestType.FullName}' does not belong to any registered module's ApplicationAssembly.");
+                $"'{requestType.FullName}' does not belong to any registered module's ApplicationAssembly "
+                + "or ContractsAssembly.");
         }
 
         if (!options.Value.Modules.TryGetValue(schema, out DispatchMode mode))
@@ -35,9 +36,13 @@ internal sealed class ModuleDispatchRouteResolver(
 
     /// <summary>
     /// List queries have no module-specific request type: SendListAsync always builds a closed
-    /// ListQuery&lt;TResponseData&gt;, whose generic type definition lives in Sergin.SharedKernel.Application
-    /// itself, not any module's ApplicationAssembly. Unwrap to the last type argument (the response-item
-    /// type) instead, which does belong to a module's ApplicationAssembly.
+    /// ListQuery&lt;TResponseData&gt; or ListQuery&lt;TRequestData, TResponseData&gt;, and both generic type
+    /// definitions live in Sergin.SharedKernel.Application itself, not in any module's ApplicationAssembly or
+    /// ContractsAssembly. Type.Assembly on a closed generic type returns where the *generic type definition*
+    /// is declared, so requestType.Assembly for ListQuery&lt;GetUserListItem&gt; is always this SharedKernel
+    /// assembly, never a module's — which would make every list-query dispatch throw above, regardless of
+    /// configured DispatchMode. Unwrap to the last type argument (the response-item type, e.g.
+    /// GetUserListItem) instead, which does belong to a module's ApplicationAssembly or ContractsAssembly.
     /// </summary>
     private static Type ResolveSchemaSourceType(Type requestType)
     {
