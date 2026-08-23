@@ -1,4 +1,5 @@
 using MudBlazor.Services;
+using Sergin.SharedKernel.Presentation.Blazor.Dispatching;
 using Sergin.SharedKernel.Presentation.Blazor.Errors;
 using Sergin.SharedKernel.Presentation.Blazor.Theming;
 
@@ -14,6 +15,8 @@ public static class SerginBlazorKitExtensions
 
         // Scoped, not singleton: it depends on IJSRuntime, which in Blazor Server is per-circuit.
         services.AddScoped<IUiThemeStore, LocalStorageThemeStore>();
+
+        services.AddSingleton<ISerginDispatcher, ScopedSerginDispatcher>();
 
         return services;
     }
