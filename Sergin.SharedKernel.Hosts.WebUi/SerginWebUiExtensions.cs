@@ -29,6 +29,7 @@ public static class SerginWebUiExtensions
     public static WebApplicationBuilder AddSerginBlazorApp(
         this WebApplicationBuilder builder,
         IReadOnlyCollection<ISerginModule> modules,
+        IReadOnlyCollection<ISerginRemoteModule>? remoteModules = null,
         Action<SerginHomeBuilder>? configureHome = null)
     {
         if (!builder.Environment.IsDevelopment())
@@ -63,7 +64,7 @@ public static class SerginWebUiExtensions
 
         builder.Services.AddTransient<IUserContextFactory, ConfiguredUserContextFactory>();
 
-        builder.AddSerginCore(modules);
+        builder.AddSerginCore(modules, remoteModules);
 
         builder.Services.AddSingleton(new SerginUiModuleCatalog([.. modules.OfType<ISerginWebUiModule>()]));
 

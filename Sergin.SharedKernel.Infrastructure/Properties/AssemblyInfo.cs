@@ -15,4 +15,3 @@ using System.Runtime.InteropServices;
 
 [assembly: InternalsVisibleTo("Sergin.SharedKernel.Hosts")]
 [assembly: InternalsVisibleTo("Sergin.SharedKernel.Hosts.WebApi")]
-[assembly: InternalsVisibleTo("Sergin.MeterMinder.IntegrationTests.All")]

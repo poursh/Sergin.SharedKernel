@@ -9,14 +9,17 @@ namespace Microsoft.Extensions.Hosting;
 
 public static class SerginWebApiExtensions
 {
-    public static WebApplicationBuilder AddSerginWebApi(this WebApplicationBuilder builder, IReadOnlyCollection<ISerginModule> modules)
+    public static WebApplicationBuilder AddSerginWebApi(
+        this WebApplicationBuilder builder,
+        IReadOnlyCollection<ISerginModule> modules,
+        IReadOnlyCollection<ISerginRemoteModule>? remoteModules = null)
     {
         builder.Services.AddOpenApi();
 
         builder.Services.AddHttpContextAccessor();
         builder.Services.AddTransient<IUserContextFactory, InternalUserContextFactory>();
 
-        builder.AddSerginCore(modules);
+        builder.AddSerginCore(modules, remoteModules);
 
         return builder;
     }

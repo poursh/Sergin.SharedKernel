@@ -56,6 +56,15 @@ public static class SerginCoreExtensions
                 options.RegisterServicesFromAssembly(module.ApplicationAssembly);
             }
 
+            // A gateway host may run zero modules locally (only Remote ones), leaving localModules empty.
+            // AddMediatR throws ArgumentException("No assemblies found to scan") if it receives none, so a
+            // remote module's ContractsAssembly (request/response records only, never handlers) is scanned
+            // too — inert for handler discovery, but enough to keep AddMediatR from throwing at startup.
+            foreach (ISerginRemoteModule remoteModule in remoteModules)
+            {
+                options.RegisterServicesFromAssembly(remoteModule.ContractsAssembly);
+            }
+
             options.AddOpenBehavior(typeof(PermissionCheckPipelineBehavior<,>));
             options.AddOpenBehavior(typeof(ValidationPipelineBehavior<,>));
         });
