@@ -1,7 +1,4 @@
-using MediatR;
-using Sergin.SharedKernel.Presentation.Grpc.Dispatching;
-
-namespace Sergin.SharedKernel.Infrastructure.Dispatching;
+namespace Sergin.SharedKernel.Presentation.Grpc.Dispatching;
 
 /// <summary>
 /// Wraps an IRemoteInvoker as a real MediatR handler, so a Remote-configured module's requests flow
@@ -10,11 +7,12 @@ namespace Sergin.SharedKernel.Infrastructure.Dispatching;
 /// logic of its own: the one place to add shared remote-call behavior later (retry, tracing) without
 /// touching every feature. Registered explicitly per feature by a module's AddRemoteServices — never
 /// discovered by MediatR's assembly scan, since it's generic and lives in a different assembly than any
-/// module's ContractsAssembly. Public, not internal: every module's own AddRemoteServices
-/// (a different assembly per module, e.g. DeviceManagement.Presentation.Grpc) names this type directly
-/// in its registration call — an InternalsVisibleTo grant would need one entry per module adopting
-/// remote dispatch, which doesn't scale the way this type's public API surface (IRemoteInvoker,
-/// ISerginRemoteModule) already doesn't need to.
+/// module's ContractsAssembly. Public, not internal: a module's own AddRemoteServices (in its own
+/// Presentation.Grpc.Client project) names this type directly in its registration call — an
+/// InternalsVisibleTo grant would need one entry per module adopting remote dispatch, which doesn't
+/// scale the way this type's public API surface (IRemoteInvoker, ISerginRemoteModule) already doesn't
+/// need to. Lives alongside IRemoteInvoker in this project rather than in Infrastructure, since both are
+/// halves of the same client-facing dispatch contract.
 /// </summary>
 public sealed class RemoteForwardingHandler<TRequest, TResponse>(IRemoteInvoker<TRequest, TResponse> invoker)
     : IRequestHandler<TRequest, ErrorOr<TResponse>>
