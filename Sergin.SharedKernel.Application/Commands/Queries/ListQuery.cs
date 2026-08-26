@@ -3,21 +3,21 @@ using Ardalis.GuardClauses;
 
 namespace Sergin.SharedKernel.Application.Commands.Queries;
 
-public sealed record ListQuery<TResponseData>
+public abstract record ListQuery<TResponseData>
     : ListQuery, IListQuery<TResponseData>
     where TResponseData : notnull
 {
-    public ListQuery(Paggination paggination, Term? globalTerm = default, Filtering? filtering = default, Sorting? sorting = default) : base(paggination, globalTerm, filtering, sorting)
+    protected ListQuery(Paggination paggination, Term? globalTerm = default, Filtering? filtering = default, Sorting? sorting = default) : base(paggination, globalTerm, filtering, sorting)
     {
     }
 }
 
-public sealed record ListQuery<TRequestData, TResponseData>
+public abstract record ListQuery<TRequestData, TResponseData>
     : ListQuery, IListQuery<TResponseData>
     where TRequestData : notnull
     where TResponseData : notnull
 {
-    public ListQuery(TRequestData requestData, Paggination paggination, Term? globalTerm = default, Filtering? filtering = default, Sorting? sorting = default) : base(paggination, globalTerm, filtering, sorting)
+    protected ListQuery(TRequestData requestData, Paggination paggination, Term? globalTerm = default, Filtering? filtering = default, Sorting? sorting = default) : base(paggination, globalTerm, filtering, sorting)
     {
         RequestData = requestData;
     }
@@ -25,7 +25,7 @@ public sealed record ListQuery<TRequestData, TResponseData>
     public TRequestData RequestData { get; private set; }
 }
 
-public record ListQuery(Paggination Paggination, Term? Term = default, Filtering? Filtering = default, Sorting? Sorting = default);
+public abstract record ListQuery(Paggination Paggination, Term? Term = default, Filtering? Filtering = default, Sorting? Sorting = default);
 
 public sealed record Paggination
 {
@@ -182,35 +182,4 @@ public enum FilteringType
     startsWith,
     equalsString,
     none
-}
-
-public static class ListQueryFactory
-{
-    public static ListQuery<TResponseData> Create<TResponseData>(Paggination? paggination, Term? Term = default, Filtering? Filtering = default, Sorting? Sorting = default)
-        where TResponseData : notnull
-    {
-        return new ListQuery<TResponseData>(paggination ?? Paggination.Default, Term, Filtering, Sorting);
-    }
-
-    public static ListQuery<TResponseData> Create<TResponseData>(PageSize size, PageIndex index, Term? Term = default, Filtering? Filtering = default, Sorting? Sorting = default)
-        where TResponseData : notnull
-    {
-        return new ListQuery<TResponseData>(Paggination.Create(size, index), Term, Filtering, Sorting);
-    }
-
-    public static ListQuery<TRequestData, TResponseData> Create<TRequestData, TResponseData>(
-        TRequestData requestData, PageSize size, PageIndex index, Term? Term = default, Filtering? Filtering = default, Sorting? Sorting = default)
-        where TRequestData : notnull
-        where TResponseData : notnull
-    {
-        return new ListQuery<TRequestData, TResponseData>(requestData, Paggination.Create(size, index), Term, Filtering, Sorting);
-    }
-
-    public static ListQuery<TRequestData, TResponseData> Create<TRequestData, TResponseData>(
-        TRequestData requestData, Paggination? paggination, Term? Term = default, Filtering? Filtering = default, Sorting? Sorting = default)
-        where TRequestData : notnull
-        where TResponseData : notnull
-    {
-        return new ListQuery<TRequestData, TResponseData>(requestData, paggination ?? Paggination.Default, Term, Filtering, Sorting);
-    }
 }
