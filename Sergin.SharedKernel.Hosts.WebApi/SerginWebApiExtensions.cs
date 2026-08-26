@@ -1,7 +1,10 @@
 using Microsoft.AspNetCore.Builder;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Options;
 using Scalar.AspNetCore;
 using Sergin.SharedKernel.Application.Securities.Users;
+using Sergin.SharedKernel.Hosts.Authentication;
 using Sergin.SharedKernel.Infrastracture.WebApi.Users;
 using Sergin.SharedKernel.Modules;
 
@@ -16,8 +19,21 @@ public static class SerginWebApiExtensions
     {
         builder.Services.AddOpenApi();
 
-        builder.Services.AddHttpContextAccessor();
-        builder.Services.AddTransient<IUserContextFactory, InternalUserContextFactory>();
+        IConfigurationSection serginSection =
+            builder.Configuration.GetRequiredSection(SerginCoreExtensions.SectionName);
+
+        SerginAuthOptions authOptions = builder.Services.AddSerginAuthOptions(serginSection);
+
+        if (authOptions.Mode == SerginAuthMode.Keycloak)
+        {
+            // Registers IHttpContextAccessor and the claims-based user context itself.
+            builder.Services.AddSerginKeycloakJwtBearer(authOptions);
+        }
+        else
+        {
+            builder.Services.AddHttpContextAccessor();
+            builder.Services.AddTransient<IUserContextFactory, InternalUserContextFactory>();
+        }
 
         builder.AddSerginCore(modules, remoteModules);
 
@@ -32,6 +48,14 @@ public static class SerginWebApiExtensions
             {
                 await module.MigrateAsync(app.Services);
             }
+        }
+
+        if (app.Services.GetRequiredService<IOptions<SerginAuthOptions>>().Value.Mode == SerginAuthMode.Keycloak)
+        {
+            SerginAuthenticationExtensions.EnsureExternalIdentityResolverRegistered(app.Services);
+
+            app.UseAuthentication();
+            app.UseAuthorization();
         }
 
         foreach (ISerginWebApiModule webModule in modules.OfType<ISerginWebApiModule>())

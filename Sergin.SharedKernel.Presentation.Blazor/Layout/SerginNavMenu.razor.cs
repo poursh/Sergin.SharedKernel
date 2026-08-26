@@ -1,6 +1,8 @@
-using Microsoft.AspNetCore.Components;
+﻿using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Routing;
 using Sergin.SharedKernel.Application.Localizations;
+using Sergin.SharedKernel.Domain.Securities;
+using Sergin.SharedKernel.Application.Securities.Users;
 using Sergin.SharedKernel.Modules;
 using Sergin.SharedKernel.Presentation.Blazor.Home;
 using Sergin.SharedKernel.Presentation.Blazor.Modules;
@@ -20,6 +22,9 @@ public sealed partial class SerginNavMenu
     [Inject]
     private ILocalizer Localizer { get; set; } = default!;
 
+    [Inject]
+    private IUserContext UserContext { get; set; } = default!;
+
     /// <summary>
     /// Merges the home entry into the modules' entries once per circuit.
     /// </summary>
@@ -32,7 +37,7 @@ public sealed partial class SerginNavMenu
     /// </remarks>
     protected override void OnInitialized()
     {
-        IEnumerable<SerginNavItem> items = Catalog.NavItems;
+        IEnumerable<SerginNavItem> items = Catalog.NavItems.Where(IsVisible);
 
         if (Home.NavItem is not null)
         {
@@ -47,6 +52,17 @@ public sealed partial class SerginNavMenu
     /// below it, so the root href would light up on every page in the app. Only the root needs the
     /// exact-match rule; module hrefs still want prefix matching so detail pages keep their section lit.
     /// </summary>
+    /// <summary>
+    /// Hides an entry the current user cannot use. Presentation only — the handler behind the page
+    /// enforces the same permission, so a hand-typed URL is refused whether or not the link showed.
+    /// An unparseable value hides the entry: a nav item naming a permission that cannot exist is a
+    /// typo, and showing it would send the user to a page that then refuses them.
+    /// </summary>
+    private bool IsVisible(SerginNavItem item)
+        => item.RequiredPermission is null
+            || Permission.TryCreate(item.RequiredPermission, out Permission? permission)
+            && UserContext.HasPermission(permission);
+
     private static NavLinkMatch MatchFor(SerginNavItem item)
         => item.Href is SerginHome.RootPath ? NavLinkMatch.All : NavLinkMatch.Prefix;
 }

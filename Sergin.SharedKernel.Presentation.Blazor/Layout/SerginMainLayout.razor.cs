@@ -4,6 +4,8 @@ using Microsoft.Extensions.Options;
 using MudBlazor;
 using MudBlazor.ThemeManager;
 using Sergin.SharedKernel.Application.Localizations;
+using Sergin.SharedKernel.Application.Securities.Users;
+using Sergin.SharedKernel.Presentation.Blazor.Security;
 using Sergin.SharedKernel.Presentation.Blazor.Theming;
 
 namespace Sergin.SharedKernel.Presentation.Blazor.Layout;
@@ -37,6 +39,25 @@ public sealed partial class SerginMainLayout
 
     [Inject]
     private IUiThemeStore ThemeStore { get; set; } = default!;
+
+    [Inject]
+    private IUserContext UserContext { get; set; } = default!;
+
+    [Inject]
+    private SerginUiAuthentication Authentication { get; set; } = default!;
+
+    /// <summary>
+    /// The signed-in user's full name, falling back to the user name when the provider supplied no
+    /// given/family name — a Keycloak user created without a profile has only the one.
+    /// </summary>
+    private string DisplayName
+    {
+        get
+        {
+            string full = $"{UserContext.FirstName} {UserContext.LastName}".Trim();
+            return full.Length > 0 ? full : UserContext.UserName;
+        }
+    }
 
     /// <summary>
     /// Resolves to <see cref="SerginApplicationOptions.ApplicationName"/>'s default when a host never bound

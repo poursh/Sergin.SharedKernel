@@ -16,7 +16,9 @@ public static class SerginBlazorKitExtensions
         // Scoped, not singleton: it depends on IJSRuntime, which in Blazor Server is per-circuit.
         services.AddScoped<IUiThemeStore, LocalStorageThemeStore>();
 
-        services.AddSingleton<ISerginDispatcher, ScopedSerginDispatcher>();
+        // Scoped, not singleton: it carries the caller's IUserContext into the root-provider scope it
+        // opens per send. See ScopedSerginDispatcher's remarks — a singleton here strips authorization.
+        services.AddScoped<ISerginDispatcher, ScopedSerginDispatcher>();
 
         return services;
     }

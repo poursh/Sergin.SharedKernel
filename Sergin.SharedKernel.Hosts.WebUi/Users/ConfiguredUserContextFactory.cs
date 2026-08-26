@@ -1,5 +1,5 @@
-using Microsoft.Extensions.Options;
-using Sergin.SharedKernel.Application.Securities;
+﻿using Microsoft.Extensions.Options;
+using Sergin.SharedKernel.Domain.Securities;
 using Sergin.SharedKernel.Application.Securities.Users;
 using Sergin.SharedKernel.Domain.Users;
 
