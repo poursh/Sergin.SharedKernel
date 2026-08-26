@@ -1,4 +1,5 @@
-﻿using System.Text.Json.Serialization;
+﻿using System.Diagnostics.CodeAnalysis;
+using System.Text.Json.Serialization;
 using System.Text.RegularExpressions;
 using Ardalis.GuardClauses;
 
@@ -34,6 +35,31 @@ public sealed partial record Permission
         Guard.Against.StringTooLong(v, MaxLength);
 
         return new Permission(v);
+    }
+
+    /// <summary>
+    /// Non-throwing counterpart to <see cref="Create"/>, for values that arrive from outside the code
+    /// base — a configuration key, a claim stamped by an earlier release, a row in another module's
+    /// table — where an unparseable value is data to reject, not a bug to surface as an exception.
+    /// </summary>
+    public static bool TryCreate(string? value, [NotNullWhen(true)] out Permission? permission)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            permission = null;
+            return false;
+        }
+
+        try
+        {
+            permission = Create(value);
+            return true;
+        }
+        catch (ArgumentException)
+        {
+            permission = null;
+            return false;
+        }
     }
 
     [GeneratedRegex("([a-z])([A-Z])")]

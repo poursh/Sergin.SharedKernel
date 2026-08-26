@@ -77,7 +77,14 @@ public static class SerginCoreExtensions
 
         builder.Services.AddScoped<IDbConnectionFactory>(p => new PostgresDbConnectionFactory(connectionString));
 
-        builder.Services.AddScoped(p => p.GetRequiredService<IUserContextFactory>().CreateUserContext());
+        builder.Services.AddScoped<UserContextAccessor>();
+
+        // A seeded context wins over building a fresh one. Scopes opened from the root provider — every
+        // Blazor dispatcher send — can reach neither an HttpContext nor the circuit's authentication
+        // state, so the caller hands its own context down rather than having the factory guess.
+        builder.Services.AddScoped(p =>
+            p.GetRequiredService<UserContextAccessor>().Current
+            ?? p.GetRequiredService<IUserContextFactory>().CreateUserContext());
 
         builder.Services.AddSingleton<ILocalizer, DefaultLocalizer>();
 
