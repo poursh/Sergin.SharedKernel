@@ -1,7 +1,11 @@
 ﻿namespace Sergin.SharedKernel.Application.Commands.Queries;
 
-public interface IListQueryHandler<TResponseData> : IQueryHandler<ListQuery<TResponseData>, ListQueryResponse<TResponseData>>
-    where TResponseData : notnull;
-public interface IListQueryHandler<TRequestData, TResponseData> : IQueryHandler<ListQuery<TRequestData, TResponseData>, ListQueryResponse<TResponseData>>
-    where TRequestData : notnull
+/// <summary>
+/// Every list feature declares its own request record (a <see cref="ListQuery"/> that implements
+/// <see cref="IListQuery{TResponseData}"/>), so the handler binds to that concrete type rather than to a
+/// shared generic one. That is what makes RequiredPermissionsAttribute applicable to a list slice and what
+/// lets a remote module register a forwarding handler for it.
+/// </summary>
+public interface IListQueryHandler<TQuery, TResponseData> : IQueryHandler<TQuery, ListQueryResponse<TResponseData>>
+    where TQuery : IListQuery<TResponseData>
     where TResponseData : notnull;

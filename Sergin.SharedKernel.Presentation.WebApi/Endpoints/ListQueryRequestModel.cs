@@ -10,10 +10,9 @@ public sealed record ListQueryRequestModel(
     [FromQuery] string? Filtering = default,
     [FromQuery] string? Sorting = default)
 {
-    public ListQuery<TResponseData> ToListQuery<TResponseData>()
-        where TResponseData : notnull
-    {
-        return ListQueryFactory.Create<TResponseData>(
-            PageSize, PageIndex, Term);
-    }
+    /// <summary>
+    /// Projects the bound query-string values onto the shared paging value object. The request record
+    /// itself is built by the endpoint, which is the only place that knows its feature's query type.
+    /// </summary>
+    public Paggination ToPaggination() => Paggination.Create(PageSize, PageIndex);
 }
