@@ -1,9 +1,8 @@
 ﻿using System.Diagnostics.CodeAnalysis;
 using System.Text.Json.Serialization;
 using System.Text.RegularExpressions;
-using Ardalis.GuardClauses;
 
-namespace Sergin.SharedKernel.Application.Securities;
+namespace Sergin.SharedKernel.Domain.Securities;
 
 public sealed partial record Permission
 {
