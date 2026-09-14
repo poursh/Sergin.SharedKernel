@@ -99,7 +99,18 @@ public static class SerginCoreExtensions
 
         builder.Services.AddSingleton<IIntegrationEventTypeRegistry, IntegrationEventTypeRegistry>();
         builder.Services.AddSingleton<IIntegrationEventSerializer, JsonIntegrationEventSerializer>();
-        builder.Services.AddScoped<IIntegrationEventDispatcher, DefaultIntegrationEventDispatcher>();
+
+        // The transport seam. Singleton, because the dispatcher is now a transport: the in-process one holds
+        // a scope factory and opens the consumer scope itself, and a broker-backed one is a connection, which
+        // has to be a singleton anyway. TryAdd, so a host that registers its own IIntegrationEventDispatcher
+        // in Program.cs before AddSerginBlazorApp/AddSerginWebApi wins — a composition-time choice like
+        // Local/Remote, deliberately without a Sergin:Outbox:Transport key to read at startup. The concrete
+        // registration is unconditional: a broker consumer service still needs the in-process dispatcher as
+        // its last mile, whatever it registered behind the interface.
+        builder.Services.AddSingleton<InProcessIntegrationEventDispatcher>();
+        builder.Services.TryAddSingleton<IIntegrationEventDispatcher>(
+            provider => provider.GetRequiredService<InProcessIntegrationEventDispatcher>());
+
         builder.Services.AddScoped<IntegrationEventContextAccessor>();
         builder.Services.AddScoped<IOutboxWriter, OutboxWriter>();
         builder.Services.AddSingleton<IOutboxRelayIdentity, OutboxRelayIdentity>();

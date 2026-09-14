@@ -4,13 +4,12 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Sergin.SharedKernel.Application.Events.Integration;
-using Sergin.SharedKernel.Application.Securities.Users;
 using Sergin.SharedKernel.Application.Times;
 
 namespace Sergin.SharedKernel.Infrastructure.Data.EFCore.Outbox;
 
 /// <summary>
-/// The relay for one module's outbox: claims a batch of pending rows, delivers each to its consumers, and
+/// The relay for one module's outbox: claims a batch of pending rows, hands each to the transport, and
 /// stamps the outcome — all inside one transaction on a relay-owned <typeparamref name="TContext"/>. The
 /// claim is <c>FOR UPDATE SKIP LOCKED</c>, so the rows stay locked until that transaction commits: two relay
 /// instances never process the same row concurrently, but a crash after delivery and before commit leaves
@@ -21,21 +20,20 @@ namespace Sergin.SharedKernel.Infrastructure.Data.EFCore.Outbox;
 /// <see cref="DbUpdateException"/> from a consumer whose inbox insert lost a race against another relay
 /// instance is just a failed attempt — the retry finds the inbox row and the handler skips.
 /// <para>
-/// Each row is delivered in a consumer scope of its own, opened from the root provider the same way
-/// <c>ScopedSerginDispatcher</c> opens a send's scope, and seeded the same way: the relay's identity through
-/// <see cref="UserContextAccessor"/>, so a consumer's <c>ISender.Send</c> passes the permission check, and the
-/// row's correlation and causation through <see cref="IntegrationEventContextAccessor"/>, so any outbox row
-/// a consumer causes names this one. The consumer scope's <c>DbContext</c> is a different instance from the
-/// relay's, and a consumer's own save is a separate transaction by design.
+/// Delivery is one call: the row becomes an <see cref="IntegrationEventEnvelope"/> and goes to whichever
+/// <see cref="IIntegrationEventDispatcher"/> the host registered. The relay neither deserializes the content
+/// nor opens a consumer scope — that is the transport's last mile, done by the in-process dispatcher when the
+/// message stays in this host and by a broker consumer's when it does not. Whatever the transport throws — a
+/// handler failing in-process, a publish the broker refused — is what <see cref="OutboxMessage.MarkFailed"/>
+/// records; the relay never sees a consumer that a broker delivered elsewhere.
 /// </para>
 /// </summary>
 internal sealed class OutboxRelaySource<TContext>(
     string schema,
     IServiceScopeFactory scopeFactory,
-    IIntegrationEventSerializer serializer,
+    IIntegrationEventDispatcher dispatcher,
     IDateTimeProvider clock,
     IOptions<OutboxOptions> options,
-    IOutboxRelayIdentity identity,
     ILogger<OutboxRelaySource<TContext>> logger) : IOutboxRelaySource
     where TContext : DbContext, IOutboxDbContext
 {
@@ -107,20 +105,17 @@ internal sealed class OutboxRelaySource<TContext>(
     /// An <see cref="OperationCanceledException"/> raised here during shutdown is deliberately not caught by
     /// the caller: the relay transaction disposes without committing, and the rows are re-claimed next start.
     /// </summary>
-    private async Task DeliverAsync(OutboxMessage message, CancellationToken cancellationToken)
+    private Task DeliverAsync(OutboxMessage message, CancellationToken cancellationToken)
     {
-        using IServiceScope consumerScope = scopeFactory.CreateScope();
-        IServiceProvider services = consumerScope.ServiceProvider;
+        IntegrationEventEnvelope envelope = new(
+            message.Id,
+            message.Type,
+            message.Content,
+            message.OccurredOnUtc,
+            message.CorrelationId,
+            message.CausationId);
 
-        services.GetRequiredService<UserContextAccessor>().Current = identity.User;
-        IntegrationEventContextAccessor eventContext = services.GetRequiredService<IntegrationEventContextAccessor>();
-        eventContext.CorrelationId = message.CorrelationId;
-        eventContext.CausationMessageId = message.Id;
-
-        IIntegrationEvent integrationEvent = serializer.Deserialize(message.Type, message.Content);
-
-        await services.GetRequiredService<IIntegrationEventDispatcher>()
-            .DispatchAsync(message.Id, message.CorrelationId, integrationEvent, cancellationToken);
+        return dispatcher.DispatchAsync(envelope, cancellationToken);
     }
 
     private static TimeSpan Backoff(int attempts) =>
