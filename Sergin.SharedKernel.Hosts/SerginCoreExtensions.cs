@@ -9,6 +9,7 @@ using Sergin.SharedKernel.Application.Localizations;
 using Sergin.SharedKernel.Application.Securities.Authorization;
 using Sergin.SharedKernel.Application.Securities.Users;
 using Sergin.SharedKernel.Application.Times;
+using Sergin.SharedKernel.Hosts.Outbox;
 using Sergin.SharedKernel.Infrastracture.Data;
 using Sergin.SharedKernel.Infrastructure.Data.EFCore;
 using Sergin.SharedKernel.Infrastructure.Data.EFCore.Interceptors;
@@ -99,6 +100,7 @@ public static class SerginCoreExtensions
         builder.Services.AddScoped<IIntegrationEventDispatcher, DefaultIntegrationEventDispatcher>();
         builder.Services.AddScoped<IntegrationEventContextAccessor>();
         builder.Services.AddScoped<IOutboxWriter, OutboxWriter>();
+        builder.Services.AddSingleton<IOutboxRelayIdentity, OutboxRelayIdentity>();
 
         foreach (ISerginModule module in localModules)
         {

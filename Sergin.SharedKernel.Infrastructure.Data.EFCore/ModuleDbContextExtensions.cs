@@ -40,6 +40,14 @@ public static class ModuleDbContextExtensions
             Type inboxServiceType = typeof(IInbox<>).MakeGenericType(typeof(TIUnitOfWork));
             Type inboxImplementationType = typeof(EfInbox<,>).MakeGenericType(typeof(TContext), typeof(TIUnitOfWork));
             services.AddScoped(inboxServiceType, inboxImplementationType);
+
+            // Same reason for reflection here: OutboxRelaySource<TContext> constrains TContext to
+            // IOutboxDbContext, which the runtime check above proves but the compiler cannot see. The
+            // schema is the one constructor argument DI cannot supply, so ActivatorUtilities fills in the
+            // rest from the provider. Registered as one more IOutboxRelaySource, not the only one — the
+            // relay service drains every module's source in turn.
+            Type relaySourceType = typeof(OutboxRelaySource<>).MakeGenericType(typeof(TContext));
+            services.AddSingleton<IOutboxRelaySource>(sp => (IOutboxRelaySource)ActivatorUtilities.CreateInstance(sp, relaySourceType, schema));
         }
 
         return services;
