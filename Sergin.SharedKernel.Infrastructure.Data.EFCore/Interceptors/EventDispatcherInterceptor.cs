@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
 using Sergin.SharedKernel.Application.Events;
 using Sergin.SharedKernel.Domain;
+using Sergin.SharedKernel.Infrastructure.Data.EFCore.Outbox;
 
 namespace Sergin.SharedKernel.Infrastructure.Data.EFCore.Interceptors;
 
@@ -16,8 +17,13 @@ namespace Sergin.SharedKernel.Infrastructure.Data.EFCore.Interceptors;
 /// exception for a change that was already durable, and lost every event on a crash between commit and
 /// dispatch.
 /// </para>
+/// <para>
+/// Also writes one outbox row per registered translator result for each domain event here, before handlers
+/// run, so the row rides the same save as the aggregate change that caused it; an <see cref="OutboxMessage"/>
+/// is not an aggregate root and raises nothing, so the loop above still terminates.
+/// </para>
 /// </summary>
-internal sealed class EventDispatcherInterceptor(IEventDispatcher eventDispatcher) : SaveChangesInterceptor
+internal sealed class EventDispatcherInterceptor(IEventDispatcher eventDispatcher, IOutboxWriter outboxWriter) : SaveChangesInterceptor
 {
     public override async ValueTask<InterceptionResult<int>> SavingChangesAsync(
         DbContextEventData eventData,
@@ -43,6 +49,8 @@ internal sealed class EventDispatcherInterceptor(IEventDispatcher eventDispatche
                 {
                     root.ClearDomainEvents();
                 }
+
+                outboxWriter.Write(eventData.Context, domainEvents);
 
                 await eventDispatcher.DispatchAllAsync(domainEvents, cancellationToken);
             }
