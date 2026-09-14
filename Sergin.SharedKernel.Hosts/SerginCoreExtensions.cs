@@ -2,6 +2,7 @@ using System.Reflection;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
+using Microsoft.Extensions.Options;
 using Sergin.SharedKernel.Application.Commands;
 using Sergin.SharedKernel.Application.Events;
 using Sergin.SharedKernel.Application.Events.Integration;
@@ -83,6 +84,7 @@ public static class SerginCoreExtensions
         builder.Services.AddOptions<OutboxOptions>()
             .Bind(serginSection.GetSection(OutboxOptions.SectionName))
             .ValidateOnStart();
+        builder.Services.AddSingleton<IValidateOptions<OutboxOptions>, OutboxOptionsValidator>();
         builder.Services.TryAddSingleton<IDateTimeProvider, DefaultDateTimeProvider>();
 
         foreach (ISerginModule module in localModules)
@@ -101,6 +103,7 @@ public static class SerginCoreExtensions
         builder.Services.AddScoped<IntegrationEventContextAccessor>();
         builder.Services.AddScoped<IOutboxWriter, OutboxWriter>();
         builder.Services.AddSingleton<IOutboxRelayIdentity, OutboxRelayIdentity>();
+        builder.Services.AddHostedService<OutboxRelayService>();
 
         foreach (ISerginModule module in localModules)
         {
