@@ -1,4 +1,5 @@
 using System.Reflection;
+using FluentValidation;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
@@ -118,7 +119,17 @@ public static class SerginCoreExtensions
 
         foreach (ISerginModule module in localModules)
         {
-            AddIntegrationEventTranslators(builder.Services, module.ApplicationAssembly);
+            AddClosedGenericImplementations(
+                builder.Services, module.ApplicationAssembly, typeof(IIntegrationEventTranslator<>), ServiceLifetime.Transient);
+
+            // FluentValidation validators, one per command/query, found the same way and handed to
+            // ValidationPipelineBehavior. Scoped is FluentValidation's own default and lets a validator take
+            // a scoped dependency (a query repository for a uniqueness rule) without a lifetime mismatch.
+            // ApplicationAssembly only, on purpose: a remoteModules entry ships no .Application project, so
+            // a gateway host never validates a remote request itself — the remote server host runs the
+            // real pipeline, validators included, exactly as it would for a local call.
+            AddClosedGenericImplementations(
+                builder.Services, module.ApplicationAssembly, typeof(IValidator<>), ServiceLifetime.Scoped);
         }
 
         string connectionString = serginSection.GetConnectionString("Database")
@@ -151,26 +162,29 @@ public static class SerginCoreExtensions
     }
 
     /// <summary>
-    /// Registers every non-abstract class in <paramref name="assembly"/> against each closed
-    /// <c>IIntegrationEventTranslator&lt;TDomainEvent&gt;</c> interface it implements, so a module's
-    /// translators are discovered the same way its MediatR handlers are — by scanning
-    /// <see cref="ISerginModule.ApplicationAssembly"/> — rather than requiring a module to hand-list them.
+    /// Registers every non-abstract class in <paramref name="assembly"/> against each closed form of
+    /// <paramref name="openInterface"/> it implements, so a module's <c>IIntegrationEventTranslator&lt;TDomainEvent&gt;</c>
+    /// and <c>IValidator&lt;TRequest&gt;</c> implementations are discovered the same way its MediatR handlers
+    /// are — by scanning <see cref="ISerginModule.ApplicationAssembly"/> — rather than requiring a module
+    /// to hand-list them.
     /// </summary>
-    private static void AddIntegrationEventTranslators(IServiceCollection services, Assembly assembly)
+    private static void AddClosedGenericImplementations(
+        IServiceCollection services, Assembly assembly, Type openInterface, ServiceLifetime lifetime)
     {
         IEnumerable<Type> candidateTypes = assembly.GetTypes().Where(type => type is { IsClass: true, IsAbstract: false });
 
         foreach (Type type in candidateTypes)
         {
-            IEnumerable<Type> closedTranslatorInterfaces = type.GetInterfaces().Where(IsClosedTranslatorInterface);
+            IEnumerable<Type> closedInterfaces = type.GetInterfaces()
+                .Where(candidate => IsClosedFormOf(candidate, openInterface));
 
-            foreach (Type closedInterface in closedTranslatorInterfaces)
+            foreach (Type closedInterface in closedInterfaces)
             {
-                services.AddTransient(closedInterface, type);
+                services.Add(new ServiceDescriptor(closedInterface, type, lifetime));
             }
         }
     }
 
-    private static bool IsClosedTranslatorInterface(Type type) =>
-        type.IsGenericType && type.GetGenericTypeDefinition() == typeof(IIntegrationEventTranslator<>);
+    private static bool IsClosedFormOf(Type type, Type openInterface) =>
+        type.IsGenericType && type.GetGenericTypeDefinition() == openInterface;
 }
