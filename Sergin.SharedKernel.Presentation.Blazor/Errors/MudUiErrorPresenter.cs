@@ -16,6 +16,16 @@ internal sealed class MudUiErrorPresenter(ILocalizer localizer, ISnackbar snackb
         snackbar.Add(problem.Detail, ToSeverity(problem.StatusCode));
     }
 
+    // One snackbar per error; MudBlazor stacks them, and its default cap of five visible at once is
+    // plenty for a form's worth of validation failures.
+    public void Notify(IReadOnlyList<Error> errors)
+    {
+        foreach (Error error in errors)
+        {
+            Notify(error);
+        }
+    }
+
     private static Severity ToSeverity(int statusCode)
         => statusCode switch
         {

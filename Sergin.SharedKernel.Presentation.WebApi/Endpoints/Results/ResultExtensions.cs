@@ -16,6 +16,6 @@ public static class ResultExtensions
     internal static IResult ToApiResult<TIn>(
         this ErrorOr<TIn> result, ILocalizer localizer)
     {
-        return result.Match(HttpResults.Ok, (r) => ApiProblemResults.Problem(r[0], localizer));
+        return result.Match(HttpResults.Ok, errors => ApiProblemResults.Problem(errors, localizer));
     }
 }
