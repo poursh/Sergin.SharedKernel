@@ -40,6 +40,9 @@
 
     <MudMainContent>
         <MudContainer MaxWidth="MaxWidth.ExtraLarge" Class="my-6">
+            @* Filled by the page's <SerginBreadcrumbs>, which projects its strip here through a section: the
+               shell owns where every trail sits, the page owns what it says. Empty on a page without one. *@
+            <SectionOutlet SectionId="SerginBreadcrumbs.SectionId" />
             @Body
         </MudContainer>
     </MudMainContent>
