@@ -1,0 +1,7 @@
+@* Declared on the page, shown in the shell: SectionContent projects the strip into SerginMainLayout's
+   SectionOutlet for SectionId, the same mechanism PageTitle uses to reach HeadOutlet — so it renders under
+   prerender and interactive server alike, and re-renders with the page once an async load fills the tail.
+   When the page unmounts the outlet empties, which is why a page that declares no trail shows no strip. *@
+<SectionContent SectionId="SectionId">
+    <MudBreadcrumbs Items="items" Class="pa-0 mb-4" />
+</SectionContent>
