@@ -4,6 +4,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Options;
+using Sergin.SharedKernel.Application.Aggregates;
 using Sergin.SharedKernel.Application.Commands;
 using Sergin.SharedKernel.Application.Events;
 using Sergin.SharedKernel.Application.Events.Integration;
@@ -131,6 +132,14 @@ public static class SerginCoreExtensions
             AddClosedGenericImplementations(
                 builder.Services, module.ApplicationAssembly, typeof(IValidator<>), ServiceLifetime.Scoped);
         }
+
+        // Every local module's aggregate configurations, for the startup guard that checks them against the
+        // EF models (AggregateFeatureGuard). Building it here also runs the registry's own checks — two
+        // configurations for one type, a configuration without a parameterless constructor — at composition,
+        // in every environment. Each module DbContext builds its own copy for the EF model; see
+        // SerginDbContext.AggregateFeatures for why that one cannot come from DI.
+        builder.Services.AddSingleton(
+            AggregateFeatureRegistry.FromAssemblies(localModules.Select(module => module.ApplicationAssembly)));
 
         string connectionString = serginSection.GetConnectionString("Database")
             ?? throw new InvalidOperationException("Connection string 'Sergin:ConnectionStrings:Database' is not configured.");
