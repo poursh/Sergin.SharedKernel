@@ -21,10 +21,24 @@ public static class AuditColumns
     public const string ModifiedAtUtcColumn = "modified_at_utc";
     public const string ModifiedByColumn = "modified_by";
 
+    /// <summary>
+    /// Walks <paramref name="entityType"/> and its <see cref="IReadOnlyEntityType.BaseType"/> chain, because
+    /// EF annotations are not inherited: in a TPH hierarchy, a derived type configured only through its base's
+    /// <c>Audited()</c> call shares the base's shadow columns but carries no <see cref="AuditedAnnotation"/> of
+    /// its own.
+    /// </summary>
     public static bool IsAudited(IReadOnlyEntityType entityType)
     {
         ArgumentNullException.ThrowIfNull(entityType);
 
-        return entityType.FindAnnotation(AuditedAnnotation) is not null;
+        for (IReadOnlyEntityType? current = entityType; current is not null; current = current.BaseType)
+        {
+            if (current.FindAnnotation(AuditedAnnotation) is not null)
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 }
