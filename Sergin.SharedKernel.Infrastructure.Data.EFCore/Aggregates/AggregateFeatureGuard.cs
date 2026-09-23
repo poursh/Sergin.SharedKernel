@@ -6,7 +6,7 @@ using Sergin.SharedKernel.Application.Aggregates;
 namespace Sergin.SharedKernel.Infrastructure.Data.EFCore.Aggregates;
 
 /// <summary>
-/// Fails host start when a declared aggregate configuration does not reach an EF model: its type is mapped
+/// Fails host start when a declared aggregate feature configuration does not reach an EF model: its type is mapped
 /// by no module DbContext (a configuration stranded in the wrong module), or the context that maps it does
 /// not apply it (a module context without an AggregateFeatures override). Called by both host bootstraps in
 /// every environment, before the Development-only migrate step. Building each context's model needs no
@@ -52,14 +52,14 @@ public static class AggregateFeatureGuard
             {
                 problems.Add(
                     $"{configured.FullName} is configured Audited(), but the DbContext that maps it does not apply "
-                    + "its module's aggregate configurations — override SerginDbContext.AggregateFeatures there");
+                    + "its module's aggregate feature configurations — override SerginDbContext.AggregateFeatures there");
             }
         }
 
         if (problems.Count > 0)
         {
             throw new InvalidOperationException(
-                $"Aggregate configuration does not match the EF model: {string.Join("; ", problems)}.");
+                $"Aggregate feature configuration does not match the EF model: {string.Join("; ", problems)}.");
         }
     }
 }

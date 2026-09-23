@@ -134,7 +134,7 @@ public static class SerginCoreExtensions
                 builder.Services, module.ApplicationAssembly, typeof(IValidator<>), ServiceLifetime.Scoped);
         }
 
-        // Every local module's aggregate configurations, for the startup guard that checks them against the
+        // Every local module's aggregate feature configurations, for the startup guard that checks them against the
         // EF models (AggregateFeatureGuard). Building it here also runs the registry's own checks — two
         // configurations for one type, a configuration without a parameterless constructor — at composition,
         // in every environment. Each module DbContext builds its own copy for the EF model; see

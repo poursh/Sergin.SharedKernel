@@ -7,7 +7,7 @@ namespace Sergin.SharedKernel.Infrastructure.Data.EFCore;
 public abstract class SerginDbContext(DbContextOptions options) : DbContext(options), IDbContext
 {
     /// <summary>
-    /// The aggregate configurations this context's model applies. A module that opts in overrides it with
+    /// The aggregate feature configurations this context's model applies. A module that opts in overrides it with
     /// <c>AggregateFeatureRegistry.FromAssemblies([&lt;Module&gt;ApplicationAssemblyReference.Assembly])</c>,
     /// expression-bodied so the scan runs only when EF builds the model, once per context type.
     /// <para>
