@@ -6,6 +6,7 @@ using Scalar.AspNetCore;
 using Sergin.SharedKernel.Application.Securities.Users;
 using Sergin.SharedKernel.Hosts.Authentication;
 using Sergin.SharedKernel.Infrastracture.WebApi.Users;
+using Sergin.SharedKernel.Infrastructure.Data.EFCore.Aggregates;
 using Sergin.SharedKernel.Modules;
 
 namespace Microsoft.Extensions.Hosting;
@@ -42,6 +43,8 @@ public static class SerginWebApiExtensions
 
     public static async Task<WebApplication> UseSerginWebApiAsync(this WebApplication app, IReadOnlyCollection<ISerginModule> modules)
     {
+        AggregateFeatureGuard.EnsureApplied(app.Services);
+
         if (app.Environment.IsDevelopment())
         {
             foreach (ISerginModule module in modules)
