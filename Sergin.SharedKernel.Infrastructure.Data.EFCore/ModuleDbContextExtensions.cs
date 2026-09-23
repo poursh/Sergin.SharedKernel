@@ -3,6 +3,7 @@ using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Sergin.SharedKernel.Application.Events.Integration;
+using Sergin.SharedKernel.Infrastructure.Data.EFCore.Aggregates;
 using Sergin.SharedKernel.Infrastructure.Data.EFCore.Interceptors;
 using Sergin.SharedKernel.Infrastructure.Data.EFCore.Outbox;
 
@@ -26,10 +27,16 @@ public static class ModuleDbContextExtensions
                 connectionString,
                 pgOptions => pgOptions.MigrationsHistoryTable(HistoryRepository.DefaultTableName, schema))
             .UseSnakeCaseNamingConvention()
-            .AddInterceptors(sp.GetRequiredService<EventDispatcherInterceptor>()));
+            // Order matters: EF runs interceptors in registration order, and stamping must see whatever the
+            // domain-event handlers added or changed during dispatch.
+            .AddInterceptors(
+                sp.GetRequiredService<EventDispatcherInterceptor>(),
+                sp.GetRequiredService<AuditStampInterceptor>()));
 
         services.AddScoped<TIContext>(p => p.GetRequiredService<TContext>());
         services.AddScoped<TIUnitOfWork>(p => p.GetRequiredService<TContext>());
+
+        services.AddSingleton(new ModuleDbContextRegistration(typeof(TContext)));
 
         if (typeof(IOutboxDbContext).IsAssignableFrom(typeof(TContext)))
         {

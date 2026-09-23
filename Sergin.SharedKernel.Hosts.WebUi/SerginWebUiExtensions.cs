@@ -8,6 +8,7 @@ using Sergin.SharedKernel.Application.Securities.Users;
 using Sergin.SharedKernel.Hosts.Authentication;
 using Sergin.SharedKernel.Hosts.WebUi;
 using Sergin.SharedKernel.Hosts.WebUi.Users;
+using Sergin.SharedKernel.Infrastructure.Data.EFCore.Aggregates;
 using Sergin.SharedKernel.Modules;
 using Sergin.SharedKernel.Presentation;
 using Sergin.SharedKernel.Presentation.Blazor.Home;
@@ -110,6 +111,8 @@ public static class SerginWebUiExtensions
         SerginUiModuleCatalog catalog = app.Services.GetRequiredService<SerginUiModuleCatalog>();
 
         ValidateRoutePrefixes(catalog);
+
+        AggregateFeatureGuard.EnsureApplied(app.Services);
 
         if (app.Environment.IsDevelopment())
         {
