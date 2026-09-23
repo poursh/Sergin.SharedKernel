@@ -26,7 +26,11 @@ public static class ModuleDbContextExtensions
                 connectionString,
                 pgOptions => pgOptions.MigrationsHistoryTable(HistoryRepository.DefaultTableName, schema))
             .UseSnakeCaseNamingConvention()
-            .AddInterceptors(sp.GetRequiredService<EventDispatcherInterceptor>()));
+            // Order matters: EF runs interceptors in registration order, and stamping must see whatever the
+            // domain-event handlers added or changed during dispatch.
+            .AddInterceptors(
+                sp.GetRequiredService<EventDispatcherInterceptor>(),
+                sp.GetRequiredService<AuditStampInterceptor>()));
 
         services.AddScoped<TIContext>(p => p.GetRequiredService<TContext>());
         services.AddScoped<TIUnitOfWork>(p => p.GetRequiredService<TContext>());
