@@ -34,6 +34,18 @@ public sealed class AggregateFeatureBuilder<TAggregateRoot> : AggregateFeatureBu
     }
 
     /// <summary>
+    /// Turns a delete of the root, or of any child entity, into deleted_at_utc/deleted_by stamps on the row,
+    /// hides stamped rows from every EF query through a named query filter, and makes the aggregate's unique
+    /// indexes partial so a deleted row frees its key. Every child entity takes it; there is no exception list.
+    /// Calling it twice is harmless.
+    /// </summary>
+    public AggregateFeatureBuilder<TAggregateRoot> SoftDeletable()
+    {
+        Features = Features with { SoftDeletable = true };
+        return this;
+    }
+
+    /// <summary>
     /// Adds created/modified stamps like <see cref="Audited()"/>, with <paramref name="configure"/> choosing
     /// the child entities that are left out.
     /// </summary>

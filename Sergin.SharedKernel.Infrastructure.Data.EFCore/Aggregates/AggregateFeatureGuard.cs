@@ -54,6 +54,13 @@ public static class AggregateFeatureGuard
                     $"{configured.FullName} is configured Audited(), but the DbContext that maps it does not apply "
                     + "its module's aggregate feature configurations — override SerginDbContext.AggregateFeatures there");
             }
+
+            if (registry.For(configured).SoftDeletable && mappings.Any(mapping => !SoftDeleteColumns.IsSoftDeletable(mapping)))
+            {
+                problems.Add(
+                    $"{configured.FullName} is configured SoftDeletable(), but the DbContext that maps it does not apply "
+                    + "its module's aggregate feature configurations — override SerginDbContext.AggregateFeatures there");
+            }
         }
 
         if (problems.Count > 0)

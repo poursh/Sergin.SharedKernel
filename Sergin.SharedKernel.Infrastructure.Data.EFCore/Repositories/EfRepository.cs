@@ -17,6 +17,15 @@ public abstract class EfRepository<TAggregateRoot, TId>(IDbContext dbContext) : 
 {
     protected DbSet<TAggregateRoot> Set => dbContext.Set<TAggregateRoot>();
 
+    /// <summary>
+    /// Another entity type's set, for a lookup that has to reach across the aggregate boundary to answer a
+    /// yes/no question (<c>DeviceRepository.AnyUsingManufacturerAsync</c>). A derived repository cannot capture its
+    /// own constructor parameter for this: passing it to this base as well is CS9107.
+    /// </summary>
+    protected DbSet<TEntity> SetOf<TEntity>()
+        where TEntity : class
+        => dbContext.Set<TEntity>();
+
     public ValueTask<TAggregateRoot?> GetAsync(TId id, CancellationToken cancellationToken = default)
         => Set.FindAsync([id], cancellationToken);
 

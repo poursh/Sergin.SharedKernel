@@ -1,3 +1,4 @@
+using System.Linq.Expressions;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
@@ -10,7 +11,8 @@ namespace Sergin.SharedKernel.Infrastructure.Data.EFCore.Aggregates;
 /// <summary>
 /// Turns a context's <see cref="AggregateFeatureRegistry"/> into model shape. A model-finalizing convention
 /// runs once, after OnModelCreating, every IEntityTypeConfiguration and the other conventions, on the
-/// complete model, so a module writes no mapping for the audit columns. Column names are set explicitly
+/// complete model, so a module writes no mapping for the audit or soft-delete columns, the soft-delete query
+/// filter, CHECK constraint or partial unique indexes. Column names are set explicitly
 /// rather than left to UseSnakeCaseNamingConvention, which is not guaranteed to react to properties added
 /// this late; the names are the same either way.
 /// <para>
@@ -44,6 +46,13 @@ internal sealed class AggregateFeatureConvention(AggregateFeatureRegistry regist
             if (features.Audited && !SharesItsOwnersTable(entityType))
             {
                 AddAuditProperties(entityType.Builder);
+            }
+
+            // An owned type gets no soft-delete columns even in a table of its own: EF refuses a query filter on
+            // an owned type, and it is only ever loaded through its owner, whose filter already hides it.
+            if (features.SoftDeletable && entityType.FindOwnership() is null)
+            {
+                AddSoftDeleteShape(entityType);
             }
         }
     }
@@ -117,20 +126,71 @@ internal sealed class AggregateFeatureConvention(AggregateFeatureRegistry regist
 
     private static void AddAuditProperties(IConventionEntityTypeBuilder builder)
     {
-        AddAuditProperty(builder, typeof(DateTime), AuditColumns.CreatedAtUtc, AuditColumns.CreatedAtUtcColumn, required: true);
-        AddAuditProperty(builder, typeof(Guid), AuditColumns.CreatedBy, AuditColumns.CreatedByColumn, required: true);
-        AddAuditProperty(builder, typeof(DateTime?), AuditColumns.ModifiedAtUtc, AuditColumns.ModifiedAtUtcColumn, required: false);
-        AddAuditProperty(builder, typeof(Guid?), AuditColumns.ModifiedBy, AuditColumns.ModifiedByColumn, required: false);
+        AddShadowProperty(builder, typeof(DateTime), AuditColumns.CreatedAtUtc, AuditColumns.CreatedAtUtcColumn, required: true);
+        AddShadowProperty(builder, typeof(Guid), AuditColumns.CreatedBy, AuditColumns.CreatedByColumn, required: true);
+        AddShadowProperty(builder, typeof(DateTime?), AuditColumns.ModifiedAtUtc, AuditColumns.ModifiedAtUtcColumn, required: false);
+        AddShadowProperty(builder, typeof(Guid?), AuditColumns.ModifiedBy, AuditColumns.ModifiedByColumn, required: false);
 
         builder.HasAnnotation(AuditColumns.AuditedAnnotation, true);
     }
 
-    private static void AddAuditProperty(
+    private static void AddSoftDeleteShape(IConventionEntityType entityType)
+    {
+        IConventionEntityTypeBuilder builder = entityType.Builder;
+
+        AddShadowProperty(builder, typeof(DateTime?), SoftDeleteColumns.DeletedAtUtc, SoftDeleteColumns.DeletedAtUtcColumn, required: false);
+        AddShadowProperty(builder, typeof(Guid?), SoftDeleteColumns.DeletedBy, SoftDeleteColumns.DeletedByColumn, required: false);
+
+        builder.HasAnnotation(SoftDeleteColumns.SoftDeletableAnnotation, true);
+
+        // EF accepts a query filter only on the root of a hierarchy, and a derived type shares the base's table,
+        // columns and constraint.
+        if (entityType.BaseType is not null)
+        {
+            return;
+        }
+
+        builder.HasQueryFilter(SoftDeleteColumns.QueryFilterName, NotDeletedFilter(entityType.ClrType));
+
+        if (entityType.GetTableName() is { } table)
+        {
+            builder.HasCheckConstraint(SoftDeleteColumns.PairCheckName(table), SoftDeleteColumns.PairCheckSql);
+        }
+
+        // A deleted row frees its alternate key. An index that already carries a filter was written by hand
+        // for a reason of its own and is left alone.
+        foreach (IConventionIndex index in entityType.GetDeclaredIndexes().Where(index => index.IsUnique))
+        {
+            if (index.GetFilter() is null)
+            {
+                index.Builder.HasFilter(SoftDeleteColumns.NotDeletedSql);
+            }
+        }
+    }
+
+    /// <summary><c>entity =&gt; EF.Property&lt;DateTime?&gt;(entity, "DeletedAtUtc") == null</c>, for an entity type known only at run time.</summary>
+    private static LambdaExpression NotDeletedFilter(Type clrType)
+    {
+        ParameterExpression entity = Expression.Parameter(clrType, "entity");
+
+        MethodCallExpression deletedAt = Expression.Call(
+            typeof(EF),
+            nameof(EF.Property),
+            [typeof(DateTime?)],
+            entity,
+            Expression.Constant(SoftDeleteColumns.DeletedAtUtc));
+
+        return Expression.Lambda(
+            Expression.Equal(deletedAt, Expression.Constant(null, typeof(DateTime?))),
+            entity);
+    }
+
+    private static void AddShadowProperty(
         IConventionEntityTypeBuilder builder, Type clrType, string name, string column, bool required)
     {
         IConventionPropertyBuilder property = builder.Property(clrType, name)
             ?? throw new InvalidOperationException(
-                $"Could not add the audit property {name} to {builder.Metadata.DisplayName()}: "
+                $"Could not add the shadow property {name} to {builder.Metadata.DisplayName()}: "
                 + "an explicit mapping already configures a conflicting member of that name.");
 
         property.IsRequired(required);
