@@ -83,6 +83,7 @@ public static class SerginCoreExtensions
         builder.Services.AddScoped<IEventDispatcher, DefaultEventDispatcher>();
         builder.Services.AddScoped<EventDispatcherInterceptor>();
         builder.Services.AddScoped<AuditStampInterceptor>();
+        builder.Services.AddScoped<SoftDeleteInterceptor>();
 
         builder.Services.AddOptions<OutboxOptions>()
             .Bind(serginSection.GetSection(OutboxOptions.SectionName))
