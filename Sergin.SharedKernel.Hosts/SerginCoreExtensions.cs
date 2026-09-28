@@ -12,6 +12,7 @@ using Sergin.SharedKernel.Application.Localizations;
 using Sergin.SharedKernel.Application.Securities.Authorization;
 using Sergin.SharedKernel.Application.Securities.Users;
 using Sergin.SharedKernel.Application.Times;
+using Sergin.SharedKernel.Hosts;
 using Sergin.SharedKernel.Hosts.Outbox;
 using Sergin.SharedKernel.Infrastracture.Data;
 using Sergin.SharedKernel.Infrastructure.Data.EFCore;
@@ -22,6 +23,7 @@ using Sergin.SharedKernel.Infrastructure.Events.Integration;
 using Sergin.SharedKernel.Infrastructure.Localizations;
 using Sergin.SharedKernel.Infrastructure.Times;
 using Sergin.SharedKernel.Modules;
+using Sergin.SharedKernel.Presentation;
 
 namespace Microsoft.Extensions.Hosting;
 
@@ -90,6 +92,15 @@ public static class SerginCoreExtensions
             .ValidateOnStart();
         builder.Services.AddSingleton<IValidateOptions<OutboxOptions>, OutboxOptionsValidator>();
         builder.Services.TryAddSingleton<IDateTimeProvider, DefaultDateTimeProvider>();
+
+        // Bound against the whole Sergin section, not a subsection: TimeZone is a scalar sitting
+        // directly under it, mirroring SerginApplicationOptions. This is only the fallback zone — a
+        // Blazor viewer's browser-detected zone (IUiTimeZoneStore) wins whenever it's known.
+        builder.Services.AddOptions<SerginTimeZoneOptions>()
+            .Bind(serginSection)
+            .ValidateOnStart();
+        builder.Services.AddSingleton<IValidateOptions<SerginTimeZoneOptions>, SerginTimeZoneOptionsValidator>();
+        builder.Services.TryAddSingleton<ILocalTimeConverter, SystemLocalTimeConverter>();
 
         foreach (ISerginModule module in localModules)
         {
