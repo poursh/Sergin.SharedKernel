@@ -46,6 +46,18 @@ public sealed class AggregateFeatureBuilder<TAggregateRoot> : AggregateFeatureBu
     }
 
     /// <summary>
+    /// Adds a row_version concurrency token to the root's table and rewrites it on every save that changes the
+    /// aggregate, a change to a child alone included. One version covers the whole aggregate: children get no
+    /// column. A command marked [RequiresExpectedVersion] is then refused when its expected version is stale.
+    /// Calling it twice is harmless.
+    /// </summary>
+    public AggregateFeatureBuilder<TAggregateRoot> Versioned()
+    {
+        Features = Features with { Versioned = true };
+        return this;
+    }
+
+    /// <summary>
     /// Adds created/modified stamps like <see cref="Audited()"/>, with <paramref name="configure"/> choosing
     /// the child entities that are left out.
     /// </summary>
