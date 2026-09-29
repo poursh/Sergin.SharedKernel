@@ -6,6 +6,7 @@ using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Options;
 using Sergin.SharedKernel.Application.Aggregates;
 using Sergin.SharedKernel.Application.Commands;
+using Sergin.SharedKernel.Application.Concurrency;
 using Sergin.SharedKernel.Application.Events;
 using Sergin.SharedKernel.Application.Events.Integration;
 using Sergin.SharedKernel.Application.Localizations;
@@ -79,6 +80,7 @@ public static class SerginCoreExtensions
             }
 
             options.AddOpenBehavior(typeof(PermissionCheckPipelineBehavior<,>));
+            options.AddOpenBehavior(typeof(ExpectedVersionPipelineBehavior<,>));
             options.AddOpenBehavior(typeof(ValidationPipelineBehavior<,>));
         });
 
@@ -160,6 +162,9 @@ public static class SerginCoreExtensions
         builder.Services.AddScoped<IDbConnectionFactory>(p => new PostgresDbConnectionFactory(connectionString));
 
         builder.Services.AddScoped<UserContextAccessor>();
+
+        // Seeded by each front end before a send and read back after it; see ConcurrencyContext.
+        builder.Services.AddScoped<ConcurrencyContext>();
 
         // A seeded context wins over building a fresh one. Scopes opened from the root provider — every
         // Blazor dispatcher send — can reach neither an HttpContext nor the circuit's authentication
