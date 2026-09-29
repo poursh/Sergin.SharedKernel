@@ -1,5 +1,7 @@
 using Microsoft.Extensions.DependencyInjection;
+using Sergin.SharedKernel.Application.Concurrency;
 using Sergin.SharedKernel.Application.Securities.Users;
+using Sergin.SharedKernel.Domain;
 
 namespace Sergin.SharedKernel.Presentation.Blazor.Dispatching;
 
@@ -35,5 +37,21 @@ internal sealed class ScopedSerginDispatcher(IServiceScopeFactory scopeFactory, 
         ISender sender = scope.ServiceProvider.GetRequiredService<ISender>();
 
         return await sender.Send(request, cancellationToken);
+    }
+
+    public async Task<VersionedResult<TResponse>> SendVersionedAsync<TResponse>(
+        IRequest<ErrorOr<TResponse>> request, RowVersion? expected = null, CancellationToken cancellationToken = default)
+    {
+        await using AsyncServiceScope scope = scopeFactory.CreateAsyncScope();
+
+        scope.ServiceProvider.GetRequiredService<UserContextAccessor>().Current = userContext;
+
+        // The version travels in the child scope beside the user, never on the request.
+        ConcurrencyContext concurrency = scope.ServiceProvider.GetRequiredService<ConcurrencyContext>();
+        concurrency.Expected = expected;
+
+        ErrorOr<TResponse> result = await scope.ServiceProvider.GetRequiredService<ISender>().Send(request, cancellationToken);
+
+        return new VersionedResult<TResponse>(result, result.IsError ? null : concurrency.Current);
     }
 }
