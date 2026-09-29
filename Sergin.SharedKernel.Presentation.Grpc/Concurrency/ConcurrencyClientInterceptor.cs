@@ -21,7 +21,17 @@ public sealed class ConcurrencyClientInterceptor(ConcurrencyContext concurrency)
     {
         ArgumentNullException.ThrowIfNull(continuation);
 
-        Metadata headers = context.Options.Headers ?? [];
+        // A new Metadata, never the caller's own instance: context.Options.Headers may be one the caller built
+        // and still holds a reference to, and CallOptions is meant to be immutable per call.
+        Metadata headers = [];
+
+        if (context.Options.Headers is { } existing)
+        {
+            foreach (Metadata.Entry entry in existing.Where(entry => entry.Key != ConcurrencyMetadata.ExpectedVersionKey))
+            {
+                headers.Add(entry);
+            }
+        }
 
         if (concurrency.Expected is { } expected)
         {

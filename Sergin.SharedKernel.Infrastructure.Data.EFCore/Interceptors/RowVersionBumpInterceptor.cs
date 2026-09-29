@@ -119,6 +119,8 @@ internal sealed class RowVersionBumpInterceptor(ConcurrencyContext concurrency, 
 
     private void Publish()
     {
+        bool wasChecked = toPublish is not null && concurrency.Expected is not null;
+
         if (toPublish is not null)
         {
             concurrency.Current = RowVersion.Create((Guid)toPublish.Property(RowVersionColumns.RowVersion).CurrentValue!);
@@ -126,6 +128,14 @@ internal sealed class RowVersionBumpInterceptor(ConcurrencyContext concurrency, 
         else if (publishExpected)
         {
             concurrency.Current = concurrency.Expected;
+        }
+
+        // A checked save that succeeds means the row is now at Current. A second save in the same scope must be
+        // checked against that, not against the version the caller originally loaded — otherwise it 412s against
+        // its own prior write.
+        if (wasChecked)
+        {
+            concurrency.Expected = concurrency.Current;
         }
 
         Clear();

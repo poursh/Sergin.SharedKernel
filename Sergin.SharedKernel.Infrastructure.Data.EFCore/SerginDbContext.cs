@@ -43,7 +43,7 @@ public abstract class SerginDbContext(DbContextOptions options) : DbContext(opti
         }
         catch (DbUpdateConcurrencyException exception)
         {
-            throw new ConcurrencyConflictException("The aggregate changed since the expected version was read.", exception);
+            throw new ConcurrencyConflictException("The row changed or was removed since it was read.", exception);
         }
     }
 
@@ -55,7 +55,7 @@ public abstract class SerginDbContext(DbContextOptions options) : DbContext(opti
         }
         catch (DbUpdateConcurrencyException exception)
         {
-            throw new ConcurrencyConflictException("The aggregate changed since the expected version was read.", exception);
+            throw new ConcurrencyConflictException("The row changed or was removed since it was read.", exception);
         }
     }
 }
