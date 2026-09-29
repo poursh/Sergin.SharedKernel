@@ -27,13 +27,17 @@ public static class ModuleDbContextExtensions
                 connectionString,
                 pgOptions => pgOptions.MigrationsHistoryTable(HistoryRepository.DefaultTableName, schema))
             .UseSnakeCaseNamingConvention()
-            // Order matters: EF runs interceptors in registration order. Stamping must see whatever the
-            // domain-event handlers added or changed during dispatch, and soft delete runs after audit so a
-            // delete it turns into an update is not stamped as a modification.
+            // Order matters: EF runs interceptors in registration order. The expected version is applied first,
+            // so it guards only what the handler changed, not what domain-event handlers change during dispatch.
+            // Stamping must see whatever those handlers added or changed; soft delete runs after audit so a
+            // delete it turns into an update is not stamped as a modification; the row version is bumped last,
+            // once every other interceptor has decided what the save changes.
             .AddInterceptors(
+                sp.GetRequiredService<ExpectedVersionInterceptor>(),
                 sp.GetRequiredService<EventDispatcherInterceptor>(),
                 sp.GetRequiredService<AuditStampInterceptor>(),
-                sp.GetRequiredService<SoftDeleteInterceptor>()));
+                sp.GetRequiredService<SoftDeleteInterceptor>(),
+                sp.GetRequiredService<RowVersionBumpInterceptor>()));
 
         services.AddScoped<TIContext>(p => p.GetRequiredService<TContext>());
         services.AddScoped<TIUnitOfWork>(p => p.GetRequiredService<TContext>());
