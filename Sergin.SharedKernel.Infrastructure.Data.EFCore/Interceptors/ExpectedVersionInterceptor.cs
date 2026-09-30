@@ -17,8 +17,8 @@ namespace Sergin.SharedKernel.Infrastructure.Data.EFCore.Interceptors;
 internal sealed class ExpectedVersionInterceptor(ConcurrencyContext concurrency) : SaveChangesInterceptor
 {
     /// <summary>
-    /// The entity whose version the current save checks, for RowVersionBumpInterceptor: it re-applies the
-    /// original value (a later interceptor's state change can reset it) and publishes that root's new version.
+    /// The entity whose version the current save checks, for RowVersionBumpInterceptor, which publishes that
+    /// root's new version.
     /// </summary>
     public object? CheckedRoot { get; private set; }
 

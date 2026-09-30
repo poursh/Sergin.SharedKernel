@@ -83,14 +83,9 @@ internal sealed class RowVersionBumpInterceptor(ConcurrencyContext concurrency, 
         IReadOnlyList<EntityEntry> roots =
             [.. VersionedRoots.Touched(context, includeAdded: true).Where(root => root.State != EntityState.Deleted)];
 
+        // ExpectedVersionInterceptor already set the checked root's original value. SoftDeleteInterceptor's
+        // Deleted-to-Unchanged keeps it; RowVersionInterceptorTests.SoftDelete_WithAStaleVersion_IsRefused pins that.
         EntityEntry? checkedRoot = roots.FirstOrDefault(root => ReferenceEquals(root.Entity, check.CheckedRoot));
-
-        // Re-applied, not trusted: SoftDeleteInterceptor sets a deleted root back to Unchanged before stamping
-        // it, and a state change can reset original values to the current ones, which would drop the check.
-        if (checkedRoot is not null && concurrency.Expected is { } expected)
-        {
-            checkedRoot.Property(RowVersionColumns.RowVersion).OriginalValue = expected.Value;
-        }
 
         foreach (EntityEntry root in roots)
         {

@@ -39,7 +39,7 @@ internal sealed class ScopedSerginDispatcher(IServiceScopeFactory scopeFactory, 
         return await sender.Send(request, cancellationToken);
     }
 
-    public async Task<VersionedResult<TResponse>> SendVersionedAsync<TResponse>(
+    public async Task<ErrorOr<Versioned<TResponse>>> SendVersionedAsync<TResponse>(
         IRequest<ErrorOr<TResponse>> request, RowVersion? expected = null, CancellationToken cancellationToken = default)
     {
         await using AsyncServiceScope scope = scopeFactory.CreateAsyncScope();
@@ -52,6 +52,14 @@ internal sealed class ScopedSerginDispatcher(IServiceScopeFactory scopeFactory, 
 
         ErrorOr<TResponse> result = await scope.ServiceProvider.GetRequiredService<ISender>().Send(request, cancellationToken);
 
-        return new VersionedResult<TResponse>(result, result.IsError ? null : concurrency.Current);
+        if (result.IsError)
+        {
+            return result.Errors;
+        }
+
+        // A success with no version means the request read or wrote no versioned aggregate: a caller bug.
+        return concurrency.Current is { } version
+            ? new Versioned<TResponse>(result.Value, version)
+            : VersionErrors.NotPublished;
     }
 }

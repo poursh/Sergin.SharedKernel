@@ -19,5 +19,13 @@ public static class VersionErrors
         "General.VersionStale",
         "The record changed after it was loaded. Reload it and try again.");
 
+    /// <summary>
+    /// A versioned send succeeded but published no version: the request touched no versioned aggregate, or a
+    /// remote reply carried no version. A caller bug, not a user one, so it is unexpected rather than a custom type.
+    /// </summary>
+    public static Error NotPublished { get; } = Error.Unexpected(
+        "General.VersionNotPublished",
+        "The request succeeded but reported no record version.");
+
     public static bool IsStale(Error error) => (int)error.Type == StaleType;
 }
