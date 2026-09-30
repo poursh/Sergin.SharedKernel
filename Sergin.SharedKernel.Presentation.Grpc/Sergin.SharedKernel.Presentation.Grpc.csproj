@@ -15,4 +15,8 @@
 		<Protobuf Include="Protos\error.proto" GrpcServices="None" />
 	</ItemGroup>
 
+	<ItemGroup>
+		<ProjectReference Include="..\Sergin.SharedKernel.Application\Sergin.SharedKernel.Application.csproj" />
+	</ItemGroup>
+
 </Project>

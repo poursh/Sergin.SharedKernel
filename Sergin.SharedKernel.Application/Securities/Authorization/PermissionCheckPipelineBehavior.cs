@@ -18,22 +18,9 @@ internal sealed class PermissionCheckPipelineBehavior<TRequest, TResponse>(
             return await next(cancellationToken);
         }
 
-        if (typeof(TResponse) == typeof(IErrorOr))
+        if (ErrorOrResponse.TryFrom(Error.Forbidden(), out TResponse forbidden))
         {
-            return (TResponse)(object)Error.Forbidden();
-        }
-
-        if (typeof(TResponse).IsGenericType &&
-            typeof(TResponse).GetGenericTypeDefinition() == typeof(ErrorOr<>))
-        {
-            Type resultType = typeof(TResponse).GetGenericArguments()[0];
-
-            MethodInfo fromMethod = typeof(ErrorOr<>)
-                .MakeGenericType(resultType)
-                .GetMethod(nameof(ErrorOr<object>.From));
-
-            return (TResponse)fromMethod!.Invoke(null, [new List<Error>([Error.Forbidden()])]);
-
+            return forbidden;
         }
 
         throw new ForbiddenException();

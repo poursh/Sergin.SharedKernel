@@ -1,5 +1,6 @@
 using ErrorOr;
 using Microsoft.AspNetCore.Http;
+using Sergin.SharedKernel.Application.Concurrency;
 using Sergin.SharedKernel.Application.Localizations;
 
 namespace Sergin.SharedKernel.Presentation.Errors;
@@ -24,6 +25,8 @@ public static class SerginProblemFactory
             ErrorType.NotFound => StatusCodes.Status404NotFound,
             ErrorType.Conflict => StatusCodes.Status409Conflict,
             ErrorType.Forbidden => StatusCodes.Status403Forbidden,
+            (ErrorType)VersionErrors.RequiredType => StatusCodes.Status428PreconditionRequired,
+            (ErrorType)VersionErrors.StaleType => StatusCodes.Status412PreconditionFailed,
             _ => StatusCodes.Status500InternalServerError
         };
 
@@ -35,6 +38,8 @@ public static class SerginProblemFactory
             ErrorType.NotFound => localizer[$"{error.Code}.title"],
             ErrorType.Conflict => localizer[$"{error.Code}.title"],
             ErrorType.Forbidden => localizer[$"{error.Code}.title"],
+            (ErrorType)VersionErrors.RequiredType => localizer[$"{error.Code}.title"],
+            (ErrorType)VersionErrors.StaleType => localizer[$"{error.Code}.title"],
             _ => "ServerFailure"
         };
 
@@ -50,6 +55,8 @@ public static class SerginProblemFactory
             ErrorType.NotFound => localizer[error.Code],
             ErrorType.Conflict => localizer[error.Code],
             ErrorType.Forbidden => localizer[error.Code],
+            (ErrorType)VersionErrors.RequiredType => localizer[error.Code],
+            (ErrorType)VersionErrors.StaleType => localizer[error.Code],
             _ => "An unexpected error occurred"
         };
 }

@@ -11,8 +11,9 @@ namespace Sergin.SharedKernel.Infrastructure.Data.EFCore.Aggregates;
 /// <summary>
 /// Turns a context's <see cref="AggregateFeatureRegistry"/> into model shape. A model-finalizing convention
 /// runs once, after OnModelCreating, every IEntityTypeConfiguration and the other conventions, on the
-/// complete model, so a module writes no mapping for the audit or soft-delete columns, the soft-delete query
-/// filter, CHECK constraint or partial unique indexes. Column names are set explicitly
+/// complete model, so a module writes no mapping for the audit columns, the soft-delete columns, the
+/// soft-delete query filter, CHECK constraint, partial unique indexes, or the row-version column. Column names
+/// are set explicitly
 /// rather than left to UseSnakeCaseNamingConvention, which is not guaranteed to react to properties added
 /// this late; the names are the same either way.
 /// <para>
@@ -41,7 +42,7 @@ internal sealed class AggregateFeatureConvention(AggregateFeatureRegistry regist
             }
         }
 
-        foreach ((IConventionEntityType entityType, (_, AggregateFeatures features)) in resolved)
+        foreach ((IConventionEntityType entityType, (Type rootType, AggregateFeatures features)) in resolved)
         {
             if (features.Audited && !SharesItsOwnersTable(entityType))
             {
@@ -53,6 +54,18 @@ internal sealed class AggregateFeatureConvention(AggregateFeatureRegistry regist
             if (features.SoftDeletable && entityType.FindOwnership() is null)
             {
                 AddSoftDeleteShape(entityType);
+            }
+
+            // ForChild never answers Versioned, so this is the root; a child is marked with its root instead.
+            if (features.Versioned)
+            {
+                AddRowVersionShape(entityType);
+            }
+            else if (entityType.ClrType != rootType
+                && registry.For(rootType).Versioned
+                && modelBuilder.Metadata.FindEntityType(rootType) is { } root)
+            {
+                entityType.Builder.HasAnnotation(RowVersionColumns.VersionRootAnnotation, root.Name);
             }
         }
     }
@@ -185,7 +198,23 @@ internal sealed class AggregateFeatureConvention(AggregateFeatureRegistry regist
             entity);
     }
 
-    private static void AddShadowProperty(
+    private static void AddRowVersionShape(IConventionEntityType entityType)
+    {
+        IConventionEntityTypeBuilder builder = entityType.Builder;
+
+        builder.HasAnnotation(RowVersionColumns.VersionedAnnotation, true);
+
+        // A derived type shares its base's table and column.
+        if (entityType.BaseType is not null)
+        {
+            return;
+        }
+
+        AddShadowProperty(builder, typeof(Guid), RowVersionColumns.RowVersion, RowVersionColumns.RowVersionColumn, required: true)
+            .IsConcurrencyToken(true);
+    }
+
+    private static IConventionPropertyBuilder AddShadowProperty(
         IConventionEntityTypeBuilder builder, Type clrType, string name, string column, bool required)
     {
         IConventionPropertyBuilder property = builder.Property(clrType, name)
@@ -195,5 +224,7 @@ internal sealed class AggregateFeatureConvention(AggregateFeatureRegistry regist
 
         property.IsRequired(required);
         property.HasColumnName(column);
+
+        return property;
     }
 }

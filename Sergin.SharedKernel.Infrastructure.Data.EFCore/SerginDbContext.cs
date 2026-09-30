@@ -1,5 +1,6 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using Sergin.SharedKernel.Application.Aggregates;
+using Sergin.SharedKernel.Application.Concurrency;
 using Sergin.SharedKernel.Infrastructure.Data.EFCore.Aggregates;
 
 namespace Sergin.SharedKernel.Infrastructure.Data.EFCore;
@@ -27,5 +28,34 @@ public abstract class SerginDbContext(DbContextOptions options) : DbContext(opti
 
         AggregateFeatureRegistry features = AggregateFeatures;
         configurationBuilder.Conventions.Add(_ => new AggregateFeatureConvention(features));
+    }
+
+    /// <summary>
+    /// A row_version mismatch surfaces as <see cref="ConcurrencyConflictException"/>, which the Application
+    /// layer can catch without referencing EF; ExpectedVersionPipelineBehavior turns it into the stale-version
+    /// error. The save's transaction has rolled back by then.
+    /// </summary>
+    public override async Task<int> SaveChangesAsync(bool acceptAllChangesOnSuccess, CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            return await base.SaveChangesAsync(acceptAllChangesOnSuccess, cancellationToken).ConfigureAwait(false);
+        }
+        catch (DbUpdateConcurrencyException exception)
+        {
+            throw new ConcurrencyConflictException("The row changed or was removed since it was read.", exception);
+        }
+    }
+
+    public override int SaveChanges(bool acceptAllChangesOnSuccess)
+    {
+        try
+        {
+            return base.SaveChanges(acceptAllChangesOnSuccess);
+        }
+        catch (DbUpdateConcurrencyException exception)
+        {
+            throw new ConcurrencyConflictException("The row changed or was removed since it was read.", exception);
+        }
     }
 }

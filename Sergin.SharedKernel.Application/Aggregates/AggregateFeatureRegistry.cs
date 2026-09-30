@@ -37,7 +37,8 @@ public sealed class AggregateFeatureRegistry
 
     /// <summary>
     /// The features a child entity of <paramref name="aggregateRoot"/> takes: the root's, less any feature
-    /// that excepts <paramref name="childType"/>.
+    /// that excepts <paramref name="childType"/>. A child is never versioned itself: its root's version covers
+    /// it.
     /// </summary>
     public AggregateFeatures ForChild(Type aggregateRoot, Type childType)
     {
@@ -52,6 +53,7 @@ public sealed class AggregateFeatureRegistry
         return declaration.Features with
         {
             Audited = declaration.Features.Audited && !declaration.AuditExceptions.Contains(childType),
+            Versioned = false,
         };
     }
 
