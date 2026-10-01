@@ -48,7 +48,7 @@ public sealed class AggregateFeatureBuilder<TAggregateRoot> : AggregateFeatureBu
     /// <summary>
     /// Adds a row_version concurrency token to the root's table and rewrites it on every save that changes the
     /// aggregate, a change to a child alone included. One version covers the whole aggregate: children get no
-    /// column. A command marked [RequiresExpectedVersion] is then refused when its expected version is stale.
+    /// column. A command whose configuration calls RequireExpectedVersion() is then refused when its expected version is stale.
     /// Calling it twice is harmless.
     /// </summary>
     public AggregateFeatureBuilder<TAggregateRoot> Versioned()

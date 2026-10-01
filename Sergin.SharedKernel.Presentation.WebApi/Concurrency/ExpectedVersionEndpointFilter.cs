@@ -9,7 +9,7 @@ namespace Sergin.SharedKernel.Presentation.WebApi.Concurrency;
 /// Maps HTTP's conditional-request headers onto <see cref="ConcurrencyContext"/> for every endpoint in a module
 /// group: a strong <c>If-Match: "&lt;version&gt;"</c> becomes the expected version, and a version the send
 /// read or wrote comes back as <c>ETag</c>. <c>*</c> and weak tags carry no version this platform can check,
-/// so they count as absent, and a command marked [RequiresExpectedVersion] then answers 428. Anything else in
+/// so they count as absent, and a command whose configuration calls RequireExpectedVersion() then answers 428. Anything else in
 /// If-Match is a 400. Endpoints need no change: the version never appears on a request or response body.
 /// </summary>
 public sealed class ExpectedVersionEndpointFilter : IEndpointFilter

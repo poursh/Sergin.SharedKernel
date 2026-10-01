@@ -11,8 +11,8 @@ namespace Sergin.SharedKernel.Application.Securities.Users;
 /// <para>
 /// Implementations are called from the OIDC <c>OnTokenValidated</c> event, which runs <em>before</em>
 /// sign-in completes: the ambient <see cref="IUserContext"/> is anonymous at that moment, so a resolver
-/// that dispatches through MediatR must not send a request carrying
-/// <see cref="Authorization.RequiredPermissionsAttribute"/>.
+/// that dispatches through MediatR must not send a request whose command configuration requires a
+/// permission.
 /// </para>
 /// </remarks>
 public interface IExternalIdentityResolver

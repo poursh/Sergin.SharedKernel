@@ -7,7 +7,7 @@ namespace Sergin.SharedKernel.Application.Securities.Users;
 /// Blazor's dispatcher opens each send's scope from the <em>root</em> service provider, so that scope
 /// has neither an <c>HttpContext</c> nor the circuit's <c>AuthenticationStateProvider</c> — a factory
 /// resolved inside it would see an anonymous principal and every
-/// <see cref="Authorization.RequiredPermissionsAttribute"/> check would fail. The dispatcher therefore
+/// required-permission check would fail. The dispatcher therefore
 /// seeds <see cref="Current"/> on the child scope before resolving the sender, and
 /// <c>AddSerginCore</c> prefers that value over calling <see cref="IUserContextFactory"/> again.
 /// <para>
