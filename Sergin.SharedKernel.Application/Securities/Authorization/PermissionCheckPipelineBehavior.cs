@@ -1,19 +1,20 @@
-﻿using System.Reflection;
 using MediatR;
 using Sergin.SharedKernel.Application.Commands;
+using Sergin.SharedKernel.Application.Commands.Configuration;
 using Sergin.SharedKernel.Application.Securities.Users;
 
 namespace Sergin.SharedKernel.Application.Securities.Authorization;
 
 internal sealed class PermissionCheckPipelineBehavior<TRequest, TResponse>(
-    IUserContext userContext) : IPipelineBehavior<TRequest, TResponse>
+    IUserContext userContext,
+    CommandConfigurationRegistry configurations) : IPipelineBehavior<TRequest, TResponse>
     where TRequest : IBaseCommand
 {
     public async Task<TResponse> Handle(TRequest request, RequestHandlerDelegate<TResponse> next, CancellationToken cancellationToken)
     {
-        RequiredPermissionsAttribute? att = request.GetType().GetCustomAttribute<RequiredPermissionsAttribute>();
+        IReadOnlyCollection<Permission> required = configurations.For(request.GetType()).RequiredPermissions;
 
-        if (att is null || userContext.HasPermission(att.Permissionas))
+        if (required.Count == 0 || userContext.HasPermission([.. required]))
         {
             return await next(cancellationToken);
         }
