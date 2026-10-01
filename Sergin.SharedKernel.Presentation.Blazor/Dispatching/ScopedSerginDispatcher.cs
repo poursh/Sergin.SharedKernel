@@ -20,7 +20,7 @@ namespace Sergin.SharedKernel.Presentation.Blazor.Dispatching;
 /// root <see cref="IServiceScopeFactory"/>. Real authentication gave it a second dependency that is
 /// circuit-shaped: the scope this type creates comes from the <em>root</em> provider, so it has no
 /// <c>HttpContext</c> and no <c>AuthenticationStateProvider</c>, and a user context built inside it would
-/// be anonymous — every <c>[RequiredPermissions]</c> check would fail for a signed-in user. So the
+/// be anonymous — every required-permission check would fail for a signed-in user. So the
 /// dispatcher takes the caller's own <see cref="IUserContext"/> and seeds it into the child scope through
 /// <see cref="UserContextAccessor"/>. Making this a singleton again reintroduces that bug.
 /// </remarks>

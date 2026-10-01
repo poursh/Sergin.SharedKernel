@@ -32,7 +32,7 @@ Fifteen projects, layered the same way a module is.
 | Project | What it holds |
 |---|---|
 | `Sergin.SharedKernel.Domain` | `AggregateRoot<TId>`, `Entity`, `RowVersion`, `Ardalis.GuardClauses` imported globally, and `Permission` — the value object that validates the `permission.<parts>` format and lives here, not in Application, so an aggregate can hold it. Zero dependencies. |
-| `Sergin.SharedKernel.Application` | The CQRS contracts (`ICommand`/`ICommandHandler`, `IQuery`/`IQueryHandler`, `IListQuery`/`IListQueryHandler`, the **abstract** `ListQuery` family, `ListQueryResponse<T>`, `IUnitOfWork`), the two MediatR behaviors (`PermissionCheckPipelineBehavior` then `ValidationPipelineBehavior`), the security seam (`IUserContext`, `ClaimsPrincipalUserContext`, `UserContextAccessor`, `IExternalIdentityResolver`, `RequiredPermissionsAttribute`), the domain-event envelope (`DomainEventNotification<TEvent>`, `IDomainEventHandler<TEvent>`), and the integration-event contracts of the outbox (`IIntegrationEvent`, `[IntegrationEventName]`, `IIntegrationEventTranslator<T>`, `IIntegrationEventHandler<T>`, `InboxIntegrationEventHandler<,>`, `IntegrationEventEnvelope`, `IIntegrationEventDispatcher`). MediatR-visible, EF-free. |
+| `Sergin.SharedKernel.Application` | The CQRS contracts (`ICommand`/`ICommandHandler`, `IQuery`/`IQueryHandler`, `IListQuery`/`IListQueryHandler`, the **abstract** `ListQuery` family, `ListQueryResponse<T>`, `IUnitOfWork`), the two MediatR behaviors (`PermissionCheckPipelineBehavior` then `ValidationPipelineBehavior`), the security seam (`IUserContext`, `ClaimsPrincipalUserContext`, `UserContextAccessor`, `IExternalIdentityResolver`), request policy (`ICommandConfiguration<TCommand>`, `CommandConfigurationRegistry`), the domain-event envelope (`DomainEventNotification<TEvent>`, `IDomainEventHandler<TEvent>`), and the integration-event contracts of the outbox (`IIntegrationEvent`, `[IntegrationEventName]`, `IIntegrationEventTranslator<T>`, `IIntegrationEventHandler<T>`, `InboxIntegrationEventHandler<,>`, `IntegrationEventEnvelope`, `IIntegrationEventDispatcher`). MediatR-visible, EF-free. |
 
 ### Infrastructure
 
@@ -76,7 +76,7 @@ Local versus Remote is which collection a module is passed in. There is no confi
 
 ## Things to know before changing it
 
-- **`ListQuery` is abstract on purpose.** Every list feature declares its own request record; that record is what carries `[RequiredPermissions]` and what a Remote module registers a forwarding handler against.
+- **`ListQuery` is abstract on purpose.** Every list feature declares its own request record; that record is what a command configuration requires a permission for and what a Remote module registers a forwarding handler against.
 - **`ScopedSerginDispatcher` is scoped, not singleton.** The scope it opens comes from the root provider and can reach no circuit state, so it carries the caller's `IUserContext` in by hand. Making it a singleton again reintroduces the anonymous-user bug the host's `DispatcherUserContextTests` guards.
 - **`EventDispatcherInterceptor` runs before the transaction.** Moving it back to `SavedChangesAsync` reintroduces "caller sees failure, row already durable". The synchronous `SaveChanges` throws when events are pending rather than dropping them.
 - **The outbox is opt-in per module.** A `DbContext` implements `IOutboxDbContext` and calls `ApplyOutbox()`; nothing is mapped unconditionally, because EF would warn about pending model changes for any context that has not migrated the tables in.
