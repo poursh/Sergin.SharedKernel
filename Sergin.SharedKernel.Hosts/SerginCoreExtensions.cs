@@ -6,6 +6,7 @@ using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Options;
 using Sergin.SharedKernel.Application.Aggregates;
 using Sergin.SharedKernel.Application.Commands;
+using Sergin.SharedKernel.Application.Commands.Configuration;
 using Sergin.SharedKernel.Application.Concurrency;
 using Sergin.SharedKernel.Application.Events;
 using Sergin.SharedKernel.Application.Events.Integration;
@@ -115,6 +116,24 @@ public static class SerginCoreExtensions
         {
             builder.Services.AddSingleton<IIntegrationEventSource>(new AssemblyIntegrationEventSource(remoteModule.ContractsAssembly));
         }
+
+        // Every request's declared policy (ICommandConfiguration<T>), read by the permission and expected-version
+        // behaviors. ContractsAssembly, not ApplicationAssembly, and for remote modules too: a gateway must refuse
+        // a forbidden remote call before the gRPC hop, and a remote module ships nothing but its contracts. Built
+        // from sources rather than here, so a test host can add its own request types; the Use…Async bootstraps
+        // resolve it so a bad declaration fails host start, not the first send.
+        foreach (ISerginModule module in localModules)
+        {
+            builder.Services.AddSingleton(CommandConfigurationSource.FromAssembly(module.ContractsAssembly));
+        }
+
+        foreach (ISerginRemoteModule remoteModule in remoteModules)
+        {
+            builder.Services.AddSingleton(CommandConfigurationSource.FromAssembly(remoteModule.ContractsAssembly));
+        }
+
+        builder.Services.AddSingleton(provider =>
+            CommandConfigurationRegistry.FromSources(provider.GetServices<CommandConfigurationSource>()));
 
         builder.Services.AddSingleton<IIntegrationEventTypeRegistry, IntegrationEventTypeRegistry>();
         builder.Services.AddSingleton<IIntegrationEventSerializer, JsonIntegrationEventSerializer>();

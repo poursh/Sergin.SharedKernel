@@ -4,6 +4,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
 using Scalar.AspNetCore;
+using Sergin.SharedKernel.Application.Commands.Configuration;
 using Sergin.SharedKernel.Application.Securities.Users;
 using Sergin.SharedKernel.Hosts.Authentication;
 using Sergin.SharedKernel.Infrastracture.WebApi.Users;
@@ -46,6 +47,9 @@ public static class SerginWebApiExtensions
     public static async Task<WebApplication> UseSerginWebApiAsync(this WebApplication app, IReadOnlyCollection<ISerginModule> modules)
     {
         AggregateFeatureGuard.EnsureApplied(app.Services);
+
+        // Builds the registry now, so a bad ICommandConfiguration fails start rather than the first send.
+        app.Services.GetRequiredService<CommandConfigurationRegistry>();
 
         if (app.Environment.IsDevelopment())
         {
