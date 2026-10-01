@@ -77,6 +77,13 @@ public sealed class CommandConfigurationRegistry
 
     private static CommandSettings Run(Type configurationType, Type closedInterface, Type requestType)
     {
+        if (requestType.IsAbstract || requestType.IsInterface)
+        {
+            throw new InvalidOperationException(
+                $"Command configuration {configurationType.FullName} configures {requestType.FullName}, which is abstract or an interface. "
+                + "Settings are looked up by the exact type sent, so they would never apply: configure each concrete request.");
+        }
+
         object configuration;
 
         try

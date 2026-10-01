@@ -64,6 +64,23 @@ public static class SerginCoreExtensions
                 + "Local and Remote in the same host, and two classes for the same schema runs AddServices twice.");
         }
 
+        // Command configurations are read from ContractsAssembly only (see below). One written in the
+        // ApplicationAssembly would be ignored and its request would run with no permission or version check.
+        string[] misplacedConfigurations =
+        [
+            .. localModules
+                .SelectMany(module => CommandConfigurationSource.FromAssembly(module.ApplicationAssembly).ConfigurationTypes)
+                .Select(type => type.FullName!)
+        ];
+
+        if (misplacedConfigurations.Length > 0)
+        {
+            throw new InvalidOperationException(
+                $"Command configuration(s) found in a module's ApplicationAssembly: {string.Join(", ", misplacedConfigurations)}. "
+                + "Only ContractsAssembly is read, so these would be ignored and their requests left unprotected. "
+                + "Move each next to its request record in the module's .Application.Contracts project.");
+        }
+
         builder.Services.AddMediatR(options =>
         {
             foreach (ISerginModule module in localModules)
