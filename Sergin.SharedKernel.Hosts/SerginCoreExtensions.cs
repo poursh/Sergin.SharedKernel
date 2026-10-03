@@ -135,18 +135,18 @@ public static class SerginCoreExtensions
         }
 
         // Every request's declared policy (ICommandConfiguration<T>), read by the permission and expected-version
-        // behaviors. ContractsAssembly, not ApplicationAssembly, and for remote modules too: a gateway must refuse
-        // a forbidden remote call before the gRPC hop, and a remote module ships nothing but its contracts. Built
-        // from sources rather than here, so a test host can add its own request types; the Use…Async bootstraps
+        // behaviors. ConfigurationsAssembly, for remote modules too: a gateway must refuse a forbidden remote call
+        // before the gRPC hop, and a remote module ships its configurations alongside its contracts. Built from
+        // sources rather than here, so a test host can add its own request types; the Use…Async bootstraps
         // resolve it so a bad declaration fails host start, not the first send.
         foreach (ISerginModule module in localModules)
         {
-            builder.Services.AddSingleton(CommandConfigurationSource.FromAssembly(module.ContractsAssembly));
+            builder.Services.AddSingleton(CommandConfigurationSource.FromAssembly(module.ConfigurationsAssembly));
         }
 
         foreach (ISerginRemoteModule remoteModule in remoteModules)
         {
-            builder.Services.AddSingleton(CommandConfigurationSource.FromAssembly(remoteModule.ContractsAssembly));
+            builder.Services.AddSingleton(CommandConfigurationSource.FromAssembly(remoteModule.ConfigurationsAssembly));
         }
 
         builder.Services.AddSingleton(provider =>
@@ -192,7 +192,7 @@ public static class SerginCoreExtensions
         // in every environment. Each module DbContext builds its own copy for the EF model; see
         // SerginDbContext.AggregateFeatures for why that one cannot come from DI.
         builder.Services.AddSingleton(
-            AggregateFeatureRegistry.FromAssemblies(localModules.Select(module => module.ApplicationAssembly)));
+            AggregateFeatureRegistry.FromAssemblies(localModules.Select(module => module.ConfigurationsAssembly)));
 
         string connectionString = serginSection.GetConnectionString("Database")
             ?? throw new InvalidOperationException("Connection string 'Sergin:ConnectionStrings:Database' is not configured.");
