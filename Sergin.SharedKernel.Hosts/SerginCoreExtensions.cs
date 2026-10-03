@@ -64,22 +64,7 @@ public static class SerginCoreExtensions
                 + "Local and Remote in the same host, and two classes for the same schema runs AddServices twice.");
         }
 
-        // Command configurations are read from ContractsAssembly only (see below). One written in the
-        // ApplicationAssembly would be ignored and its request would run with no permission or version check.
-        string[] misplacedConfigurations =
-        [
-            .. localModules
-                .SelectMany(module => CommandConfigurationSource.FromAssembly(module.ApplicationAssembly).ConfigurationTypes)
-                .Select(type => type.FullName!)
-        ];
-
-        if (misplacedConfigurations.Length > 0)
-        {
-            throw new InvalidOperationException(
-                $"Command configuration(s) found in a module's ApplicationAssembly: {string.Join(", ", misplacedConfigurations)}. "
-                + "Only ContractsAssembly is read, so these would be ignored and their requests left unprotected. "
-                + "Move each next to its request record in the module's .Application.Contracts project.");
-        }
+        EnsureConfigurationsArePlaced(localModules, remoteModules);
 
         builder.Services.AddMediatR(options =>
         {
@@ -224,6 +209,43 @@ public static class SerginCoreExtensions
         }
 
         return serginSection;
+    }
+
+    /// <summary>
+    /// Command and aggregate feature configurations are read from a module's ConfigurationsAssembly only. One
+    /// written in its Application or Contracts assembly would be ignored: its request would run with no
+    /// permission or version check, or its aggregate would lose its features. An assembly that is also the
+    /// module's ConfigurationsAssembly is not scanned, so such a module composes; it is not a supported shape.
+    /// </summary>
+    private static void EnsureConfigurationsArePlaced(
+        IReadOnlyCollection<ISerginModule> localModules, IReadOnlyCollection<ISerginRemoteModule> remoteModules)
+    {
+        Assembly[] scanned =
+        [
+            .. localModules.SelectMany(module => new[] { module.ApplicationAssembly, module.ContractsAssembly }
+                .Where(assembly => assembly != module.ConfigurationsAssembly)),
+            .. remoteModules
+                .Where(module => module.ContractsAssembly != module.ConfigurationsAssembly)
+                .Select(module => module.ContractsAssembly),
+        ];
+
+        string[] misplaced =
+        [
+            .. scanned.Distinct()
+                .SelectMany(assembly => CommandConfigurationSource.FromAssembly(assembly).ConfigurationTypes
+                    .Concat(AggregateFeatureRegistry.ConfigurationTypesIn(assembly)))
+                .Select(type => type.FullName!)
+                .Distinct(StringComparer.Ordinal)
+                .Order(StringComparer.Ordinal),
+        ];
+
+        if (misplaced.Length > 0)
+        {
+            throw new InvalidOperationException(
+                $"Configuration(s) found outside a module's ConfigurationsAssembly: {string.Join(", ", misplaced)}. "
+                + "Only ConfigurationsAssembly is read, so these would be ignored: a request left unprotected, or an "
+                + "aggregate without its features. Move each to the module's .Application.Configurations project.");
+        }
     }
 
     /// <summary>
