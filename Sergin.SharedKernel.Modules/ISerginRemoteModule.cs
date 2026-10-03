@@ -19,5 +19,11 @@ public interface ISerginRemoteModule
 
     Assembly ContractsAssembly { get; }
 
+    /// <summary>
+    /// The module's .Application.Configurations assembly. A gateway builds its command configuration registry
+    /// from it, so a forbidden remote call is refused before the gRPC hop.
+    /// </summary>
+    Assembly ConfigurationsAssembly { get; }
+
     void AddRemoteServices(IServiceCollection services, IConfigurationSection configuration);
 }
