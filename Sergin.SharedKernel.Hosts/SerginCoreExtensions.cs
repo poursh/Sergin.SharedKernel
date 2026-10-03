@@ -64,22 +64,7 @@ public static class SerginCoreExtensions
                 + "Local and Remote in the same host, and two classes for the same schema runs AddServices twice.");
         }
 
-        // Command configurations are read from ContractsAssembly only (see below). One written in the
-        // ApplicationAssembly would be ignored and its request would run with no permission or version check.
-        string[] misplacedConfigurations =
-        [
-            .. localModules
-                .SelectMany(module => CommandConfigurationSource.FromAssembly(module.ApplicationAssembly).ConfigurationTypes)
-                .Select(type => type.FullName!)
-        ];
-
-        if (misplacedConfigurations.Length > 0)
-        {
-            throw new InvalidOperationException(
-                $"Command configuration(s) found in a module's ApplicationAssembly: {string.Join(", ", misplacedConfigurations)}. "
-                + "Only ContractsAssembly is read, so these would be ignored and their requests left unprotected. "
-                + "Move each next to its request record in the module's .Application.Contracts project.");
-        }
+        EnsureConfigurationsArePlaced(localModules, remoteModules);
 
         builder.Services.AddMediatR(options =>
         {
@@ -135,18 +120,18 @@ public static class SerginCoreExtensions
         }
 
         // Every request's declared policy (ICommandConfiguration<T>), read by the permission and expected-version
-        // behaviors. ContractsAssembly, not ApplicationAssembly, and for remote modules too: a gateway must refuse
-        // a forbidden remote call before the gRPC hop, and a remote module ships nothing but its contracts. Built
-        // from sources rather than here, so a test host can add its own request types; the Use…Async bootstraps
+        // behaviors. ConfigurationsAssembly, for remote modules too: a gateway must refuse a forbidden remote call
+        // before the gRPC hop, and a remote module ships its configurations alongside its contracts. Built from
+        // sources rather than here, so a test host can add its own request types; the Use…Async bootstraps
         // resolve it so a bad declaration fails host start, not the first send.
         foreach (ISerginModule module in localModules)
         {
-            builder.Services.AddSingleton(CommandConfigurationSource.FromAssembly(module.ContractsAssembly));
+            builder.Services.AddSingleton(CommandConfigurationSource.FromAssembly(module.ConfigurationsAssembly));
         }
 
         foreach (ISerginRemoteModule remoteModule in remoteModules)
         {
-            builder.Services.AddSingleton(CommandConfigurationSource.FromAssembly(remoteModule.ContractsAssembly));
+            builder.Services.AddSingleton(CommandConfigurationSource.FromAssembly(remoteModule.ConfigurationsAssembly));
         }
 
         builder.Services.AddSingleton(provider =>
@@ -192,7 +177,7 @@ public static class SerginCoreExtensions
         // in every environment. Each module DbContext builds its own copy for the EF model; see
         // SerginDbContext.AggregateFeatures for why that one cannot come from DI.
         builder.Services.AddSingleton(
-            AggregateFeatureRegistry.FromAssemblies(localModules.Select(module => module.ApplicationAssembly)));
+            AggregateFeatureRegistry.FromAssemblies(localModules.Select(module => module.ConfigurationsAssembly)));
 
         string connectionString = serginSection.GetConnectionString("Database")
             ?? throw new InvalidOperationException("Connection string 'Sergin:ConnectionStrings:Database' is not configured.");
@@ -224,6 +209,43 @@ public static class SerginCoreExtensions
         }
 
         return serginSection;
+    }
+
+    /// <summary>
+    /// Command and aggregate feature configurations are read from a module's ConfigurationsAssembly only. One
+    /// written in its Application or Contracts assembly would be ignored: its request would run with no
+    /// permission or version check, or its aggregate would lose its features. An assembly that is also the
+    /// module's ConfigurationsAssembly is not scanned, so such a module composes; it is not a supported shape.
+    /// </summary>
+    private static void EnsureConfigurationsArePlaced(
+        IReadOnlyCollection<ISerginModule> localModules, IReadOnlyCollection<ISerginRemoteModule> remoteModules)
+    {
+        Assembly[] scanned =
+        [
+            .. localModules.SelectMany(module => new[] { module.ApplicationAssembly, module.ContractsAssembly }
+                .Where(assembly => assembly != module.ConfigurationsAssembly)),
+            .. remoteModules
+                .Where(module => module.ContractsAssembly != module.ConfigurationsAssembly)
+                .Select(module => module.ContractsAssembly),
+        ];
+
+        string[] misplaced =
+        [
+            .. scanned.Distinct()
+                .SelectMany(assembly => CommandConfigurationSource.FromAssembly(assembly).ConfigurationTypes
+                    .Concat(AggregateFeatureRegistry.ConfigurationTypesIn(assembly)))
+                .Select(type => type.FullName!)
+                .Distinct(StringComparer.Ordinal)
+                .Order(StringComparer.Ordinal),
+        ];
+
+        if (misplaced.Length > 0)
+        {
+            throw new InvalidOperationException(
+                $"Configuration(s) found outside a module's ConfigurationsAssembly: {string.Join(", ", misplaced)}. "
+                + "Only ConfigurationsAssembly is read, so these would be ignored: a request left unprotected, or an "
+                + "aggregate without its features. Move each to the module's .Application.Configurations project.");
+        }
     }
 
     /// <summary>

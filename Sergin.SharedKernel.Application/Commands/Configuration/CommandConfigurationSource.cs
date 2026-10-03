@@ -4,7 +4,7 @@ namespace Sergin.SharedKernel.Application.Commands.Configuration;
 
 /// <summary>
 /// A set of configuration types to put in the registry, registered as a singleton per assembly the way
-/// <c>AssemblyIntegrationEventSource</c> is. <c>AddSerginCore</c> adds one per module ContractsAssembly; a test
+/// <c>AssemblyIntegrationEventSource</c> is. <c>AddSerginCore</c> adds one per module ConfigurationsAssembly; a test
 /// host adds <see cref="FromTypes"/> for its own requests, so it never scans a test assembly whole.
 /// </summary>
 public sealed class CommandConfigurationSource

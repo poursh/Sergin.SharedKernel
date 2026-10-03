@@ -70,6 +70,7 @@ Fifteen projects, layered the same way a module is.
 - The domain-event dispatcher and interceptor, `IDbConnectionFactory`, the localizer, `IDateTimeProvider`.
 - The scoped `IUserContext` — preferring one seeded through `UserContextAccessor`, otherwise built by whatever `IUserContextFactory` the host registered. **It registers no factory itself**; that is the one host-shaped decision, and each bootstrap makes it before calling in.
 - The `AddServices` loop over Local modules and the `AddRemoteServices` loop over Remote ones, guarded together so no two modules claim a schema.
+- The command configuration registry (from every Local and Remote module's `ConfigurationsAssembly`) and the aggregate feature registry (from every Local one). Start is refused if any command or aggregate configuration sits in a module's Application or Contracts assembly instead: only `ConfigurationsAssembly` is read.
 - The outbox: `Sergin:Outbox` options validated at start, an integration-event source per module's `ContractsAssembly`, the registry and serializer, the translator scan, the relay identity, `OutboxRelayService` as a hosted service, and the transport seam — `InProcessIntegrationEventDispatcher` by its concrete type, then `TryAddSingleton<IIntegrationEventDispatcher>` so a broker-backed dispatcher registered earlier in `Program.cs` wins.
 
 Local versus Remote is which collection a module is passed in. There is no configuration key for it, and none for the transport either — both are composition-time choices.

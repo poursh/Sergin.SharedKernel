@@ -9,7 +9,7 @@ public abstract class SerginDbContext(DbContextOptions options) : DbContext(opti
 {
     /// <summary>
     /// The aggregate feature configurations this context's model applies. A module that opts in overrides it with
-    /// <c>AggregateFeatureRegistry.FromAssemblies([&lt;Module&gt;ApplicationAssemblyReference.Assembly])</c>,
+    /// <c>AggregateFeatureRegistry.FromAssemblies([&lt;Module&gt;ApplicationConfigurationsAssemblyReference.Assembly])</c>,
     /// expression-bodied so the scan runs only when EF builds the model, once per context type.
     /// <para>
     /// It is a property of the context, not a DI lookup, on purpose: an IDesignTimeDbContextFactory builds
