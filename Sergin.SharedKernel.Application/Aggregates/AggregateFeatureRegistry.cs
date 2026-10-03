@@ -5,7 +5,7 @@ namespace Sergin.SharedKernel.Application.Aggregates;
 /// <summary>
 /// What every <see cref="IAggregateFeatureConfiguration{TAggregateRoot}"/> in a set of assemblies declared,
 /// keyed by aggregate root type. Built twice, for two readers: each module <c>DbContext</c> builds its own from
-/// its module's <c>.Application</c> assembly (through <c>SerginDbContext.AggregateFeatures</c>, which also works
+/// its module's <c>.Application.Configurations</c> assembly (through <c>SerginDbContext.AggregateFeatures</c>, which also works
 /// at design time, where there is no DI container), and <c>AddSerginCore</c> registers one built from every
 /// local module for the startup guard. Both builds refuse two configurations for one root and a configuration
 /// without a parameterless constructor. Which entities are an aggregate's children is the EF model's
@@ -74,8 +74,19 @@ public sealed class AggregateFeatureRegistry
     {
         ArgumentNullException.ThrowIfNull(assemblies);
 
-        return FromConfigurationTypes(
-            assemblies.SelectMany(assembly => assembly.GetTypes()).Where(IsConfigurationType));
+        return FromConfigurationTypes(assemblies.SelectMany(ConfigurationTypesIn));
+    }
+
+    /// <summary>
+    /// The aggregate feature configuration types declared in <paramref name="assembly"/>, the counterpart of
+    /// <c>CommandConfigurationSource.FromAssembly(assembly).ConfigurationTypes</c>. AddSerginCore's placement
+    /// guard uses both to refuse a configuration outside a module's ConfigurationsAssembly.
+    /// </summary>
+    public static IReadOnlyCollection<Type> ConfigurationTypesIn(Assembly assembly)
+    {
+        ArgumentNullException.ThrowIfNull(assembly);
+
+        return [.. assembly.GetTypes().Where(IsConfigurationType)];
     }
 
     public static AggregateFeatureRegistry FromConfigurationTypes(IEnumerable<Type> configurationTypes)
