@@ -1,4 +1,4 @@
-using System.Reflection;
+﻿using System.Reflection;
 
 namespace Sergin.SharedKernel.Application.Commands.Configuration;
 
@@ -22,6 +22,20 @@ public sealed class CommandConfigurationRegistry
 
     /// <summary>The configured request types.</summary>
     public IReadOnlyCollection<Type> ConfiguredTypes => [.. settings.Keys];
+
+    /// <summary>
+    /// Every permission any configuration requires, plus <see cref="Permission.AllPlatform"/>, ordered by name —
+    /// the catalogue a role editor offers. Permissions are declared by developers in configurations, never created
+    /// at runtime, so this is the complete set the platform checks.
+    /// </summary>
+    public IReadOnlyCollection<Permission> KnownPermissions =>
+    [
+        .. settings.Values
+            .SelectMany(declared => declared.RequiredPermissions)
+            .Append(Permission.AllPlatform)
+            .DistinctBy(permission => permission.Value)
+            .OrderBy(permission => permission.Value, StringComparer.Ordinal)
+    ];
 
     /// <summary>The settings <paramref name="requestType"/> declared; None for an unconfigured request.</summary>
     public CommandSettings For(Type requestType)

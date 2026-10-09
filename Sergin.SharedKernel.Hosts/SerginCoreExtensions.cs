@@ -1,4 +1,4 @@
-using System.Reflection;
+﻿using System.Reflection;
 using FluentValidation;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -15,6 +15,7 @@ using Sergin.SharedKernel.Application.Securities.Authorization;
 using Sergin.SharedKernel.Application.Securities.Users;
 using Sergin.SharedKernel.Application.Times;
 using Sergin.SharedKernel.Hosts;
+using Sergin.SharedKernel.Hosts.Authorization;
 using Sergin.SharedKernel.Hosts.Outbox;
 using Sergin.SharedKernel.Infrastracture.Data;
 using Sergin.SharedKernel.Infrastructure.Data.EFCore;
@@ -207,6 +208,11 @@ public static class SerginCoreExtensions
         {
             remoteModule.AddRemoteServices(builder.Services, serginSection);
         }
+
+        // Scoped permission checks. After the module loops and TryAdd, so the module owning the scope tree
+        // (UserAccess) supplies the checker whatever order it registers in, and a host without one fails closed.
+        builder.Services.TryAddScoped<IScopedPermissionChecker, DenyAllScopedPermissionChecker>();
+        builder.Services.AddScoped<IScopeAuthorization, ScopeAuthorization>();
 
         return serginSection;
     }
