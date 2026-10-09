@@ -1,4 +1,4 @@
-# CLAUDE.md
+﻿# CLAUDE.md
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
@@ -81,3 +81,13 @@ For a **nullable** wrapped value object, both type params and both conversion ex
 - **Local variable typing**: declare a local as the narrowest interface its actual usage needs (e.g. `IReadOnlyCollection<T>` over `List<T>` when only ever handed to something expecting that interface). Collection expressions (`[.. ...]`) can target an interface directly since C# 12.
 
 Each consuming project has a `GlobalUsings.cs`; check it before adding `using` statements that may already be global.
+
+## Scoped permission checks
+
+`PermissionCheckPipelineBehavior` answers "may this caller do X at all" from `IUserContext.Permissions` (the global claims). A module that owns a scope tree answers "may they do X **here**" through `Application/Securities/Authorization/`:
+
+- **`IScopedPermissionChecker`** — `HasPermissionAsync(userId, permission, scopeId)`. Implemented by the scope-owning module (UserAccess). `AddSerginCore` registers **`DenyAllScopedPermissionChecker`** with `TryAddScoped` *after* the module loop, so the module's registration wins whatever its order and a host without one fails closed.
+- **`IScopeAuthorization`** — `CurrentUserHasAsync(permission, scopeId)` for the signed-in user. Implemented by `Hosts/Authorization/ScopeAuthorization`: a permission held globally (`IUserContext.HasPermission`, which includes `IsSystemAdmin`) passes without a lookup; otherwise it asks the checker with `IUserContext.Id`, and **any exception is logged and becomes a denial**. Handlers that act on a target scope call this first and answer `Error.Forbidden()`; there is no pipeline behavior for it yet.
+- **`CommandConfigurationRegistry.KnownPermissions`** — every permission any configuration requires, plus `Permission.AllPlatform`, ordered: the permission catalogue a role editor offers. Permissions are declared by developers, never created at runtime.
+
+Design: the host repo's `docs/superpowers/specs/2026-10-09-scoped-rbac-design.md`.
