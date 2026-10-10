@@ -47,8 +47,7 @@ public sealed class CommandConfigurationBuilder<TCommand> : CommandConfiguration
 
     /// <summary>
     /// The required permissions are checked on the scope <c>IAuthorizationScopeContext</c> holds instead of the
-    /// global claims alone: a permission held globally still passes, and a grant on that scope (or above it, over
-    /// the subtree) passes too. Opt in only for a request whose data the current scope actually limits. The
+    /// global claims: only a stored grant on that scope, or above it over the subtree, passes. Opt in only for a request whose data the current scope actually limits. The
     /// registry refuses it on a configuration that requires no permission.
     /// </summary>
     public CommandConfigurationBuilder<TCommand> InCurrentScope()

@@ -17,7 +17,9 @@ internal sealed class ScopeAuthorization(
     {
         ArgumentNullException.ThrowIfNull(permission);
 
-        if (userContext.HasPermission(permission))
+        // Answered by scope only: the global claims are not consulted. A system admin (the outbox relay identity,
+        // which has no user row) is the one caller that skips the lookup.
+        if (userContext.IsSystemAdmin)
         {
             return true;
         }

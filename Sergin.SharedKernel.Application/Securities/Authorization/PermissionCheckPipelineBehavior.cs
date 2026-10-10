@@ -42,7 +42,7 @@ internal sealed class PermissionCheckPipelineBehavior<TRequest, TResponse>(
             return userContext.HasPermission([.. required]);
         }
 
-        // Opted in: each permission on the scope IAuthorizationScopeContext holds. Global claims still pass first.
+        // Opted in: each permission on the scope IAuthorizationScopeContext holds. Claims are not consulted.
         foreach (Permission permission in required)
         {
             if (!await scopeAuthorization.CurrentUserHasAsync(permission, cancellationToken))

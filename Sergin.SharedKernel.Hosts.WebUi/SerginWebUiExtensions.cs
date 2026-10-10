@@ -127,6 +127,11 @@ public static class SerginWebUiExtensions
         }
 
         SerginAuthOptions authOptions = app.Services.GetRequiredService<IOptions<SerginAuthOptions>>().Value;
+
+        if (authOptions.Mode == SerginAuthMode.DevUser)
+        {
+            await SeedDevUserAsync(app.Services);
+        }
         bool keycloak = authOptions.Mode == SerginAuthMode.Keycloak;
 
         if (keycloak)
@@ -157,6 +162,27 @@ public static class SerginWebUiExtensions
         }
 
         return app;
+    }
+
+    /// <summary>
+    /// Makes the configured dev user a real user holding a global administrator grant, through the user store's
+    /// <see cref="IDevUserSeeder"/> when one is registered. Scoped checks answer by user id from that store, so the
+    /// configured permissions alone would pass no scoped check. DevUser mode only runs in Development.
+    /// </summary>
+    private static async Task SeedDevUserAsync(IServiceProvider services)
+    {
+        await using AsyncServiceScope scope = services.CreateAsyncScope();
+
+        if (scope.ServiceProvider.GetService<IDevUserSeeder>() is not { } seeder)
+        {
+            return;
+        }
+
+        DevUserOptions options = scope.ServiceProvider.GetRequiredService<IOptions<DevUserOptions>>().Value;
+
+        await seeder.EnsureAsync(
+            new DevUser(options.Id, options.UserName, options.Email, options.FirstName, options.LastName),
+            CancellationToken.None);
     }
 
     private static void ValidateRoutePrefixes(SerginUiModuleCatalog catalog)

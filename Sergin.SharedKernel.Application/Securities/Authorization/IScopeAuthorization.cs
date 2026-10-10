@@ -1,9 +1,10 @@
 namespace Sergin.SharedKernel.Application.Securities.Authorization;
 
 /// <summary>
-/// The signed-in user's scoped permission check. A permission the user holds globally (the
-/// <c>sergin:permission</c> claims, which carry only grants effective on every scope) passes without a lookup;
-/// anything else is asked of <see cref="IScopedPermissionChecker"/>. Any error in the check is a denial.
+/// The signed-in user's scoped permission check, answered by scope only: every check is asked of
+/// <see cref="IScopedPermissionChecker"/> with the user's id, and the <c>sergin:permission</c> claims are not
+/// consulted. Only a system admin (<see cref="Users.IUserContext.IsSystemAdmin"/>) passes without a lookup. Any
+/// error in the check is a denial.
 /// </summary>
 public interface IScopeAuthorization
 {
