@@ -15,7 +15,6 @@ using Sergin.SharedKernel.Application.Securities.Authorization;
 using Sergin.SharedKernel.Application.Securities.Users;
 using Sergin.SharedKernel.Application.Times;
 using Sergin.SharedKernel.Hosts;
-using Sergin.SharedKernel.Hosts.Authorization;
 using Sergin.SharedKernel.Hosts.Outbox;
 using Sergin.SharedKernel.Infrastracture.Data;
 using Sergin.SharedKernel.Infrastructure.Data.EFCore;

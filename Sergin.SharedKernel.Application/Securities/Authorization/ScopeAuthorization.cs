@@ -1,9 +1,8 @@
 using Microsoft.Extensions.Logging;
-using Sergin.SharedKernel.Application.Securities.Authorization;
 using Sergin.SharedKernel.Domain.Securities;
 using Sergin.SharedKernel.Application.Securities.Users;
 
-namespace Sergin.SharedKernel.Hosts.Authorization;
+namespace Sergin.SharedKernel.Application.Securities.Authorization;
 
 internal sealed class ScopeAuthorization(
     IUserContext userContext,
