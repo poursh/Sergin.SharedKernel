@@ -7,10 +7,12 @@ public abstract class CommandConfigurationBuilder
 
     private protected bool ExpectedVersionRequired { get; set; }
 
+    private protected bool InScope { get; set; }
+
     internal CommandSettings Settings =>
-        Permissions.Count == 0 && !ExpectedVersionRequired
+        Permissions.Count == 0 && !ExpectedVersionRequired && !InScope
             ? CommandSettings.None
-            : new CommandSettings([.. Permissions.Distinct()], ExpectedVersionRequired);
+            : new CommandSettings([.. Permissions.Distinct()], ExpectedVersionRequired, InScope);
 }
 
 public sealed class CommandConfigurationBuilder<TCommand> : CommandConfigurationBuilder
@@ -40,6 +42,18 @@ public sealed class CommandConfigurationBuilder<TCommand> : CommandConfiguration
     public CommandConfigurationBuilder<TCommand> RequireExpectedVersion()
     {
         ExpectedVersionRequired = true;
+        return this;
+    }
+
+    /// <summary>
+    /// The required permissions are checked on the scope <c>IAuthorizationScopeContext</c> holds instead of the
+    /// global claims alone: a permission held globally still passes, and a grant on that scope (or above it, over
+    /// the subtree) passes too. Opt in only for a request whose data the current scope actually limits. The
+    /// registry refuses it on a configuration that requires no permission.
+    /// </summary>
+    public CommandConfigurationBuilder<TCommand> InCurrentScope()
+    {
+        InScope = true;
         return this;
     }
 }

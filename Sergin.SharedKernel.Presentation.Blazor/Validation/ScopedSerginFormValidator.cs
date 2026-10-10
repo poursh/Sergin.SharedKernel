@@ -1,6 +1,7 @@
 using FluentValidation;
 using FluentValidation.Results;
 using Microsoft.Extensions.DependencyInjection;
+using Sergin.SharedKernel.Application.Securities.Authorization;
 using Sergin.SharedKernel.Application.Securities.Users;
 
 namespace Sergin.SharedKernel.Presentation.Blazor.Validation;
@@ -16,9 +17,11 @@ namespace Sergin.SharedKernel.Presentation.Blazor.Validation;
 /// Registered <b>scoped</b>, for the dispatcher's reason: the scope this opens comes from the root
 /// provider and can build no user of its own, so the caller's <see cref="IUserContext"/> is seeded
 /// into it through <see cref="UserContextAccessor"/>. No validator reads the user today; seeding it
-/// keeps a future user-aware rule behaving identically here and in the pipeline.
+/// keeps a future user-aware rule behaving identically here and in the pipeline. The circuit's
+/// <see cref="IAuthorizationScopeContext"/> is seeded the same way.
 /// </remarks>
-internal sealed class ScopedSerginFormValidator(IServiceScopeFactory scopeFactory, IUserContext userContext)
+internal sealed class ScopedSerginFormValidator(
+    IServiceScopeFactory scopeFactory, IUserContext userContext, IAuthorizationScopeContext scopeContext)
     : ISerginFormValidator
 {
     public async Task<IReadOnlyCollection<string>> ValidateAsync<TRequest>(
@@ -27,6 +30,7 @@ internal sealed class ScopedSerginFormValidator(IServiceScopeFactory scopeFactor
         await using AsyncServiceScope scope = scopeFactory.CreateAsyncScope();
 
         scope.ServiceProvider.GetRequiredService<UserContextAccessor>().Current = userContext;
+        scope.ServiceProvider.GetRequiredService<IAuthorizationScopeContext>().Set(scopeContext.ScopeId);
 
         IValidator<TRequest>? validator = scope.ServiceProvider.GetService<IValidator<TRequest>>();
 

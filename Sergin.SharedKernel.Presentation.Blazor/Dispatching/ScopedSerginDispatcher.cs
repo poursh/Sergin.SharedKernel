@@ -1,5 +1,6 @@
 using Microsoft.Extensions.DependencyInjection;
 using Sergin.SharedKernel.Application.Concurrency;
+using Sergin.SharedKernel.Application.Securities.Authorization;
 using Sergin.SharedKernel.Application.Securities.Users;
 using Sergin.SharedKernel.Domain;
 
@@ -22,9 +23,11 @@ namespace Sergin.SharedKernel.Presentation.Blazor.Dispatching;
 /// <c>HttpContext</c> and no <c>AuthenticationStateProvider</c>, and a user context built inside it would
 /// be anonymous — every required-permission check would fail for a signed-in user. So the
 /// dispatcher takes the caller's own <see cref="IUserContext"/> and seeds it into the child scope through
-/// <see cref="UserContextAccessor"/>. Making this a singleton again reintroduces that bug.
+/// <see cref="UserContextAccessor"/>. Making this a singleton again reintroduces that bug. The circuit's
+/// <see cref="IAuthorizationScopeContext"/> is copied into the child scope for the same reason.
 /// </remarks>
-internal sealed class ScopedSerginDispatcher(IServiceScopeFactory scopeFactory, IUserContext userContext)
+internal sealed class ScopedSerginDispatcher(
+    IServiceScopeFactory scopeFactory, IUserContext userContext, IAuthorizationScopeContext scopeContext)
     : ISerginDispatcher
 {
     public async Task<ErrorOr<TResponse>> SendAsync<TResponse>(
@@ -32,7 +35,7 @@ internal sealed class ScopedSerginDispatcher(IServiceScopeFactory scopeFactory, 
     {
         await using AsyncServiceScope scope = scopeFactory.CreateAsyncScope();
 
-        scope.ServiceProvider.GetRequiredService<UserContextAccessor>().Current = userContext;
+        Seed(scope.ServiceProvider);
 
         ISender sender = scope.ServiceProvider.GetRequiredService<ISender>();
 
@@ -44,7 +47,7 @@ internal sealed class ScopedSerginDispatcher(IServiceScopeFactory scopeFactory, 
     {
         await using AsyncServiceScope scope = scopeFactory.CreateAsyncScope();
 
-        scope.ServiceProvider.GetRequiredService<UserContextAccessor>().Current = userContext;
+        Seed(scope.ServiceProvider);
 
         // The version travels in the child scope beside the user, never on the request.
         ConcurrencyContext concurrency = scope.ServiceProvider.GetRequiredService<ConcurrencyContext>();
@@ -61,5 +64,12 @@ internal sealed class ScopedSerginDispatcher(IServiceScopeFactory scopeFactory, 
         return concurrency.Current is { } version
             ? new Versioned<TResponse>(result.Value, version)
             : VersionErrors.NotPublished;
+    }
+
+    /// <summary>Hands the circuit's user and current scope down to a send's child scope.</summary>
+    private void Seed(IServiceProvider services)
+    {
+        services.GetRequiredService<UserContextAccessor>().Current = userContext;
+        services.GetRequiredService<IAuthorizationScopeContext>().Set(scopeContext.ScopeId);
     }
 }

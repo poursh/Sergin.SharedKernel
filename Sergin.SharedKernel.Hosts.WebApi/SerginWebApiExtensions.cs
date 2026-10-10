@@ -10,6 +10,7 @@ using Sergin.SharedKernel.Hosts.Authentication;
 using Sergin.SharedKernel.Infrastracture.WebApi.Users;
 using Sergin.SharedKernel.Infrastructure.Data.EFCore.Aggregates;
 using Sergin.SharedKernel.Modules;
+using Sergin.SharedKernel.Presentation.WebApi.Authorization;
 using Sergin.SharedKernel.Presentation.WebApi.Concurrency;
 
 namespace Microsoft.Extensions.Hosting;
@@ -69,7 +70,9 @@ public static class SerginWebApiExtensions
 
         foreach (ISerginWebApiModule webModule in modules.OfType<ISerginWebApiModule>())
         {
-            webModule.MapEndpoints(app.MapGroup(webModule.Schema).AddEndpointFilter<ExpectedVersionEndpointFilter>());
+            webModule.MapEndpoints(app.MapGroup(webModule.Schema)
+                .AddEndpointFilter<ExpectedVersionEndpointFilter>()
+                .AddEndpointFilter<AuthorizationScopeEndpointFilter>());
         }
 
         app.MapOpenApi();

@@ -189,6 +189,9 @@ public static class SerginCoreExtensions
         // Seeded by each front end before a send and read back after it; see ConcurrencyContext.
         builder.Services.AddScoped<ConcurrencyContext>();
 
+        // The scope the caller works in, Root until set; carried into each send the same way. See IAuthorizationScopeContext.
+        builder.Services.AddScoped<IAuthorizationScopeContext, AuthorizationScopeContext>();
+
         // A seeded context wins over building a fresh one. Scopes opened from the root provider — every
         // Blazor dispatcher send — can reach neither an HttpContext nor the circuit's authentication
         // state, so the caller hands its own context down rather than having the factory guess.

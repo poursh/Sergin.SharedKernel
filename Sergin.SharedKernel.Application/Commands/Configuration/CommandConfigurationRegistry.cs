@@ -7,7 +7,8 @@ namespace Sergin.SharedKernel.Application.Commands.Configuration;
 /// host from every registered <see cref="CommandConfigurationSource"/> and read by the permission and
 /// expected-version pipeline behaviors on each send. Refuses two configurations for one request, a
 /// configuration without a parameterless constructor, an expected version on a request that is not an
-/// <see cref="ICommand{TResponse}"/>, and a configuration whose Configure throws — each naming the type.
+/// <see cref="ICommand{TResponse}"/>, a current-scope check with no permission to check, and a configuration whose
+/// Configure throws — each naming the type.
 /// </summary>
 public sealed class CommandConfigurationRegistry
 {
@@ -135,6 +136,13 @@ public sealed class CommandConfigurationRegistry
             throw new InvalidOperationException(
                 $"Command configuration {configurationType.FullName} requires an expected version for {requestType.FullName}, "
                 + "which is not an ICommand<T>. Only a command writes, so only a command can carry an expected version.");
+        }
+
+        if (declared.PermissionsInCurrentScope && declared.RequiredPermissions.Count == 0)
+        {
+            throw new InvalidOperationException(
+                $"Command configuration {configurationType.FullName} checks {requestType.FullName} in the current scope "
+                + "but requires no permission. Call RequirePermissions(...) with InCurrentScope(), or drop InCurrentScope().");
         }
 
         return declared;

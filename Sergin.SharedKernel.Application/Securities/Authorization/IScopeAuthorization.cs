@@ -7,5 +7,9 @@ namespace Sergin.SharedKernel.Application.Securities.Authorization;
 /// </summary>
 public interface IScopeAuthorization
 {
+    /// <summary>Checks <paramref name="permission"/> on <paramref name="scopeId"/>: the target the caller names.</summary>
     Task<bool> CurrentUserHasAsync(Permission permission, Guid scopeId, CancellationToken cancellationToken = default);
+
+    /// <summary>Checks <paramref name="permission"/> on the scope <see cref="IAuthorizationScopeContext"/> holds.</summary>
+    Task<bool> CurrentUserHasAsync(Permission permission, CancellationToken cancellationToken = default);
 }

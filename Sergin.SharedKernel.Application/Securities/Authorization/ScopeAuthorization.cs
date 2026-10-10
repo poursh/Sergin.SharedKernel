@@ -7,8 +7,12 @@ namespace Sergin.SharedKernel.Application.Securities.Authorization;
 internal sealed class ScopeAuthorization(
     IUserContext userContext,
     IScopedPermissionChecker checker,
+    IAuthorizationScopeContext scopeContext,
     ILogger<ScopeAuthorization> logger) : IScopeAuthorization
 {
+    public Task<bool> CurrentUserHasAsync(Permission permission, CancellationToken cancellationToken = default) =>
+        CurrentUserHasAsync(permission, scopeContext.ScopeId, cancellationToken);
+
     public async Task<bool> CurrentUserHasAsync(Permission permission, Guid scopeId, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(permission);
