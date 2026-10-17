@@ -13,7 +13,6 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Protocols.OpenIdConnect;
-using Sergin.SharedKernel.Domain.Securities;
 using Sergin.SharedKernel.Application.Securities.Users;
 using JwtTokenValidatedContext = Microsoft.AspNetCore.Authentication.JwtBearer.TokenValidatedContext;
 using OidcTokenValidatedContext = Microsoft.AspNetCore.Authentication.OpenIdConnect.TokenValidatedContext;
@@ -21,9 +20,9 @@ using OidcTokenValidatedContext = Microsoft.AspNetCore.Authentication.OpenIdConn
 namespace Sergin.SharedKernel.Hosts.Authentication;
 
 /// <summary>
-/// Wires the identity half of a Sergin host. Authorization is unaffected — permissions still come from
-/// Sergin's own store through <see cref="IExternalIdentityResolver"/> and are still enforced by
-/// <c>PermissionCheckPipelineBehavior</c>; this only decides who the caller is.
+/// Wires the identity half of a Sergin host. It only decides who the caller is: <see cref="IExternalIdentityResolver"/>
+/// maps the provider's identity to a Sergin user id, and <c>PermissionCheckPipelineBehavior</c> answers what that
+/// user may do from the scoped grants.
 /// </summary>
 public static class SerginAuthenticationExtensions
 {
@@ -109,7 +108,7 @@ public static class SerginAuthenticationExtensions
                     jwtOptions.TokenValidationParameters.ValidIssuer = options.Authority;
                 }
 
-                jwtOptions.Events = new JwtBearerEvents { OnTokenValidated = StampCachedPermissionsAsync };
+                jwtOptions.Events = new JwtBearerEvents { OnTokenValidated = StampCachedUserAsync };
             });
 
         services.AddAuthorization();
@@ -197,14 +196,14 @@ public static class SerginAuthenticationExtensions
             oidcOptions.Scope.Add(scope);
         }
 
-        oidcOptions.Events.OnTokenValidated = StampResolvedPermissionsAsync;
+        oidcOptions.Events.OnTokenValidated = StampResolvedUserAsync;
     }
 
     /// <summary>
-    /// Turns the provider's assertion into Sergin's own answer, once, at sign-in. Everything downstream
-    /// reads the resulting claims, which is what keeps <c>IUserContext</c> free of database work.
+    /// Turns the provider's assertion into a Sergin user id, once, at sign-in. Everything downstream reads
+    /// the resulting claim, which is what keeps <c>IUserContext</c> free of database work.
     /// </summary>
-    private static async Task StampResolvedPermissionsAsync(OidcTokenValidatedContext context)
+    private static async Task StampResolvedUserAsync(OidcTokenValidatedContext context)
     {
         if (context.Principal?.Identity is not ClaimsIdentity identity)
         {
@@ -220,7 +219,7 @@ public static class SerginAuthenticationExtensions
         Stamp(identity, result);
     }
 
-    private static async Task StampCachedPermissionsAsync(JwtTokenValidatedContext context)
+    private static async Task StampCachedUserAsync(JwtTokenValidatedContext context)
     {
         if (context.Principal?.Identity is not ClaimsIdentity identity)
         {
@@ -240,7 +239,7 @@ public static class SerginAuthenticationExtensions
                     context.HttpContext.RequestServices.GetRequiredService<IExternalIdentityResolver>();
 
                 return await resolver.ResolveAsync(external, context.HttpContext.RequestAborted);
-            }) ?? new ExternalIdentityResult(Guid.Empty, []);
+            }) ?? new ExternalIdentityResult(Guid.Empty);
 
         Stamp(identity, result);
     }
@@ -249,11 +248,6 @@ public static class SerginAuthenticationExtensions
     {
         identity.AddClaim(new Claim(
             SerginClaimTypes.UserId, result.UserId.ToString("D", CultureInfo.InvariantCulture)));
-
-        foreach (Permission permission in result.Permissions)
-        {
-            identity.AddClaim(new Claim(SerginClaimTypes.Permission, permission.Value));
-        }
     }
 
     private static ExternalIdentity ReadExternalIdentity(ClaimsPrincipal principal)

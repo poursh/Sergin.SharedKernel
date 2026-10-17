@@ -1,7 +1,7 @@
 namespace Sergin.SharedKernel.Application.Securities.Users;
 
 /// <summary>
-/// Turns an identity proven by an external provider into a Sergin user with a permission set.
+/// Turns an identity proven by an external provider into a Sergin user.
 /// </summary>
 /// <remarks>
 /// This is the seam between authentication and authorization. SharedKernel knows how to authenticate
@@ -30,4 +30,4 @@ public sealed record ExternalIdentity(
     string LastName);
 
 /// <summary>What Sergin decided about that caller.</summary>
-public sealed record ExternalIdentityResult(Guid UserId, IReadOnlyCollection<Permission> Permissions);
+public sealed record ExternalIdentityResult(Guid UserId);

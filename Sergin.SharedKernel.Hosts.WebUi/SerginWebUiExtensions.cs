@@ -166,8 +166,8 @@ public static class SerginWebUiExtensions
 
     /// <summary>
     /// Makes the configured dev user a real user holding a global administrator grant, through the user store's
-    /// <see cref="IDevUserSeeder"/> when one is registered. Scoped checks answer by user id from that store, so the
-    /// configured permissions alone would pass no scoped check. DevUser mode only runs in Development.
+    /// <see cref="IDevUserSeeder"/> when one is registered. Scoped checks answer by user id from that store, so
+    /// without it the dev user would pass no check. DevUser mode only runs in Development.
     /// </summary>
     private static async Task SeedDevUserAsync(IServiceProvider services)
     {

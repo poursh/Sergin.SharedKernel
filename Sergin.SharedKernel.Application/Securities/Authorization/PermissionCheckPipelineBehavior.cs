@@ -6,7 +6,7 @@ namespace Sergin.SharedKernel.Application.Securities.Authorization;
 
 /// <summary>
 /// Checks every permission a request's configuration requires on the scope <see cref="IAuthorizationScopeContext"/>
-/// holds, or on the root scope for <c>AtRoot()</c>. Claims are not consulted. Once the check passes, the request runs
+/// holds, or on the root scope for <c>AtRoot()</c>. Once the check passes, the request runs
 /// with two things set for it: its permissions in <see cref="RequiredPermissionsContext"/>, which the save checks
 /// again on the scope of every record it writes, and <see cref="ScopeFilter"/>, which narrows its reads of scoped
 /// aggregates to the current subtree and to where the caller holds every one of those permissions. The save's

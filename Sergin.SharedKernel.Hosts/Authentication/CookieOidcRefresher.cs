@@ -138,8 +138,8 @@ internal sealed class CookieOidcRefresher(IOptionsMonitor<OpenIdConnectOptions> 
     }
 
     /// <summary>
-    /// Moves the authorization Sergin resolved at sign-in onto the rebuilt identity. Without this the
-    /// user keeps their name and loses every permission the moment their token refreshes.
+    /// Moves the Sergin user id resolved at sign-in onto the rebuilt identity. Without this the user keeps
+    /// their name and loses their Sergin identity, and so every grant, the moment their token refreshes.
     /// </summary>
     private static void CarryOverSerginClaims(ClaimsPrincipal? previous, ClaimsIdentity refreshed)
     {
@@ -155,6 +155,5 @@ internal sealed class CookieOidcRefresher(IOptionsMonitor<OpenIdConnectOptions> 
     }
 
     private static bool IsSerginClaim(Claim claim)
-        => string.Equals(claim.Type, SerginClaimTypes.UserId, StringComparison.Ordinal)
-            || string.Equals(claim.Type, SerginClaimTypes.Permission, StringComparison.Ordinal);
+        => string.Equals(claim.Type, SerginClaimTypes.UserId, StringComparison.Ordinal);
 }

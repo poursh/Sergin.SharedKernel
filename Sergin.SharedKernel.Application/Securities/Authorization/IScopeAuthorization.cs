@@ -2,8 +2,8 @@ namespace Sergin.SharedKernel.Application.Securities.Authorization;
 
 /// <summary>
 /// The signed-in user's scoped permission check, answered by scope only: every check is asked of
-/// <see cref="IScopedPermissionChecker"/> with the user's id, and the <c>sergin:permission</c> claims are not
-/// consulted. Only a system admin (<see cref="Users.IUserContext.IsSystemAdmin"/>) passes without a lookup. Any
+/// <see cref="IScopedPermissionChecker"/> with the user's id; <see cref="Users.IUserContext"/> carries no
+/// permissions. Only a system admin (<see cref="Users.IUserContext.IsSystemAdmin"/>) passes without a lookup. Any
 /// error in the check is a denial.
 /// </summary>
 public interface IScopeAuthorization

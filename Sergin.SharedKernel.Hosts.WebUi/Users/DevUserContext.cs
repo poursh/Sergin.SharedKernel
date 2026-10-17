@@ -1,4 +1,3 @@
-﻿using Sergin.SharedKernel.Domain.Securities;
 using Sergin.SharedKernel.Application.Securities.Users;
 using Sergin.SharedKernel.Domain.Users;
 
@@ -9,5 +8,4 @@ internal sealed record DevUserContext(
     string UserName,
     string Email,
     string FirstName,
-    string LastName,
-    HashSet<Permission> Permissions) : IUserContext;
+    string LastName) : IUserContext;
