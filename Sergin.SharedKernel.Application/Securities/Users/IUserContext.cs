@@ -11,11 +11,4 @@ public interface IUserContext
     string FirstName { get; }
     string LastName { get; }
     string Email { get; }
-
-    /// <summary>
-    /// True only for a system identity with no user row, such as the outbox relay. It passes every permission
-    /// check without a lookup. A signed-in user is never one; a user granted <c>AllPlatform</c> is answered by scope
-    /// like any other grant.
-    /// </summary>
-    bool IsSystemAdmin => false;
 }

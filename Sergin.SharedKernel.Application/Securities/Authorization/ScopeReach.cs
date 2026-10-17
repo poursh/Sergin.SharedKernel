@@ -3,7 +3,7 @@ namespace Sergin.SharedKernel.Application.Securities.Authorization;
 /// <summary>
 /// Where a user holds one permission: the scopes their grants reach, as the read filter needs them. An entry that
 /// covers its subtree reaches every scope at or below <see cref="ScopeReachEntry.Path"/>; one that does not reaches
-/// its own scope only. <see cref="Everything"/> is a system admin's reach, <see cref="Nothing"/> a denial's.
+/// its own scope only. <see cref="Everything"/> is a system identity's reach, <see cref="Nothing"/> a denial's.
 /// </summary>
 public sealed class ScopeReach
 {

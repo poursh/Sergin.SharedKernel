@@ -17,9 +17,9 @@ internal sealed class ScopeAuthorization(
     {
         ArgumentNullException.ThrowIfNull(permission);
 
-        // Answered by scope only. A system admin (the outbox relay identity,
+        // Answered by scope only. A system identity (the outbox relay,
         // which has no user row) is the one caller that skips the lookup.
-        if (userContext.IsSystemAdmin)
+        if (userContext is ISystemUserContext)
         {
             return true;
         }
@@ -40,7 +40,7 @@ internal sealed class ScopeAuthorization(
     {
         ArgumentNullException.ThrowIfNull(permission);
 
-        if (userContext.IsSystemAdmin)
+        if (userContext is ISystemUserContext)
         {
             return ScopeReach.Everything;
         }

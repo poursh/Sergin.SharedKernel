@@ -7,7 +7,7 @@ namespace Sergin.SharedKernel.Application.Securities.Authorization;
 /// that the caller's reach covers. <c>PermissionCheckPipelineBehavior</c> fills it from the request's required
 /// permissions; the EF query filter and every raw-SQL read of a scoped table apply it.
 /// <para>
-/// It fails closed. Until a configured request fills it, a system admin (the outbox relay, system code) sees
+/// It fails closed. Until a configured request fills it, a system identity (<see cref="ISystemUserContext"/>, such as the outbox relay) sees
 /// everything and anyone else sees nothing, so a request that requires no permission reads no scoped row.
 /// </para>
 /// <para>Registered scoped, next to <see cref="RequiredPermissionsContext"/>.</para>
@@ -16,7 +16,7 @@ public sealed class ScopeFilter(IUserContext user)
 {
     private Values? values;
 
-    private Values Current => values ??= user.IsSystemAdmin
+    private Values Current => values ??= user is ISystemUserContext
         ? new Values(AuthorizationScope.RootPath, ScopeReach.Everything)
         : new Values(null, ScopeReach.Nothing);
 
@@ -26,7 +26,7 @@ public sealed class ScopeFilter(IUserContext user)
     /// <summary>The current scope's path; the root's when <see cref="Visible"/> is false, so it is always a valid ltree.</summary>
     public string CurrentPath => Current.CurrentPath ?? AuthorizationScope.RootPath;
 
-    /// <summary>The reach sets no limit: a system admin.</summary>
+    /// <summary>The reach sets no limit: a system identity.</summary>
     public bool Unrestricted => Current.Reach.Unrestricted;
 
     /// <summary>The paths of every grant that covers its subtree.</summary>

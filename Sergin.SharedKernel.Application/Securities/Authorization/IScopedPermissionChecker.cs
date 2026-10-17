@@ -4,7 +4,7 @@ namespace Sergin.SharedKernel.Application.Securities.Authorization;
 /// Answers whether a user holds a permission on a target scope, from every active assignment the user has.
 /// Implemented by the module that owns the scope tree (UserAccess); a host without one gets
 /// <see cref="DenyAllScopedPermissionChecker"/>, so a scoped check fails closed rather than going unanswered.
-/// Callers acting for the signed-in user go through <see cref="IScopeAuthorization"/>, which lets a system admin
+/// Callers acting for the signed-in user go through <see cref="IScopeAuthorization"/>, which lets a system identity
 /// through without a lookup and turns any failure into a denial.
 /// </summary>
 public interface IScopedPermissionChecker
