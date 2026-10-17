@@ -25,9 +25,6 @@ public sealed partial class SerginNavMenu
     [Inject]
     private IScopeAuthorization ScopeAuthorization { get; set; } = default!;
 
-    [Inject]
-    private IAuthorizationScopeContext ScopeContext { get; set; } = default!;
-
     /// <summary>
     /// Merges the home entry into the modules' entries once per circuit.
     /// </summary>
@@ -63,10 +60,11 @@ public sealed partial class SerginNavMenu
     /// <summary>
     /// Hides an entry the current user cannot use. Presentation only — the handler behind the page
     /// enforces the same permission, so a hand-typed URL is refused whether or not the link showed.
-    /// Answered the pipeline's way: on the scope the circuit works in, or the root for an AtRoot entry,
-    /// from stored grants rather than claims. An unparseable value hides the entry: a nav item naming a
-    /// permission that cannot exist is a typo, and showing it would send the user to a page that then
-    /// refuses them.
+    /// Shown when the user holds the permission on any scope, from stored grants rather than claims: the
+    /// user may need the page in a scope other than the one the circuit works in now, and the page answers
+    /// for the scope they pick. An AtRoot entry is checked on the root only, since its page refuses anywhere
+    /// else. An unparseable value hides the entry: a nav item naming a permission that cannot exist is a
+    /// typo, and showing it would send the user to a page that then refuses them.
     /// </summary>
     private async Task<bool> IsVisibleAsync(SerginNavItem item)
     {
@@ -80,9 +78,14 @@ public sealed partial class SerginNavMenu
             return false;
         }
 
-        Guid scopeId = item.AtRoot ? AuthorizationScope.RootId : ScopeContext.ScopeId;
+        if (item.AtRoot)
+        {
+            return await ScopeAuthorization.CurrentUserHasAsync(permission, AuthorizationScope.RootId);
+        }
 
-        return await ScopeAuthorization.CurrentUserHasAsync(permission, scopeId);
+        ScopeReach reach = await ScopeAuthorization.CurrentUserReachAsync(permission);
+
+        return reach.Unrestricted || reach.Entries.Count > 0;
     }
 
     /// <summary>
