@@ -10,4 +10,7 @@ public static class AuthorizationScope
     /// over the whole tree is a global grant.
     /// </summary>
     public static Guid RootId { get; } = Guid.Parse("01920000-0000-7000-8000-0000000000b1");
+
+    /// <summary>The root's <c>ltree</c> path: its id as one label, 32 hex digits with no hyphens.</summary>
+    public static string RootPath { get; } = RootId.ToString("N");
 }

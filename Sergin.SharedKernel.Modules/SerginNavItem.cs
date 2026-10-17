@@ -8,7 +8,12 @@ namespace Sergin.SharedKernel.Modules;
 /// Permission the current user must hold for this entry to appear, or null to always show it. A plain
 /// string, like <paramref name="Icon"/>, so this contract leaf stays free of any dependency — the nav
 /// menu parses it. Hiding the entry is presentation only; the page behind it is still gated by the
-/// request's own required permission (its command configuration).
+/// request's own required permission (its command configuration). Checked on the scope the user works in, the
+/// way the pipeline checks the page's request.
+/// </param>
+/// <param name="AtRoot">
+/// Checks <paramref name="RequiredPermission"/> on the root scope instead, for an entry over global data whose
+/// request is configured <c>AtRoot()</c>, so the entry and the page agree.
 /// </param>
 public sealed record SerginNavItem(
-    string Label, string Href, string Icon, int Order = 0, string? RequiredPermission = null);
+    string Label, string Href, string Icon, int Order = 0, string? RequiredPermission = null, bool AtRoot = false);

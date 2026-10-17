@@ -1,8 +1,10 @@
+using MediatR;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Sergin.SharedKernel.Application.Events.Integration;
+using Sergin.SharedKernel.Application.Securities.Authorization;
 using Sergin.SharedKernel.Infrastructure.Data.EFCore.Aggregates;
 using Sergin.SharedKernel.Infrastructure.Data.EFCore.Interceptors;
 using Sergin.SharedKernel.Infrastructure.Data.EFCore.Outbox;
@@ -31,10 +33,14 @@ public static class ModuleDbContextExtensions
             // so it guards only what the handler changed, not what domain-event handlers change during dispatch.
             // Stamping must see whatever those handlers added or changed; soft delete runs after audit so a
             // delete it turns into an update is not stamped as a modification; the row version is bumped last,
-            // once every other interceptor has decided what the save changes.
+            // once every other interceptor has decided what the save changes. The scope stamp and the record check
+            // run after dispatch, so they see what those handlers added, and before soft delete, while a delete is
+            // still a delete.
             .AddInterceptors(
                 sp.GetRequiredService<ExpectedVersionInterceptor>(),
                 sp.GetRequiredService<EventDispatcherInterceptor>(),
+                sp.GetRequiredService<ScopeStampInterceptor>(),
+                sp.GetRequiredService<RecordScopeInterceptor>(),
                 sp.GetRequiredService<AuditStampInterceptor>(),
                 sp.GetRequiredService<SoftDeleteInterceptor>(),
                 sp.GetRequiredService<RowVersionBumpInterceptor>()));
@@ -43,6 +49,12 @@ public static class ModuleDbContextExtensions
         services.AddScoped<TIUnitOfWork>(p => p.GetRequiredService<TContext>());
 
         services.AddSingleton(new ModuleDbContextRegistration(typeof(TContext)));
+
+        // Keeps this context's scoped records on their scope's current path after a scope move. Every context gets
+        // one; it does nothing for a context with no scoped aggregate.
+        services.AddTransient<
+            INotificationHandler<IntegrationEventNotification<ScopesMovedIntegrationEvent>>,
+            ScopePathRewriteHandler<TContext>>();
 
         if (typeof(IOutboxDbContext).IsAssignableFrom(typeof(TContext)))
         {

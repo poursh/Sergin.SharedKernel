@@ -13,4 +13,10 @@ public interface IScopeAuthorization
 
     /// <summary>Checks <paramref name="permission"/> on the scope <see cref="IAuthorizationScopeContext"/> holds.</summary>
     Task<bool> CurrentUserHasAsync(Permission permission, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Every scope the user holds <paramref name="permission"/> on: <see cref="ScopeReach.Everything"/> for a system
+    /// admin, <see cref="ScopeReach.Nothing"/> when the lookup fails.
+    /// </summary>
+    Task<ScopeReach> CurrentUserReachAsync(Permission permission, CancellationToken cancellationToken = default);
 }

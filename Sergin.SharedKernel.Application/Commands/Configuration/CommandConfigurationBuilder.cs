@@ -7,12 +7,12 @@ public abstract class CommandConfigurationBuilder
 
     private protected bool ExpectedVersionRequired { get; set; }
 
-    private protected bool InScope { get; set; }
+    private protected bool CheckedAtRoot { get; set; }
 
     internal CommandSettings Settings =>
-        Permissions.Count == 0 && !ExpectedVersionRequired && !InScope
+        Permissions.Count == 0 && !ExpectedVersionRequired && !CheckedAtRoot
             ? CommandSettings.None
-            : new CommandSettings([.. Permissions.Distinct()], ExpectedVersionRequired, InScope);
+            : new CommandSettings([.. Permissions.Distinct()], ExpectedVersionRequired, CheckedAtRoot);
 }
 
 public sealed class CommandConfigurationBuilder<TCommand> : CommandConfigurationBuilder
@@ -46,13 +46,14 @@ public sealed class CommandConfigurationBuilder<TCommand> : CommandConfiguration
     }
 
     /// <summary>
-    /// The required permissions are checked on the scope <c>IAuthorizationScopeContext</c> holds instead of the
-    /// global claims: only a stored grant on that scope, or above it over the subtree, passes. Opt in only for a request whose data the current scope actually limits. The
-    /// registry refuses it on a configuration that requires no permission.
+    /// The required permissions are checked on the root scope instead of the scope <c>IAuthorizationScopeContext</c>
+    /// holds. For a request over global data, which belongs to no scope below the root: users, the device catalog.
+    /// Without it, every permission is checked on the current scope. The registry refuses it on a configuration
+    /// that requires no permission.
     /// </summary>
-    public CommandConfigurationBuilder<TCommand> InCurrentScope()
+    public CommandConfigurationBuilder<TCommand> AtRoot()
     {
-        InScope = true;
+        CheckedAtRoot = true;
         return this;
     }
 }

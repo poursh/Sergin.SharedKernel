@@ -2,13 +2,13 @@ namespace Sergin.SharedKernel.Application.Commands.Configuration;
 
 /// <summary>
 /// What a request's configuration declared. <see cref="None"/> is the answer for an unconfigured request: no
-/// permission and no expected version required. <see cref="PermissionsInCurrentScope"/> moves the permission check
-/// from the global claims to the scope <c>IAuthorizationScopeContext</c> holds.
+/// permission and no expected version required. Every required permission is checked on the scope
+/// <c>IAuthorizationScopeContext</c> holds, or on the root scope when <see cref="PermissionsAtRoot"/> is set.
 /// </summary>
 public sealed record CommandSettings(
     IReadOnlyCollection<Permission> RequiredPermissions,
     bool RequiresExpectedVersion,
-    bool PermissionsInCurrentScope = false)
+    bool PermissionsAtRoot = false)
 {
     public static CommandSettings None { get; } = new([], false);
 }

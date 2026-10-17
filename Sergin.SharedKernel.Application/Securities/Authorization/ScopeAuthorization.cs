@@ -35,4 +35,25 @@ internal sealed class ScopeAuthorization(
             return false;
         }
     }
+
+    public async Task<ScopeReach> CurrentUserReachAsync(Permission permission, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(permission);
+
+        if (userContext.IsSystemAdmin)
+        {
+            return ScopeReach.Everything;
+        }
+
+        try
+        {
+            return await checker.GetReachAsync(userContext.Id.Value, permission, cancellationToken);
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException)
+        {
+            // A reach that cannot be answered reaches nothing, as a failed check grants nothing.
+            logger.LogError(exception, "Scope reach lookup for {Permission} failed; reaching nothing.", permission.Value);
+            return ScopeReach.Nothing;
+        }
+    }
 }

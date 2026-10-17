@@ -1,8 +1,8 @@
 ﻿using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Routing;
 using Sergin.SharedKernel.Application.Localizations;
+using Sergin.SharedKernel.Application.Securities.Authorization;
 using Sergin.SharedKernel.Domain.Securities;
-using Sergin.SharedKernel.Application.Securities.Users;
 using Sergin.SharedKernel.Modules;
 using Sergin.SharedKernel.Presentation.Blazor.Home;
 using Sergin.SharedKernel.Presentation.Blazor.Modules;
@@ -23,7 +23,10 @@ public sealed partial class SerginNavMenu
     private ILocalizer Localizer { get; set; } = default!;
 
     [Inject]
-    private IUserContext UserContext { get; set; } = default!;
+    private IScopeAuthorization ScopeAuthorization { get; set; } = default!;
+
+    [Inject]
+    private IAuthorizationScopeContext ScopeContext { get; set; } = default!;
 
     /// <summary>
     /// Merges the home entry into the modules' entries once per circuit.
@@ -35,9 +38,19 @@ public sealed partial class SerginNavMenu
     /// itself above home. It is repeated rather than pushed into the catalog because that type is the
     /// <em>module</em> catalog and home is not a module.
     /// </remarks>
-    protected override void OnInitialized()
+    protected override async Task OnInitializedAsync()
     {
-        IEnumerable<SerginNavItem> items = Catalog.NavItems.Where(IsVisible);
+        List<SerginNavItem> visible = [];
+
+        foreach (SerginNavItem item in Catalog.NavItems)
+        {
+            if (await IsVisibleAsync(item))
+            {
+                visible.Add(item);
+            }
+        }
+
+        IEnumerable<SerginNavItem> items = visible;
 
         if (Home.NavItem is not null)
         {
@@ -48,21 +61,35 @@ public sealed partial class SerginNavMenu
     }
 
     /// <summary>
+    /// Hides an entry the current user cannot use. Presentation only — the handler behind the page
+    /// enforces the same permission, so a hand-typed URL is refused whether or not the link showed.
+    /// Answered the pipeline's way: on the scope the circuit works in, or the root for an AtRoot entry,
+    /// from stored grants rather than claims. An unparseable value hides the entry: a nav item naming a
+    /// permission that cannot exist is a typo, and showing it would send the user to a page that then
+    /// refuses them.
+    /// </summary>
+    private async Task<bool> IsVisibleAsync(SerginNavItem item)
+    {
+        if (item.RequiredPermission is null)
+        {
+            return true;
+        }
+
+        if (!Permission.TryCreate(item.RequiredPermission, out Permission? permission))
+        {
+            return false;
+        }
+
+        Guid scopeId = item.AtRoot ? AuthorizationScope.RootId : ScopeContext.ScopeId;
+
+        return await ScopeAuthorization.CurrentUserHasAsync(permission, scopeId);
+    }
+
+    /// <summary>
     /// Prefix matching treats any href ending in a non-alphanumeric character as a prefix of everything
     /// below it, so the root href would light up on every page in the app. Only the root needs the
     /// exact-match rule; module hrefs still want prefix matching so detail pages keep their section lit.
     /// </summary>
-    /// <summary>
-    /// Hides an entry the current user cannot use. Presentation only — the handler behind the page
-    /// enforces the same permission, so a hand-typed URL is refused whether or not the link showed.
-    /// An unparseable value hides the entry: a nav item naming a permission that cannot exist is a
-    /// typo, and showing it would send the user to a page that then refuses them.
-    /// </summary>
-    private bool IsVisible(SerginNavItem item)
-        => item.RequiredPermission is null
-            || Permission.TryCreate(item.RequiredPermission, out Permission? permission)
-            && UserContext.HasPermission(permission);
-
     private static NavLinkMatch MatchFor(SerginNavItem item)
         => item.Href is SerginHome.RootPath ? NavLinkMatch.All : NavLinkMatch.Prefix;
 }
