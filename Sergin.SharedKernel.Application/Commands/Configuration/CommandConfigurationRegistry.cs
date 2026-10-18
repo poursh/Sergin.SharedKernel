@@ -1,4 +1,5 @@
 ﻿using System.Reflection;
+using Sergin.SharedKernel.Application.Aggregates;
 
 namespace Sergin.SharedKernel.Application.Commands.Configuration;
 
@@ -7,8 +8,10 @@ namespace Sergin.SharedKernel.Application.Commands.Configuration;
 /// host from every registered <see cref="CommandConfigurationSource"/> and read by the permission and
 /// expected-version pipeline behaviors on each send. Refuses two configurations for one request, a
 /// configuration without a parameterless constructor, an expected version on a request that is not an
-/// <see cref="ICommand{TResponse}"/>, a root-scope check with no permission to check, and a configuration whose
-/// Configure throws — each naming the type.
+/// <see cref="ICommand{TResponse}"/> or whose aggregate is not versioned, an explicit scope with no permission to
+/// check, and a configuration whose Configure throws — each naming the type. A request bound to an aggregate
+/// through <see cref="ICommandConfiguration{TCommand, TAggregateRoot}"/> is checked on the root scope unless that
+/// aggregate is scoped, read from the aggregate feature configurations the same sources carry.
 /// </summary>
 public sealed class CommandConfigurationRegistry
 {
@@ -50,21 +53,33 @@ public sealed class CommandConfigurationRegistry
     {
         ArgumentNullException.ThrowIfNull(sources);
 
-        return FromConfigurationTypes(sources.SelectMany(source => source.ConfigurationTypes).Distinct());
+        CommandConfigurationSource[] all = [.. sources];
+
+        return Build(
+            all.SelectMany(source => source.ConfigurationTypes).Distinct(),
+            AggregateFeatureRegistry.FromConfigurationTypes(all.SelectMany(source => source.AggregateConfigurationTypes).Distinct()));
     }
 
+    /// <summary>Command and aggregate feature configuration types, in any mix.</summary>
     public static CommandConfigurationRegistry FromConfigurationTypes(IEnumerable<Type> configurationTypes)
     {
         ArgumentNullException.ThrowIfNull(configurationTypes);
 
+        return FromSources([CommandConfigurationSource.FromTypes([.. configurationTypes])]);
+    }
+
+    private static CommandConfigurationRegistry Build(IEnumerable<Type> configurationTypes, AggregateFeatureRegistry aggregates)
+    {
         List<(Type RequestType, Type ConfigurationType, CommandSettings Settings)> declared = [];
 
         foreach (Type configurationType in configurationTypes)
         {
             foreach (Type closedInterface in configurationType.GetInterfaces().Where(IsClosedConfigurationInterface))
             {
-                Type requestType = closedInterface.GetGenericArguments()[0];
-                declared.Add((requestType, configurationType, Run(configurationType, closedInterface, requestType)));
+                Type[] arguments = closedInterface.GetGenericArguments();
+                Type requestType = arguments[0];
+                Type? aggregateRoot = arguments.Length > 1 ? arguments[1] : null;
+                declared.Add((requestType, configurationType, Run(configurationType, closedInterface, requestType, aggregateRoot, aggregates)));
             }
         }
 
@@ -90,7 +105,12 @@ public sealed class CommandConfigurationRegistry
         type is { IsClass: true, IsAbstract: false, IsGenericTypeDefinition: false }
         && type.GetInterfaces().Any(IsClosedConfigurationInterface);
 
-    private static CommandSettings Run(Type configurationType, Type closedInterface, Type requestType)
+    private static CommandSettings Run(
+        Type configurationType,
+        Type closedInterface,
+        Type requestType,
+        Type? aggregateRoot,
+        AggregateFeatureRegistry aggregates)
     {
         if (requestType.IsAbstract || requestType.IsInterface)
         {
@@ -129,28 +149,45 @@ public sealed class CommandConfigurationRegistry
                 exception);
         }
 
-        CommandSettings declared = builder.Settings;
+        AggregateFeatures features = aggregateRoot is null ? AggregateFeatures.None : aggregates.For(aggregateRoot);
 
-        if (declared.RequiresExpectedVersion && !IsCommand(requestType))
+        if (builder.ExpectedVersionRequired && !IsCommand(requestType))
         {
             throw new InvalidOperationException(
                 $"Command configuration {configurationType.FullName} requires an expected version for {requestType.FullName}, "
                 + "which is not an ICommand<T>. Only a command writes, so only a command can carry an expected version.");
         }
 
-        if (declared.PermissionsAtRoot && declared.RequiredPermissions.Count == 0)
+        if (builder.ExpectedVersionRequired && aggregateRoot is not null && !features.Versioned)
         {
             throw new InvalidOperationException(
-                $"Command configuration {configurationType.FullName} checks {requestType.FullName} at the root scope "
-                + "but requires no permission. Call RequirePermissions(...) with AtRoot(), or drop AtRoot().");
+                $"Command configuration {configurationType.FullName} requires an expected version for {requestType.FullName}, "
+                + $"but binds it to {aggregateRoot.FullName}, which is not Versioned(): there is no version to check. "
+                + "Call Versioned() in its aggregate feature configuration, or drop RequireExpectedVersion().");
         }
 
-        return declared;
+        if (builder.CheckedAtRoot is not null && builder.Permissions.Count == 0)
+        {
+            string call = builder.CheckedAtRoot.Value ? "AtRoot()" : "InCurrentScope()";
+
+            throw new InvalidOperationException(
+                $"Command configuration {configurationType.FullName} chooses the scope {requestType.FullName} is checked on "
+                + $"but requires no permission. Call RequirePermissions(...) with {call}, or drop {call}.");
+        }
+
+        // Unbound: the current scope. Bound: where the aggregate's records live, the root unless it is scoped.
+        bool atRoot = builder.CheckedAtRoot ?? (aggregateRoot is not null && !features.Scoped);
+
+        return builder.Permissions.Count == 0 && !builder.ExpectedVersionRequired && aggregateRoot is null
+            ? CommandSettings.None
+            : new CommandSettings([.. builder.Permissions.Distinct()], builder.ExpectedVersionRequired, atRoot, aggregateRoot);
     }
 
     private static bool IsCommand(Type requestType) =>
         requestType.GetInterfaces().Any(type => type.IsGenericType && type.GetGenericTypeDefinition() == typeof(ICommand<>));
 
     private static bool IsClosedConfigurationInterface(Type type) =>
-        type.IsGenericType && type.GetGenericTypeDefinition() == typeof(ICommandConfiguration<>);
+        type.IsGenericType
+        && (type.GetGenericTypeDefinition() == typeof(ICommandConfiguration<>)
+            || type.GetGenericTypeDefinition() == typeof(ICommandConfiguration<,>));
 }

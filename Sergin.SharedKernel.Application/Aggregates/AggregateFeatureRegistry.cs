@@ -151,7 +151,7 @@ public sealed class AggregateFeatureRegistry
         return new Declaration(builder.Features, builder.AuditExceptions.ToHashSet());
     }
 
-    private static bool IsConfigurationType(Type type) =>
+    internal static bool IsConfigurationType(Type type) =>
         type is { IsClass: true, IsAbstract: false, IsGenericTypeDefinition: false }
         && type.GetInterfaces().Any(IsClosedConfigurationInterface);
 
