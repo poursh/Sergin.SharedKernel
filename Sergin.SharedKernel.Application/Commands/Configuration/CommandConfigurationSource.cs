@@ -38,7 +38,8 @@ public sealed class CommandConfigurationSource
         ArgumentNullException.ThrowIfNull(configurationTypes);
 
         return new(
-            [.. configurationTypes.Where(type => !AggregateFeatureRegistry.IsConfigurationType(type))],
+            [.. configurationTypes.Where(type =>
+                !AggregateFeatureRegistry.IsConfigurationType(type) || CommandConfigurationRegistry.IsConfigurationType(type))],
             [.. configurationTypes.Where(AggregateFeatureRegistry.IsConfigurationType)]);
     }
 }

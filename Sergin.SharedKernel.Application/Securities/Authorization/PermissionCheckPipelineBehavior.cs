@@ -35,17 +35,22 @@ internal sealed class PermissionCheckPipelineBehavior<TRequest, TResponse>(
 
         Guid scopeId = scopeContext.ScopeId;
 
-        bool allowed = settings.PermissionScope == PermissionScope.Any
-            ? await HoldsAnywhereAsync(settings.RequiredPermissions, cancellationToken)
-            : await IsAllowedAsync(settings.RequiredPermissions, scopeId, cancellationToken);
+        if (settings.PermissionScope == PermissionScope.Current
+            && !await IsAllowedAsync(settings.RequiredPermissions, scopeId, cancellationToken))
+        {
+            return Forbidden();
+        }
 
-        if (!allowed)
+        // Each permission's reach is looked up once: it answers PermissionScope.Any and narrows the reads.
+        IReadOnlyCollection<ScopeReach> reaches = await ReachesAsync(settings.RequiredPermissions, cancellationToken);
+
+        if (settings.PermissionScope == PermissionScope.Any && !reaches.All(one => one.ReachesAnywhere))
         {
             return Forbidden();
         }
 
         string? currentPath = await scopePaths.GetPathAsync(scopeId, cancellationToken);
-        ScopeReach reach = await ReachAsync(settings.RequiredPermissions, cancellationToken);
+        ScopeReach reach = reaches.Aggregate(ScopeReach.Everything, (all, one) => all.Intersect(one));
 
         using IDisposable published = requiredPermissions.Publish(settings.RequiredPermissions);
         using IDisposable filtered = scopeFilter.Apply(currentPath, reach);
@@ -78,28 +83,15 @@ internal sealed class PermissionCheckPipelineBehavior<TRequest, TResponse>(
         return true;
     }
 
-    private async Task<bool> HoldsAnywhereAsync(IReadOnlyCollection<Permission> permissions, CancellationToken cancellationToken)
+    private async Task<IReadOnlyCollection<ScopeReach>> ReachesAsync(IReadOnlyCollection<Permission> permissions, CancellationToken cancellationToken)
     {
-        foreach (Permission permission in permissions)
-        {
-            if (!await scopeAuthorization.CurrentUserHoldsAnywhereAsync(permission, cancellationToken))
-            {
-                return false;
-            }
-        }
-
-        return true;
-    }
-
-    private async Task<ScopeReach> ReachAsync(IReadOnlyCollection<Permission> permissions, CancellationToken cancellationToken)
-    {
-        ScopeReach reach = ScopeReach.Everything;
+        List<ScopeReach> reaches = [];
 
         foreach (Permission permission in permissions)
         {
-            reach = reach.Intersect(await scopeAuthorization.CurrentUserReachAsync(permission, cancellationToken));
+            reaches.Add(await scopeAuthorization.CurrentUserReachAsync(permission, cancellationToken));
         }
 
-        return reach;
+        return reaches;
     }
 }

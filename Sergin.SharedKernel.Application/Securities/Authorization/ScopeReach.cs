@@ -21,6 +21,9 @@ public sealed class ScopeReach
 
     public IReadOnlyCollection<ScopeReachEntry> Entries { get; }
 
+    /// <summary>Whether the permission is held on any scope at all: the test for data that belongs to no scope.</summary>
+    public bool ReachesAnywhere => Unrestricted || Entries.Count > 0;
+
     public static ScopeReach Of(IEnumerable<ScopeReachEntry> entries)
     {
         ArgumentNullException.ThrowIfNull(entries);

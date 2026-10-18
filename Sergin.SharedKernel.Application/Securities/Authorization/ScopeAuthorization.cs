@@ -61,6 +61,6 @@ internal sealed class ScopeAuthorization(
     {
         ScopeReach reach = await CurrentUserReachAsync(permission, cancellationToken);
 
-        return reach.Unrestricted || reach.Entries.Count > 0;
+        return reach.ReachesAnywhere;
     }
 }
