@@ -56,4 +56,11 @@ internal sealed class ScopeAuthorization(
             return ScopeReach.Nothing;
         }
     }
+
+    public async Task<bool> CurrentUserHoldsAnywhereAsync(Permission permission, CancellationToken cancellationToken = default)
+    {
+        ScopeReach reach = await CurrentUserReachAsync(permission, cancellationToken);
+
+        return reach.Unrestricted || reach.Entries.Count > 0;
+    }
 }

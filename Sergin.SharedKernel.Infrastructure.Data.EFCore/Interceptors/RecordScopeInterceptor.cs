@@ -13,8 +13,8 @@ namespace Sergin.SharedKernel.Infrastructure.Data.EFCore.Interceptors;
 /// Checks every permission the request required (<see cref="RequiredPermissionsContext"/>) again on the scope of each
 /// record the save writes, so a request allowed at one scope cannot change a record that lives in another. A scoped
 /// root is checked on the scope it is stored in; a child, on its root's. A record of an aggregate that is not scoped
-/// is global data and lives at the root, so it is checked there: a permission held at a region does not reach the
-/// catalog. A new scoped root is skipped, since it is stamped with the current scope the pipeline already checked.
+/// belongs to no scope, so the caller only has to hold each permission on some scope, as the pipeline checks a
+/// request bound to such an aggregate. A new scoped root is skipped, since it is stamped with the current scope the pipeline already checked.
 /// A denial throws <see cref="ForbiddenException"/>, which the permission behavior answers with
 /// <c>Error.Forbidden()</c>; nothing is saved.
 /// <para>
@@ -35,9 +35,17 @@ internal sealed class RecordScopeInterceptor(RequiredPermissionsContext required
 
         if (eventData.Context is { } context && required.Permissions.Count > 0)
         {
-            foreach (Guid scopeId in TargetScopes(context))
+            Targets targets = TargetsOf(context);
+
+            foreach (Permission permission in required.Permissions)
             {
-                foreach (Permission permission in required.Permissions)
+                if (targets.Unscoped
+                    && !await authorization.CurrentUserHoldsAnywhereAsync(permission, cancellationToken).ConfigureAwait(false))
+                {
+                    throw new ForbiddenException();
+                }
+
+                foreach (Guid scopeId in targets.Scopes)
                 {
                     if (!await authorization.CurrentUserHasAsync(permission, scopeId, cancellationToken).ConfigureAwait(false))
                     {
@@ -54,7 +62,7 @@ internal sealed class RecordScopeInterceptor(RequiredPermissionsContext required
     {
         ArgumentNullException.ThrowIfNull(eventData);
 
-        if (eventData.Context is { } context && required.Permissions.Count > 0 && TargetScopes(context).Count > 0)
+        if (eventData.Context is { } context && required.Permissions.Count > 0 && TargetsOf(context).Any)
         {
             throw new InvalidOperationException(
                 "This save writes records the request's permissions must be checked on, and that check is asynchronous. "
@@ -64,21 +72,29 @@ internal sealed class RecordScopeInterceptor(RequiredPermissionsContext required
         return base.SavingChanges(eventData, result);
     }
 
-    private static HashSet<Guid> TargetScopes(DbContext context)
+    private static Targets TargetsOf(DbContext context)
     {
         EntityEntry[] tracked = [.. context.ChangeTracker.Entries()];
         HashSet<Guid> scopes = [];
+        bool unscoped = false;
 
         foreach (EntityEntry entry in tracked.Where(IsChangedRecord))
         {
-            if (TargetScope(tracked, entry) is { } scopeId)
+            if (!IsScopedRecord(entry))
+            {
+                unscoped = true;
+            }
+            else if (TargetScope(tracked, entry) is { } scopeId)
             {
                 scopes.Add(scopeId);
             }
         }
 
-        return scopes;
+        return new Targets(scopes, unscoped);
     }
+
+    private static bool IsScopedRecord(EntityEntry entry) =>
+        ScopeColumns.IsScoped(entry.Metadata) || ScopeColumns.RootOf(entry.Metadata) is not null;
 
     private static bool IsChangedRecord(EntityEntry entry) =>
         entry.State is EntityState.Added or EntityState.Modified or EntityState.Deleted && entry.Entity is IEntity;
@@ -100,13 +116,19 @@ internal sealed class RecordScopeInterceptor(RequiredPermissionsContext required
         }
         else
         {
-            return AuthorizationScope.RootId;
+            return null;
         }
 
         // A new root takes the current scope, which the pipeline checked before the handler ran.
         return scopedRoot.State == EntityState.Added
             ? null
             : (Guid)scopedRoot.Property(ScopeColumns.ScopeId).OriginalValue!;
+    }
+
+    /// <summary>The scopes the changed scoped records live in, and whether a record of an unscoped aggregate changed.</summary>
+    private sealed record Targets(IReadOnlyCollection<Guid> Scopes, bool Unscoped)
+    {
+        public bool Any => Unscoped || Scopes.Count > 0;
     }
 
     /// <summary>The tracked root of <paramref name="child"/>, walked up the aggregate's own navigations, as VersionedRoots does.</summary>

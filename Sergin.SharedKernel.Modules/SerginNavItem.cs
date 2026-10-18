@@ -11,9 +11,5 @@ namespace Sergin.SharedKernel.Modules;
 /// request's own required permission (its command configuration). Shown when the user holds it on any scope, so
 /// the entry stays reachable whichever scope the user works in now; the page answers for the current scope.
 /// </param>
-/// <param name="AtRoot">
-/// Checks <paramref name="RequiredPermission"/> on the root scope instead, for an entry over global data whose
-/// request is configured <c>AtRoot()</c>, so the entry and the page agree.
-/// </param>
 public sealed record SerginNavItem(
-    string Label, string Href, string Icon, int Order = 0, string? RequiredPermission = null, bool AtRoot = false);
+    string Label, string Href, string Icon, int Order = 0, string? RequiredPermission = null);

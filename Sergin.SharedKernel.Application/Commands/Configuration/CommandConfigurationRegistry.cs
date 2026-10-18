@@ -8,10 +8,10 @@ namespace Sergin.SharedKernel.Application.Commands.Configuration;
 /// host from every registered <see cref="CommandConfigurationSource"/> and read by the permission and
 /// expected-version pipeline behaviors on each send. Refuses two configurations for one request, a
 /// configuration without a parameterless constructor, an expected version on a request that is not an
-/// <see cref="ICommand{TResponse}"/> or whose aggregate is not versioned, an explicit scope with no permission to
-/// check, and a configuration whose Configure throws — each naming the type. A request bound to an aggregate
-/// through <see cref="ICommandConfiguration{TCommand, TAggregateRoot}"/> is checked on the root scope unless that
-/// aggregate is scoped, read from the aggregate feature configurations the same sources carry.
+/// <see cref="ICommand{TResponse}"/> or whose aggregate is not versioned, and a configuration whose Configure
+/// throws — each naming the type. A request bound to an aggregate through
+/// <see cref="ICommandConfiguration{TCommand, TAggregateRoot}"/> is checked on any scope unless that aggregate is
+/// scoped, read from the aggregate feature configurations the same sources carry.
 /// </summary>
 public sealed class CommandConfigurationRegistry
 {
@@ -166,21 +166,13 @@ public sealed class CommandConfigurationRegistry
                 + "Call Versioned() in its aggregate feature configuration, or drop RequireExpectedVersion().");
         }
 
-        if (builder.CheckedAtRoot is not null && builder.Permissions.Count == 0)
-        {
-            string call = builder.CheckedAtRoot.Value ? "AtRoot()" : "InCurrentScope()";
-
-            throw new InvalidOperationException(
-                $"Command configuration {configurationType.FullName} chooses the scope {requestType.FullName} is checked on "
-                + $"but requires no permission. Call RequirePermissions(...) with {call}, or drop {call}.");
-        }
-
-        // Unbound: the current scope. Bound: where the aggregate's records live, the root unless it is scoped.
-        bool atRoot = builder.CheckedAtRoot ?? (aggregateRoot is not null && !features.Scoped);
+        // Unbound: the current scope. Bound: the current scope for a scoped aggregate, whose records live in
+        // scopes; any scope for another, whose records belong to none.
+        PermissionScope scope = aggregateRoot is not null && !features.Scoped ? PermissionScope.Any : PermissionScope.Current;
 
         return builder.Permissions.Count == 0 && !builder.ExpectedVersionRequired && aggregateRoot is null
             ? CommandSettings.None
-            : new CommandSettings([.. builder.Permissions.Distinct()], builder.ExpectedVersionRequired, atRoot, aggregateRoot);
+            : new CommandSettings([.. builder.Permissions.Distinct()], builder.ExpectedVersionRequired, scope, aggregateRoot);
     }
 
     private static bool IsCommand(Type requestType) =>

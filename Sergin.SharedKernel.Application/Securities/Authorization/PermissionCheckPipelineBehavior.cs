@@ -6,7 +6,8 @@ namespace Sergin.SharedKernel.Application.Securities.Authorization;
 
 /// <summary>
 /// Checks every permission a request's configuration requires on the scope <see cref="IAuthorizationScopeContext"/>
-/// holds, or on the root scope for <c>AtRoot()</c>. Once the check passes, the request runs
+/// holds, or, for a request bound to an aggregate that is not scoped (<see cref="PermissionScope.Any"/>), on any
+/// scope: the caller only has to hold each permission somewhere. Once the check passes, the request runs
 /// with two things set for it: its permissions in <see cref="RequiredPermissionsContext"/>, which the save checks
 /// again on the scope of every record it writes, and <see cref="ScopeFilter"/>, which narrows its reads of scoped
 /// aggregates to the current subtree and to where the caller holds every one of those permissions. The save's
@@ -32,9 +33,13 @@ internal sealed class PermissionCheckPipelineBehavior<TRequest, TResponse>(
             return await next(cancellationToken);
         }
 
-        Guid scopeId = settings.PermissionsAtRoot ? AuthorizationScope.RootId : scopeContext.ScopeId;
+        Guid scopeId = scopeContext.ScopeId;
 
-        if (!await IsAllowedAsync(settings.RequiredPermissions, scopeId, cancellationToken))
+        bool allowed = settings.PermissionScope == PermissionScope.Any
+            ? await HoldsAnywhereAsync(settings.RequiredPermissions, cancellationToken)
+            : await IsAllowedAsync(settings.RequiredPermissions, scopeId, cancellationToken);
+
+        if (!allowed)
         {
             return Forbidden();
         }
@@ -65,6 +70,19 @@ internal sealed class PermissionCheckPipelineBehavior<TRequest, TResponse>(
         foreach (Permission permission in permissions)
         {
             if (!await scopeAuthorization.CurrentUserHasAsync(permission, scopeId, cancellationToken))
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    private async Task<bool> HoldsAnywhereAsync(IReadOnlyCollection<Permission> permissions, CancellationToken cancellationToken)
+    {
+        foreach (Permission permission in permissions)
+        {
+            if (!await scopeAuthorization.CurrentUserHoldsAnywhereAsync(permission, cancellationToken))
             {
                 return false;
             }

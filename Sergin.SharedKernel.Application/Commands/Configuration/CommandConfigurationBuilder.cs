@@ -6,12 +6,6 @@ public abstract class CommandConfigurationBuilder
     internal List<Permission> Permissions { get; } = [];
 
     internal bool ExpectedVersionRequired { get; private protected set; }
-
-    /// <summary>
-    /// <c>true</c> for <c>AtRoot()</c>, <c>false</c> for <c>InCurrentScope()</c>, <c>null</c> when neither was
-    /// called and the registry derives the scope from the request's aggregate.
-    /// </summary>
-    internal bool? CheckedAtRoot { get; private protected set; }
 }
 
 public sealed class CommandConfigurationBuilder<TCommand> : CommandConfigurationBuilder
@@ -42,32 +36,6 @@ public sealed class CommandConfigurationBuilder<TCommand> : CommandConfiguration
     public CommandConfigurationBuilder<TCommand> RequireExpectedVersion()
     {
         ExpectedVersionRequired = true;
-        return this;
-    }
-
-    /// <summary>
-    /// The required permissions are checked on the root scope instead of the scope <c>IAuthorizationScopeContext</c>
-    /// holds, and reads of scoped aggregates cover the whole tree, still narrowed to the caller's reach. A request
-    /// bound to an aggregate that is not <c>Scoped()</c> gets this without calling it; an unbound request, or one
-    /// bound to a scoped aggregate, needs it said. The registry refuses it on a configuration that requires no
-    /// permission.
-    /// </summary>
-    public CommandConfigurationBuilder<TCommand> AtRoot()
-    {
-        CheckedAtRoot = true;
-        return this;
-    }
-
-    /// <summary>
-    /// The required permissions are checked on the scope <c>IAuthorizationScopeContext</c> holds, even when the
-    /// request is bound to an aggregate that is not <c>Scoped()</c> and would be checked on the root scope. For a
-    /// read of global data that every scope needs, such as the device catalog a regional user picks from. An
-    /// unbound request, or one bound to a scoped aggregate, gets this without calling it. The registry refuses it
-    /// on a configuration that requires no permission.
-    /// </summary>
-    public CommandConfigurationBuilder<TCommand> InCurrentScope()
-    {
-        CheckedAtRoot = false;
         return this;
     }
 }

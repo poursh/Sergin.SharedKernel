@@ -62,9 +62,9 @@ public sealed partial class SerginNavMenu
     /// enforces the same permission, so a hand-typed URL is refused whether or not the link showed.
     /// Shown when the user holds the permission on any scope, from stored grants rather than claims: the
     /// user may need the page in a scope other than the one the circuit works in now, and the page answers
-    /// for the scope they pick. An AtRoot entry is checked on the root only, since its page refuses anywhere
-    /// else. An unparseable value hides the entry: a nav item naming a permission that cannot exist is a
-    /// typo, and showing it would send the user to a page that then refuses them.
+    /// for the scope they pick, or, over data that belongs to no scope, for any scope. An unparseable value hides
+    /// the entry: a nav item naming a permission that cannot exist is a typo, and showing it would send the user
+    /// to a page that then refuses them.
     /// </summary>
     private async Task<bool> IsVisibleAsync(SerginNavItem item)
     {
@@ -78,14 +78,7 @@ public sealed partial class SerginNavMenu
             return false;
         }
 
-        if (item.AtRoot)
-        {
-            return await ScopeAuthorization.CurrentUserHasAsync(permission, AuthorizationScope.RootId);
-        }
-
-        ScopeReach reach = await ScopeAuthorization.CurrentUserReachAsync(permission);
-
-        return reach.Unrestricted || reach.Entries.Count > 0;
+        return await ScopeAuthorization.CurrentUserHoldsAnywhereAsync(permission);
     }
 
     /// <summary>

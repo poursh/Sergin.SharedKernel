@@ -19,4 +19,10 @@ public interface IScopeAuthorization
     /// identity, <see cref="ScopeReach.Nothing"/> when the lookup fails.
     /// </summary>
     Task<ScopeReach> CurrentUserReachAsync(Permission permission, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Whether the user holds <paramref name="permission"/> on any scope at all: the check for data that belongs to
+    /// no scope. True for a system identity, false when the lookup fails.
+    /// </summary>
+    Task<bool> CurrentUserHoldsAnywhereAsync(Permission permission, CancellationToken cancellationToken = default);
 }

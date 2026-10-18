@@ -7,8 +7,8 @@ namespace Sergin.SharedKernel.Application.Commands.Configuration;
 /// in its <c>.Application.Configurations</c> project, mirroring the record's folder, so a gateway hosting the
 /// module Remote sees it too. A request without a configuration has no policy.
 /// <para>
-/// Use this shape for a request with no main aggregate: its permissions are checked on the current scope unless
-/// it calls <c>AtRoot()</c>. A request that works on one aggregate implements
+/// Use this shape for a request with no main aggregate: its permissions are checked on the current scope. A
+/// request that works on one aggregate implements
 /// <see cref="ICommandConfiguration{TCommand, TAggregateRoot}"/> instead.
 /// </para>
 /// <para>
@@ -26,9 +26,9 @@ public interface ICommandConfiguration<TCommand>
 /// Declares the policy of a request that works on <typeparamref name="TAggregateRoot"/>, like
 /// <see cref="ICommandConfiguration{TCommand}"/>, and lets the registry derive what the aggregate's feature
 /// configuration already says. A root that is <c>Scoped()</c> has the request's permissions checked on the current
-/// scope; any other root, one with no feature configuration included, on the root scope, where its records live.
-/// <c>AtRoot()</c> or <c>InCurrentScope()</c> overrides that. <c>RequireExpectedVersion()</c> is refused unless the
-/// root is <c>Versioned()</c>. The feature configuration is read from the same ConfigurationsAssembly.
+/// scope; any other root, one with no feature configuration included, on any scope: its records belong to no
+/// scope, so the caller only has to hold the permission somewhere. The configuration cannot choose otherwise.
+/// <c>RequireExpectedVersion()</c> is refused unless the root is <c>Versioned()</c>. The feature configuration is read from the same ConfigurationsAssembly.
 /// </summary>
 // TAggregateRoot is read by the registry through reflection, never by a member: naming the aggregate is its whole
 // role, so S2326 (unused type parameter) does not apply.
