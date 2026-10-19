@@ -225,6 +225,7 @@ public static class SerginCoreExtensions
         // (UserAccess) supplies the checker whatever order it registers in, and a host without one fails closed.
         builder.Services.TryAddScoped<IScopedPermissionChecker, DenyAllScopedPermissionChecker>();
         builder.Services.TryAddScoped<IScopePathResolver, UnknownScopePathResolver>();
+        builder.Services.TryAddScoped<IScopeDirectory, RootOnlyScopeDirectory>();
         builder.Services.AddScoped<IScopeAuthorization, ScopeAuthorization>();
 
         return serginSection;

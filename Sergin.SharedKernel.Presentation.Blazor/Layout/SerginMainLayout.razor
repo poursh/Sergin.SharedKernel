@@ -15,6 +15,11 @@
                        OnClick="ToggleDrawer" />
         <MudText Typo="Typo.h6">@ApplicationName</MudText>
         <MudSpacer />
+        @* Keyed on the scope like the drawer and the page, so it renders the new scope after a change. *@
+        @if (scopeReady)
+        {
+            <SerginScopePicker @key="scopeVersion" ScopeChanged="OnScopeChanged" />
+        }
         <MudText Typo="Typo.body2" Class="mr-3">@DisplayName</MudText>
         @* A form rather than a link: a GET sign-out can be triggered by any third-party page that
            embeds the URL. The token satisfies the antiforgery middleware the host leaves enabled. *@
@@ -36,7 +41,10 @@
     <MudDrawer @bind-Open="drawerOpen" Elevation="themeManagerTheme.DrawerElevation"
                ClipMode="themeManagerTheme.DrawerClipMode">
         @* Keyed on the scope, so a scope change rebuilds the drawer and answers its permissions again. *@
-        <SerginNavMenu @key="scopeVersion" />
+        @if (scopeReady)
+        {
+            <SerginNavMenu @key="scopeVersion" />
+        }
     </MudDrawer>
 
     <MudMainContent>
@@ -44,14 +52,16 @@
             @* Filled by the page's <SerginBreadcrumbs>, which projects its strip here through a section: the
                shell owns where every trail sits, the page owns what it says. Empty on a page without one. *@
             <SectionOutlet SectionId="SerginBreadcrumbs.SectionId" />
-            @* Keyed for the same reason: the page reloads its data on the new scope. *@
-            <div @key="scopeVersion">
-                @Body
-            </div>
+            @* Keyed for the same reason: the page reloads its data on the new scope. Rendered only once the
+               session settled the scope, so a page never loads on one the user cannot work in. *@
+            @if (scopeReady)
+            {
+                <div @key="scopeVersion">
+                    @Body
+                </div>
+            }
         </MudContainer>
     </MudMainContent>
-
-    <SerginScopeSetter ScopeChanged="OnScopeChanged" />
 
     @* Design-time tool for live-editing the MudTheme. Gated on the environment rather than compiled
        out, so a host that does run outside Development never exposes it — see ShowThemeManager. *@
