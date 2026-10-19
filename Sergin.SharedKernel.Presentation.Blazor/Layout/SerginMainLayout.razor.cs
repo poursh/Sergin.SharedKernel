@@ -16,6 +16,7 @@ public sealed partial class SerginMainLayout
     private bool themeManagerOpen;
     private bool isDarkMode;
     private int scopeVersion;
+    private bool scopeReady;
 
     /// <summary>
     /// Backs both the <c>MudThemeProvider</c> and the theme manager drawer, so the shell renders the
@@ -46,6 +47,9 @@ public sealed partial class SerginMainLayout
 
     [Inject]
     private SerginUiAuthentication Authentication { get; set; } = default!;
+
+    [Inject]
+    private SerginScopeSession ScopeSession { get; set; } = default!;
 
     /// <summary>
     /// The signed-in user's full name, falling back to the user name when the provider supplied no
@@ -84,7 +88,18 @@ public sealed partial class SerginMainLayout
     private string DarkModeLabel => Localizer[isDarkMode ? "Switch to light mode" : "Switch to dark mode"];
 
     /// <summary>
-    /// Applies the stored appearance, if any.
+    /// Settles the scope the circuit works in before the page renders: the home scope when the current one is not
+    /// one the user can work in. Prerendering awaits it too, so the first paint is already on that scope.
+    /// </summary>
+    protected override async Task OnInitializedAsync()
+    {
+        await ScopeSession.InitializeAsync();
+
+        scopeReady = true;
+    }
+
+    /// <summary>
+    /// Applies the stored scope and appearance, if any.
     /// </summary>
     /// <remarks>
     /// This runs on the first rendered frame rather than in <c>OnInitializedAsync</c> because the store
@@ -97,6 +112,13 @@ public sealed partial class SerginMainLayout
         if (!firstRender)
         {
             return;
+        }
+
+        // The stored scope needs interop too, so it is restored here, after the page first rendered on the home scope.
+        if (await ScopeSession.RestoreAsync())
+        {
+            OnScopeChanged();
+            StateHasChanged();
         }
 
         StoredUiTheme? stored = await ThemeStore.LoadAsync();
