@@ -1,4 +1,4 @@
-using System.Reflection;
+﻿using System.Reflection;
 using FluentValidation;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -89,6 +89,8 @@ public static class SerginCoreExtensions
 
         builder.Services.AddScoped<IEventDispatcher, DefaultEventDispatcher>();
         builder.Services.AddScoped<EventDispatcherInterceptor>();
+        builder.Services.AddScoped<ScopeStampInterceptor>();
+        builder.Services.AddScoped<RecordScopeInterceptor>();
         builder.Services.AddScoped<AuditStampInterceptor>();
         builder.Services.AddScoped<SoftDeleteInterceptor>();
         builder.Services.AddScoped<ExpectedVersionInterceptor>();
@@ -113,6 +115,9 @@ public static class SerginCoreExtensions
         {
             builder.Services.AddSingleton<IIntegrationEventSource>(new AssemblyIntegrationEventSource(module.ContractsAssembly));
         }
+
+        // SharedKernel's own: the scope tree's owner publishes it, every module with scoped aggregates consumes it.
+        builder.Services.AddSingleton<IIntegrationEventSource>(new TypesIntegrationEventSource(typeof(ScopesMovedIntegrationEvent)));
 
         foreach (ISerginRemoteModule remoteModule in remoteModules)
         {
@@ -189,6 +194,14 @@ public static class SerginCoreExtensions
         // Seeded by each front end before a send and read back after it; see ConcurrencyContext.
         builder.Services.AddScoped<ConcurrencyContext>();
 
+        // The scope the caller works in, Root until set; carried into each send the same way. See IAuthorizationScopeContext.
+        builder.Services.AddScoped<IAuthorizationScopeContext, AuthorizationScopeContext>();
+
+        // What the request being handled required and may read; filled by PermissionCheckPipelineBehavior, read by the
+        // save's record check, the scope query filter and raw-SQL reads.
+        builder.Services.AddScoped<RequiredPermissionsContext>();
+        builder.Services.AddScoped<ScopeFilter>();
+
         // A seeded context wins over building a fresh one. Scopes opened from the root provider — every
         // Blazor dispatcher send — can reach neither an HttpContext nor the circuit's authentication
         // state, so the caller hands its own context down rather than having the factory guess.
@@ -207,6 +220,12 @@ public static class SerginCoreExtensions
         {
             remoteModule.AddRemoteServices(builder.Services, serginSection);
         }
+
+        // Scoped permission checks. After the module loops and TryAdd, so the module owning the scope tree
+        // (UserAccess) supplies the checker whatever order it registers in, and a host without one fails closed.
+        builder.Services.TryAddScoped<IScopedPermissionChecker, DenyAllScopedPermissionChecker>();
+        builder.Services.TryAddScoped<IScopePathResolver, UnknownScopePathResolver>();
+        builder.Services.AddScoped<IScopeAuthorization, ScopeAuthorization>();
 
         return serginSection;
     }

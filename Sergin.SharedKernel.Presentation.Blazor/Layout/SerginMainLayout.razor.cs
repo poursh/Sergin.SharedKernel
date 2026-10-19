@@ -15,6 +15,7 @@ public sealed partial class SerginMainLayout
     private bool drawerOpen = true;
     private bool themeManagerOpen;
     private bool isDarkMode;
+    private int scopeVersion;
 
     /// <summary>
     /// Backs both the <c>MudThemeProvider</c> and the theme manager drawer, so the shell renders the
@@ -124,6 +125,8 @@ public sealed partial class SerginMainLayout
 
         await PersistAsync();
     }
+
+    private void OnScopeChanged() => scopeVersion++;
 
     private void OpenThemeManager() => themeManagerOpen = true;
 

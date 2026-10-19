@@ -3,14 +3,9 @@ namespace Sergin.SharedKernel.Application.Commands.Configuration;
 /// <summary>The non-generic half, so the registry can read what any closed builder collected.</summary>
 public abstract class CommandConfigurationBuilder
 {
-    private protected List<Permission> Permissions { get; } = [];
+    internal List<Permission> Permissions { get; } = [];
 
-    private protected bool ExpectedVersionRequired { get; set; }
-
-    internal CommandSettings Settings =>
-        Permissions.Count == 0 && !ExpectedVersionRequired
-            ? CommandSettings.None
-            : new CommandSettings([.. Permissions.Distinct()], ExpectedVersionRequired);
+    internal bool ExpectedVersionRequired { get; private protected set; }
 }
 
 public sealed class CommandConfigurationBuilder<TCommand> : CommandConfigurationBuilder
@@ -35,7 +30,8 @@ public sealed class CommandConfigurationBuilder<TCommand> : CommandConfiguration
 
     /// <summary>
     /// A send without an expected version answers <c>VersionErrors.Required</c> (428) before the handler runs.
-    /// Commands only: the registry refuses it on a query.
+    /// Commands only: the registry refuses it on a query, and on a command bound to an aggregate that is not
+    /// <c>Versioned()</c>.
     /// </summary>
     public CommandConfigurationBuilder<TCommand> RequireExpectedVersion()
     {

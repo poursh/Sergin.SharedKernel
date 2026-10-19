@@ -37,8 +37,8 @@ public sealed class AggregateFeatureRegistry
 
     /// <summary>
     /// The features a child entity of <paramref name="aggregateRoot"/> takes: the root's, less any feature
-    /// that excepts <paramref name="childType"/>. A child is never versioned itself: its root's version covers
-    /// it.
+    /// that excepts <paramref name="childType"/>. A child is never versioned or scoped itself: its root's version
+    /// covers it, and it lives in its root's scope.
     /// </summary>
     public AggregateFeatures ForChild(Type aggregateRoot, Type childType)
     {
@@ -54,6 +54,7 @@ public sealed class AggregateFeatureRegistry
         {
             Audited = declaration.Features.Audited && !declaration.AuditExceptions.Contains(childType),
             Versioned = false,
+            Scoped = false,
         };
     }
 
@@ -150,7 +151,7 @@ public sealed class AggregateFeatureRegistry
         return new Declaration(builder.Features, builder.AuditExceptions.ToHashSet());
     }
 
-    private static bool IsConfigurationType(Type type) =>
+    internal static bool IsConfigurationType(Type type) =>
         type is { IsClass: true, IsAbstract: false, IsGenericTypeDefinition: false }
         && type.GetInterfaces().Any(IsClosedConfigurationInterface);
 

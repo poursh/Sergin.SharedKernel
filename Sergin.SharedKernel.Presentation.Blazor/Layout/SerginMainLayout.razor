@@ -35,7 +35,8 @@
 
     <MudDrawer @bind-Open="drawerOpen" Elevation="themeManagerTheme.DrawerElevation"
                ClipMode="themeManagerTheme.DrawerClipMode">
-        <SerginNavMenu />
+        @* Keyed on the scope, so a scope change rebuilds the drawer and answers its permissions again. *@
+        <SerginNavMenu @key="scopeVersion" />
     </MudDrawer>
 
     <MudMainContent>
@@ -43,9 +44,14 @@
             @* Filled by the page's <SerginBreadcrumbs>, which projects its strip here through a section: the
                shell owns where every trail sits, the page owns what it says. Empty on a page without one. *@
             <SectionOutlet SectionId="SerginBreadcrumbs.SectionId" />
-            @Body
+            @* Keyed for the same reason: the page reloads its data on the new scope. *@
+            <div @key="scopeVersion">
+                @Body
+            </div>
         </MudContainer>
     </MudMainContent>
+
+    <SerginScopeSetter ScopeChanged="OnScopeChanged" />
 
     @* Design-time tool for live-editing the MudTheme. Gated on the environment rather than compiled
        out, so a host that does run outside Development never exposes it — see ShowThemeManager. *@

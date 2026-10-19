@@ -58,6 +58,18 @@ public sealed class AggregateFeatureBuilder<TAggregateRoot> : AggregateFeatureBu
     }
 
     /// <summary>
+    /// Gives the root's table the scope each record lives in: scope_id and its ltree scope_path, stamped from the
+    /// caller's current scope on insert and never changed by an update. Reads see only records inside the current
+    /// scope's subtree that the caller's grants reach, and a write is checked on the record's own scope. Children
+    /// get no columns: they live in their root's scope. Calling it twice is harmless.
+    /// </summary>
+    public AggregateFeatureBuilder<TAggregateRoot> Scoped()
+    {
+        Features = Features with { Scoped = true };
+        return this;
+    }
+
+    /// <summary>
     /// Adds created/modified stamps like <see cref="Audited()"/>, with <paramref name="configure"/> choosing
     /// the child entities that are left out.
     /// </summary>

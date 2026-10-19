@@ -1,5 +1,4 @@
 ﻿using Microsoft.Extensions.Options;
-using Sergin.SharedKernel.Domain.Securities;
 using Sergin.SharedKernel.Application.Securities.Users;
 using Sergin.SharedKernel.Domain.Users;
 
@@ -18,8 +17,7 @@ internal sealed class ConfiguredUserContextFactory : IUserContextFactory
             value.UserName,
             value.Email,
             value.FirstName,
-            value.LastName,
-            [.. value.Permissions.Select(permission => (Permission)permission)]);
+            value.LastName);
     }
 
     public IUserContext CreateUserContext() => userContext;

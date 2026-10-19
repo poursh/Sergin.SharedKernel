@@ -1,4 +1,5 @@
 using System.Linq.Expressions;
+using System.Reflection;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
@@ -24,8 +25,13 @@ namespace Sergin.SharedKernel.Infrastructure.Data.EFCore.Aggregates;
 /// <see cref="AggregateFeatureRegistry.ForChild"/>. An owned type stored in its owner's table gets no columns
 /// of its own (the owner's row carries them), but the walk still continues below it.
 /// </para>
+/// <para>
+/// The scope query filter reads the per-request values from <paramref name="context"/>, the instance whose model this
+/// is: EF replaces a context constant in a query filter with the context running the query, so each query reads its
+/// own request's <c>ScopeFilter</c>.
+/// </para>
 /// </summary>
-internal sealed class AggregateFeatureConvention(AggregateFeatureRegistry registry) : IModelFinalizingConvention
+internal sealed class AggregateFeatureConvention(AggregateFeatureRegistry registry, SerginDbContext context) : IModelFinalizingConvention
 {
     public void ProcessModelFinalizing(
         IConventionModelBuilder modelBuilder,
@@ -54,6 +60,19 @@ internal sealed class AggregateFeatureConvention(AggregateFeatureRegistry regist
             if (features.SoftDeletable && entityType.FindOwnership() is null)
             {
                 AddSoftDeleteShape(entityType);
+            }
+
+            // ForChild never answers Scoped either: the root carries the scope, a child is marked with its root.
+            if (features.Scoped)
+            {
+                AddScopeShape(entityType);
+                modelBuilder.HasPostgresExtension(ScopeColumns.LTreeExtension);
+            }
+            else if (entityType.ClrType != rootType
+                && registry.For(rootType).Scoped
+                && modelBuilder.Metadata.FindEntityType(rootType) is { } scopedRoot)
+            {
+                entityType.Builder.HasAnnotation(ScopeColumns.ScopeRootAnnotation, scopedRoot.Name);
             }
 
             // ForChild never answers Versioned, so this is the root; a child is marked with its root instead.
@@ -212,6 +231,79 @@ internal sealed class AggregateFeatureConvention(AggregateFeatureRegistry regist
 
         AddShadowProperty(builder, typeof(Guid), RowVersionColumns.RowVersion, RowVersionColumns.RowVersionColumn, required: true)
             .IsConcurrencyToken(true);
+    }
+
+    private void AddScopeShape(IConventionEntityType entityType)
+    {
+        IConventionEntityTypeBuilder builder = entityType.Builder;
+
+        builder.HasAnnotation(ScopeColumns.ScopedAnnotation, true);
+
+        // A derived type shares its base's table, columns, indexes and filter.
+        if (entityType.BaseType is not null)
+        {
+            return;
+        }
+
+        AddShadowProperty(builder, typeof(Guid), ScopeColumns.ScopeId, ScopeColumns.ScopeIdColumn, required: true);
+        AddShadowProperty(builder, typeof(LTree), ScopeColumns.ScopePath, ScopeColumns.ScopePathColumn, required: true)
+            .HasColumnType(ScopeColumns.LTreeExtension);
+
+        IConventionProperty scopeId = entityType.FindProperty(ScopeColumns.ScopeId)!;
+        IConventionProperty scopePath = entityType.FindProperty(ScopeColumns.ScopePath)!;
+
+        // The path rewrite after a scope move finds rows by id; every read narrows by path, a GiST lookup.
+        builder.HasIndex([scopeId]);
+        builder.HasIndex([scopePath])?.HasMethod("gist");
+
+        builder.HasQueryFilter(ScopeColumns.QueryFilterName, InReachFilter(entityType.ClrType));
+    }
+
+    /// <summary>
+    /// <c>entity =&gt; ctx.ScopeVisible &amp;&amp; path.IsDescendantOf(ctx.ScopeCurrentPath) &amp;&amp; (ctx.ScopeUnrestricted
+    /// || ctx.ScopeSubtreePaths.Any(p =&gt; path.IsDescendantOf(p)) || ctx.ScopeExactIds.Contains(scopeId))</c>, where
+    /// <c>path</c> and <c>scopeId</c> are the shadow properties: <see cref="ScopeColumns.ReachSql"/> in LINQ.
+    /// </summary>
+    private LambdaExpression InReachFilter(Type clrType)
+    {
+        ParameterExpression entity = Expression.Parameter(clrType, "entity");
+        ConstantExpression instance = Expression.Constant(context, context.GetType());
+
+        // The values are internal to SerginDbContext, so no module context can change what the filter reads.
+#pragma warning disable S3011
+        MemberExpression Value(string name) => Expression.Property(
+            instance,
+            typeof(SerginDbContext).GetProperty(name, BindingFlags.Instance | BindingFlags.NonPublic)!);
+#pragma warning restore S3011
+
+        MethodInfo isDescendantOf = typeof(LTree).GetMethod(nameof(LTree.IsDescendantOf), [typeof(LTree)])!;
+
+        MethodCallExpression path = Expression.Call(
+            typeof(EF), nameof(EF.Property), [typeof(LTree)], entity, Expression.Constant(ScopeColumns.ScopePath));
+        MethodCallExpression scopeId = Expression.Call(
+            typeof(EF), nameof(EF.Property), [typeof(Guid)], entity, Expression.Constant(ScopeColumns.ScopeId));
+
+        ParameterExpression subtree = Expression.Parameter(typeof(LTree), "subtree");
+
+        Expression inSubtreeGrant = Expression.Call(
+            typeof(Enumerable), nameof(Enumerable.Any), [typeof(LTree)],
+            Value(nameof(SerginDbContext.ScopeSubtreePaths)),
+            Expression.Lambda(Expression.Call(path, isDescendantOf, subtree), subtree));
+
+        Expression inExactGrant = Expression.Call(
+            typeof(Enumerable), nameof(Enumerable.Contains), [typeof(Guid)],
+            Value(nameof(SerginDbContext.ScopeExactIds)),
+            scopeId);
+
+        Expression body = Expression.AndAlso(
+            Value(nameof(SerginDbContext.ScopeVisible)),
+            Expression.AndAlso(
+                Expression.Call(path, isDescendantOf, Value(nameof(SerginDbContext.ScopeCurrentPath))),
+                Expression.OrElse(
+                    Value(nameof(SerginDbContext.ScopeUnrestricted)),
+                    Expression.OrElse(inSubtreeGrant, inExactGrant))));
+
+        return Expression.Lambda(body, entity);
     }
 
     private static IConventionPropertyBuilder AddShadowProperty(

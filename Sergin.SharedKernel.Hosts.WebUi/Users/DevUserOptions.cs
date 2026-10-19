@@ -1,6 +1,4 @@
-﻿using Sergin.SharedKernel.Domain.Securities;
-
-namespace Sergin.SharedKernel.Hosts.WebUi.Users;
+﻿namespace Sergin.SharedKernel.Hosts.WebUi.Users;
 
 public sealed class DevUserOptions
 {
@@ -16,9 +14,6 @@ public sealed class DevUserOptions
 
     public string Email { get; set; } = string.Empty;
 
-    // string[] rather than IReadOnlyList<string>: the configuration binder supports arrays universally.
-    public string[] Permissions { get; set; } = [];
-
     public bool Validate(out string failure)
     {
         if (Id == Guid.Empty)
@@ -31,20 +26,6 @@ public sealed class DevUserOptions
         {
             failure = $"Sergin:{SectionName}:UserName is required.";
             return false;
-        }
-
-        foreach (string permission in Permissions)
-        {
-            try
-            {
-                _ = (Permission)permission;
-            }
-            catch (ArgumentException exception)
-            {
-                failure = $"Sergin:{SectionName}:Permissions contains '{permission}', which is not a valid "
-                    + $"permission: {exception.Message}";
-                return false;
-            }
         }
 
         failure = string.Empty;
