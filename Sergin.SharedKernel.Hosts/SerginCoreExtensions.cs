@@ -1,4 +1,4 @@
-﻿using System.Reflection;
+using System.Reflection;
 using FluentValidation;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -257,7 +257,7 @@ public static class SerginCoreExtensions
         string[] misplaced =
         [
             .. scanned.Distinct()
-                .SelectMany(assembly => CommandConfigurationSource.FromAssembly(assembly).ConfigurationTypes
+                .SelectMany(assembly => assembly.GetTypes().Where(CommandConfigurationRegistry.IsConfigurationType)
                     .Concat(AggregateFeatureRegistry.ConfigurationTypesIn(assembly)))
                 .Select(type => type.FullName!)
                 .Distinct(StringComparer.Ordinal)

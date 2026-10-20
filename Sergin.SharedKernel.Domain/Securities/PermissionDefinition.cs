@@ -26,7 +26,18 @@ public sealed class PermissionDefinition : IEquatable<PermissionDefinition>
 
     public static PermissionDefinition Create(string name, string label)
     {
-        var permission = Permission.Create(name);
+        Permission permission;
+
+        try
+        {
+            permission = Permission.Create(name);
+        }
+        catch (ArgumentException exception)
+        {
+            // Name the value: this runs in a static initializer, where the caller sees only the failing class.
+            throw new ArgumentException($"'{name}' is not a valid permission name: {exception.Message}", nameof(name), exception);
+        }
+
         Guard.Against.NullOrWhiteSpace(label);
 
         return new PermissionDefinition(permission, label);

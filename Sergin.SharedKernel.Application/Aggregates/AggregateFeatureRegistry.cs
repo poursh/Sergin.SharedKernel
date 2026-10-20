@@ -90,7 +90,7 @@ public sealed class AggregateFeatureRegistry
 
     /// <summary>
     /// The aggregate feature configuration types declared in <paramref name="assembly"/>, the counterpart of
-    /// <c>CommandConfigurationSource.FromAssembly(assembly).ConfigurationTypes</c>. AddSerginCore's placement
+    /// the command configuration types scan in <c>AddSerginCore</c>. AddSerginCore's placement
     /// guard uses both to refuse a configuration outside a module's ConfigurationsAssembly.
     /// </summary>
     public static IReadOnlyCollection<Type> ConfigurationTypesIn(Assembly assembly)
@@ -162,12 +162,9 @@ public sealed class AggregateFeatureRegistry
         }
         catch (TypeInitializationException exception)
         {
-            // A permission definition class whose static initializer threw: PermissionDefinition.Create refused
-            // a malformed name or label. Name the class and the configuration that touched it.
-            throw new InvalidOperationException(
-                $"Aggregate feature configuration {configurationType.FullName} uses {exception.TypeName}, whose permission "
-                + $"definitions are malformed: {exception.InnerException?.Message ?? exception.Message}",
-                exception);
+            // A class the configuration touched has a static initializer that threw, typically a permission
+            // definitions class whose PermissionDefinition.Create refused a name or label.
+            throw StaticInitializationFailure.Describe($"Aggregate feature configuration {configurationType.FullName}", exception);
         }
 
         return new Declaration(builder.Features, builder.AuditExceptions.ToHashSet(), [.. builder.PermissionDefinitions]);

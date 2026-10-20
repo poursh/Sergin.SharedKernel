@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Components;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
+using Sergin.SharedKernel.Application;
 using Sergin.SharedKernel.Application.Commands.Configuration;
 using Sergin.SharedKernel.Application.Securities.Authorization;
 using Sergin.SharedKernel.Application.Securities.Users;
@@ -95,7 +96,7 @@ public static class SerginWebUiExtensions
 
         builder.AddSerginCore(modules, remoteModules);
 
-        builder.Services.AddSingleton(new SerginUiModuleCatalog([.. modules.OfType<ISerginWebUiModule>()]));
+        builder.Services.AddSingleton(CreateUiModuleCatalog(modules));
 
         SerginHomeBuilder homeBuilder = new();
 
@@ -104,6 +105,21 @@ public static class SerginWebUiExtensions
         builder.Services.AddSingleton(homeBuilder.Build());
 
         return builder;
+    }
+
+    // The catalogue reads every module's NavItems eagerly, and a module's nav entries reference its permission
+    // definitions: a malformed definition surfaces here, as a nested TypeInitializationException that names only
+    // the navigation class. Unwrap it to the class that actually failed.
+    private static SerginUiModuleCatalog CreateUiModuleCatalog(IReadOnlyCollection<ISerginModule> modules)
+    {
+        try
+        {
+            return new SerginUiModuleCatalog([.. modules.OfType<ISerginWebUiModule>()]);
+        }
+        catch (TypeInitializationException exception)
+        {
+            throw StaticInitializationFailure.Describe("Composing the UI modules' navigation", exception);
+        }
     }
 
     public static async Task<WebApplication> UseSerginWebUiAsync<TRootComponent>(

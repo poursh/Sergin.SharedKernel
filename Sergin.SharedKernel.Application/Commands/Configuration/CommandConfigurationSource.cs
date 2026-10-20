@@ -30,9 +30,14 @@ public sealed class CommandConfigurationSource
     /// <summary>The aggregate feature configuration types, read for the requests bound to an aggregate.</summary>
     public IReadOnlyCollection<Type> AggregateConfigurationTypes { get; }
 
-    public static CommandConfigurationSource FromAssembly(Assembly assembly, string? schema = null)
+    /// <summary>
+    /// The configurations in a module's configurations assembly. The schema is required: it is what lets the
+    /// catalogue refuse a permission registered outside its module.
+    /// </summary>
+    public static CommandConfigurationSource FromAssembly(Assembly assembly, string schema)
     {
         ArgumentNullException.ThrowIfNull(assembly);
+        ArgumentException.ThrowIfNullOrWhiteSpace(schema);
 
         return new(
             [.. assembly.GetTypes().Where(CommandConfigurationRegistry.IsConfigurationType)],
