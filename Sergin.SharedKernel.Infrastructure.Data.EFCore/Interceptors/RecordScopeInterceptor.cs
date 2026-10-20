@@ -40,7 +40,7 @@ internal sealed class RecordScopeInterceptor(RequiredPermissionsContext required
         {
             IReadOnlyCollection<Guid> targets = TargetScopes(context);
 
-            foreach (Permission permission in required.Permissions)
+            foreach (PermissionDefinition permission in required.Permissions)
             {
                 foreach (Guid scopeId in targets)
                 {

@@ -9,9 +9,9 @@ namespace Sergin.SharedKernel.Application.Commands.Configuration;
 /// expected-version pipeline behaviors on each send. Refuses two configurations for one request, a
 /// configuration without a parameterless constructor, an expected version on a request that is not an
 /// <see cref="ICommand{TResponse}"/> or whose aggregate is not versioned, and a configuration whose Configure
-/// throws — each naming the type. A request bound to an aggregate through
-/// <see cref="ICommandConfiguration{TCommand, TAggregateRoot}"/> is checked on any scope unless that aggregate is
-/// scoped, read from the aggregate feature configurations the same sources carry.
+/// throws, and a required permission no aggregate registered — each naming the type. A request bound to an
+/// aggregate through <see cref="ICommandConfiguration{TCommand, TAggregateRoot}"/> is checked on any scope unless
+/// that aggregate is scoped, read from the aggregate feature configurations the same sources carry.
 /// </summary>
 public sealed class CommandConfigurationRegistry
 {
@@ -26,20 +26,6 @@ public sealed class CommandConfigurationRegistry
 
     /// <summary>The configured request types.</summary>
     public IReadOnlyCollection<Type> ConfiguredTypes => [.. settings.Keys];
-
-    /// <summary>
-    /// Every permission any configuration requires, plus <see cref="Permission.AllPlatform"/>, ordered by name —
-    /// the catalogue a role editor offers. Permissions are declared by developers in configurations, never created
-    /// at runtime, so this is the complete set the platform checks.
-    /// </summary>
-    public IReadOnlyCollection<Permission> KnownPermissions =>
-    [
-        .. settings.Values
-            .SelectMany(declared => declared.RequiredPermissions)
-            .Append(Permission.AllPlatform)
-            .DistinctBy(permission => permission.Value)
-            .OrderBy(permission => permission.Value, StringComparer.Ordinal)
-    ];
 
     /// <summary>The settings <paramref name="requestType"/> declared; None for an unconfigured request.</summary>
     public CommandSettings For(Type requestType)
@@ -151,6 +137,8 @@ public sealed class CommandConfigurationRegistry
 
         AggregateFeatures features = aggregateRoot is null ? AggregateFeatures.None : aggregates.For(aggregateRoot);
 
+        EnsureRegistered(configurationType, requestType, builder.Permissions, aggregates);
+
         if (builder.ExpectedVersionRequired && !IsCommand(requestType))
         {
             throw new InvalidOperationException(
@@ -173,6 +161,40 @@ public sealed class CommandConfigurationRegistry
         return builder.Permissions.Count == 0 && !builder.ExpectedVersionRequired && aggregateRoot is null
             ? CommandSettings.None
             : new CommandSettings([.. builder.Permissions.Distinct()], builder.ExpectedVersionRequired, scope, aggregateRoot);
+    }
+
+    /// <summary>
+    /// Every required permission must be <see cref="PermissionDefinition.AllPlatform"/> or one an aggregate
+    /// registered with <c>Permissions(...)</c>, from any source: a definition nobody registered is missing from the
+    /// catalogue, so no role could ever grant it.
+    /// </summary>
+    private static void EnsureRegistered(
+        Type configurationType,
+        Type requestType,
+        IReadOnlyCollection<PermissionDefinition> required,
+        AggregateFeatureRegistry aggregates)
+    {
+        HashSet<PermissionDefinition> registered =
+        [
+            PermissionDefinition.AllPlatform,
+            .. aggregates.ConfiguredTypes.SelectMany(aggregates.PermissionsOf),
+        ];
+
+        string[] unregistered =
+        [
+            .. required
+                .Where(permission => !registered.Contains(permission))
+                .Select(permission => permission.Permission.Value)
+                .Distinct(StringComparer.Ordinal),
+        ];
+
+        if (unregistered.Length > 0)
+        {
+            throw new InvalidOperationException(
+                $"Command configuration {configurationType.FullName} requires {string.Join(", ", unregistered)} for "
+                + $"{requestType.FullName}, which no aggregate registers. Add it to its aggregate's feature configuration "
+                + "with Permissions(...), so the catalogue offers it and a role can grant it.");
+        }
     }
 
     private static bool IsCommand(Type requestType) =>

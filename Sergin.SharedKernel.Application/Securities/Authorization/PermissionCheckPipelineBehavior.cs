@@ -70,9 +70,9 @@ internal sealed class PermissionCheckPipelineBehavior<TRequest, TResponse>(
     private static TResponse Forbidden() =>
         ErrorOrResponse.TryFrom(Error.Forbidden(), out TResponse forbidden) ? forbidden : throw new ForbiddenException();
 
-    private async Task<bool> IsAllowedAsync(IReadOnlyCollection<Permission> permissions, Guid scopeId, CancellationToken cancellationToken)
+    private async Task<bool> IsAllowedAsync(IReadOnlyCollection<PermissionDefinition> permissions, Guid scopeId, CancellationToken cancellationToken)
     {
-        foreach (Permission permission in permissions)
+        foreach (PermissionDefinition permission in permissions)
         {
             if (!await scopeAuthorization.CurrentUserHasAsync(permission, scopeId, cancellationToken))
             {
@@ -83,11 +83,11 @@ internal sealed class PermissionCheckPipelineBehavior<TRequest, TResponse>(
         return true;
     }
 
-    private async Task<IReadOnlyCollection<ScopeReach>> ReachesAsync(IReadOnlyCollection<Permission> permissions, CancellationToken cancellationToken)
+    private async Task<IReadOnlyCollection<ScopeReach>> ReachesAsync(IReadOnlyCollection<PermissionDefinition> permissions, CancellationToken cancellationToken)
     {
         List<ScopeReach> reaches = [];
 
-        foreach (Permission permission in permissions)
+        foreach (PermissionDefinition permission in permissions)
         {
             reaches.Add(await scopeAuthorization.CurrentUserReachAsync(permission, cancellationToken));
         }

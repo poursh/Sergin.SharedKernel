@@ -8,12 +8,13 @@ internal sealed class ScopeAuthorization(
     IUserContext userContext,
     IScopedPermissionChecker checker,
     IAuthorizationScopeContext scopeContext,
+    PermissionCatalog catalog,
     ILogger<ScopeAuthorization> logger) : IScopeAuthorization
 {
-    public Task<bool> CurrentUserHasAsync(Permission permission, CancellationToken cancellationToken = default) =>
+    public Task<bool> CurrentUserHasAsync(PermissionDefinition permission, CancellationToken cancellationToken = default) =>
         CurrentUserHasAsync(permission, scopeContext.ScopeId, cancellationToken);
 
-    public async Task<bool> CurrentUserHasAsync(Permission permission, Guid scopeId, CancellationToken cancellationToken = default)
+    public async Task<bool> CurrentUserHasAsync(PermissionDefinition permission, Guid scopeId, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(permission);
 
@@ -24,19 +25,24 @@ internal sealed class ScopeAuthorization(
             return true;
         }
 
+        if (!IsRegistered(permission))
+        {
+            return false;
+        }
+
         try
         {
-            return await checker.HasPermissionAsync(userContext.Id.Value, permission, scopeId, cancellationToken);
+            return await checker.HasPermissionAsync(userContext.Id.Value, permission.Permission, scopeId, cancellationToken);
         }
         catch (Exception exception) when (exception is not OperationCanceledException)
         {
             // Deny by default: a check that cannot be answered never grants.
-            logger.LogError(exception, "Scoped permission check for {Permission} on scope {ScopeId} failed; denying.", permission.Value, scopeId);
+            logger.LogError(exception, "Scoped permission check for {Permission} on scope {ScopeId} failed; denying.", permission.Permission.Value, scopeId);
             return false;
         }
     }
 
-    public async Task<ScopeReach> CurrentUserReachAsync(Permission permission, CancellationToken cancellationToken = default)
+    public async Task<ScopeReach> CurrentUserReachAsync(PermissionDefinition permission, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(permission);
 
@@ -45,50 +51,44 @@ internal sealed class ScopeAuthorization(
             return ScopeReach.Everything;
         }
 
+        if (!IsRegistered(permission))
+        {
+            return ScopeReach.Nothing;
+        }
+
         try
         {
-            return await checker.GetReachAsync(userContext.Id.Value, permission, cancellationToken);
+            return await checker.GetReachAsync(userContext.Id.Value, permission.Permission, cancellationToken);
         }
         catch (Exception exception) when (exception is not OperationCanceledException)
         {
             // A reach that cannot be answered reaches nothing, as a failed check grants nothing.
-            logger.LogError(exception, "Scope reach lookup for {Permission} failed; reaching nothing.", permission.Value);
+            logger.LogError(exception, "Scope reach lookup for {Permission} failed; reaching nothing.", permission.Permission.Value);
             return ScopeReach.Nothing;
         }
     }
 
-    public async Task<bool> CurrentUserHoldsAnywhereAsync(Permission permission, CancellationToken cancellationToken = default)
+    public async Task<bool> CurrentUserHoldsAnywhereAsync(PermissionDefinition permission, CancellationToken cancellationToken = default)
     {
         ScopeReach reach = await CurrentUserReachAsync(permission, cancellationToken);
 
         return reach.ReachesAnywhere;
     }
 
-    public Task<bool> CurrentUserHasAsync(PermissionDefinition permission, Guid scopeId, CancellationToken cancellationToken = default)
+    /// <summary>
+    /// A handler's own check cannot be scanned at start, so a definition no aggregate registered is caught here: no
+    /// role can grant it, and answering from stored grants anyway would let a stale row decide. Fails closed.
+    /// </summary>
+    private bool IsRegistered(PermissionDefinition permission)
     {
-        ArgumentNullException.ThrowIfNull(permission);
+        if (catalog.Contains(permission))
+        {
+            return true;
+        }
 
-        return CurrentUserHasAsync(permission.Permission, scopeId, cancellationToken);
-    }
-
-    public Task<bool> CurrentUserHasAsync(PermissionDefinition permission, CancellationToken cancellationToken = default)
-    {
-        ArgumentNullException.ThrowIfNull(permission);
-
-        return CurrentUserHasAsync(permission.Permission, cancellationToken);
-    }
-
-    public Task<ScopeReach> CurrentUserReachAsync(PermissionDefinition permission, CancellationToken cancellationToken = default)
-    {
-        ArgumentNullException.ThrowIfNull(permission);
-
-        return CurrentUserReachAsync(permission.Permission, cancellationToken);
-    }
-
-    public Task<bool> CurrentUserHoldsAnywhereAsync(PermissionDefinition permission, CancellationToken cancellationToken = default)
-    {
-        ArgumentNullException.ThrowIfNull(permission);
-
-        return CurrentUserHoldsAnywhereAsync(permission.Permission, cancellationToken);
+        logger.LogWarning(
+            "{Permission} is not registered by any aggregate's Permissions(...), so it is not in the permission catalogue; denying.",
+            permission.Permission.Value);
+        return false;
     }
 }

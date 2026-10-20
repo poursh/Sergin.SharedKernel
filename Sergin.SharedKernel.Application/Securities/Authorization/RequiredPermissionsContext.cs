@@ -11,13 +11,13 @@ namespace Sergin.SharedKernel.Application.Securities.Authorization;
 /// </summary>
 public sealed class RequiredPermissionsContext
 {
-    public IReadOnlyCollection<Permission> Permissions { get; private set; } = [];
+    public IReadOnlyCollection<PermissionDefinition> Permissions { get; private set; } = [];
 
     /// <summary>
     /// Publishes <paramref name="permissions"/> until the returned handle is disposed, which restores the previous
     /// value, so a request sent from inside another's handler leaves the outer request's permissions in place.
     /// </summary>
-    public IDisposable Publish(IReadOnlyCollection<Permission> permissions)
+    public IDisposable Publish(IReadOnlyCollection<PermissionDefinition> permissions)
     {
         ArgumentNullException.ThrowIfNull(permissions);
 
@@ -26,7 +26,7 @@ public sealed class RequiredPermissionsContext
         return restore;
     }
 
-    private sealed class Restore(RequiredPermissionsContext context, IReadOnlyCollection<Permission> previous) : IDisposable
+    private sealed class Restore(RequiredPermissionsContext context, IReadOnlyCollection<PermissionDefinition> previous) : IDisposable
     {
         public void Dispose() => context.Permissions = previous;
     }

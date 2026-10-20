@@ -114,11 +114,13 @@ public static class SerginWebUiExtensions
 
         ValidateRoutePrefixes(catalog);
 
+        // Builds the catalogue now, so a bad registration fails start, and checks the nav against it.
+        ValidateNavPermissions(catalog, app.Services.GetRequiredService<PermissionCatalog>());
+
         AggregateFeatureGuard.EnsureApplied(app.Services);
 
         // Builds the registry now, so a bad ICommandConfiguration fails start rather than the first send.
         app.Services.GetRequiredService<CommandConfigurationRegistry>();
-        app.Services.GetRequiredService<PermissionCatalog>();
 
         if (app.Environment.IsDevelopment())
         {
@@ -218,6 +220,30 @@ public static class SerginWebUiExtensions
                 "Module routable components must sit under their module's schema prefix, because Razor @page "
                 + "templates are compile-time constants and cannot be prefixed at map time the way "
                 + "MapGroup(schema) prefixes minimal-API endpoints:"
+                + Environment.NewLine
+                + string.Join(Environment.NewLine, violations));
+        }
+    }
+
+    /// <summary>
+    /// Every nav entry's required permission must be in the catalogue. The nav cannot hand a typo to the menu any
+    /// more, but it can name a definition no aggregate registered, which no role could grant: the entry would never
+    /// show, and the page behind it would refuse everyone.
+    /// </summary>
+    private static void ValidateNavPermissions(SerginUiModuleCatalog catalog, PermissionCatalog permissions)
+    {
+        string[] violations =
+        [
+            .. catalog.Modules.SelectMany(module => module.NavItems
+                .Where(item => item.RequiredPermission is not null && !permissions.Contains(item.RequiredPermission))
+                .Select(item => $"  {module.GetType().FullName}: nav entry \"{item.Label}\" requires {item.RequiredPermission}")),
+        ];
+
+        if (violations.Length > 0)
+        {
+            throw new InvalidOperationException(
+                "Nav entries must require a permission an aggregate registers with Permissions(...), "
+                + "or the permission catalogue holds nothing a role could grant for them:"
                 + Environment.NewLine
                 + string.Join(Environment.NewLine, violations));
         }
