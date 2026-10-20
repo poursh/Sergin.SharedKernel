@@ -11,11 +11,18 @@ namespace Sergin.SharedKernel.Application.Commands.Configuration;
 /// </summary>
 public sealed class CommandConfigurationSource
 {
-    private CommandConfigurationSource(IReadOnlyCollection<Type> configurationTypes, IReadOnlyCollection<Type> aggregateConfigurationTypes)
+    private CommandConfigurationSource(IReadOnlyCollection<Type> configurationTypes, IReadOnlyCollection<Type> aggregateConfigurationTypes, string? schema)
     {
+        Schema = schema;
         ConfigurationTypes = configurationTypes;
         AggregateConfigurationTypes = aggregateConfigurationTypes;
     }
+
+    /// <summary>
+    /// The module schema every permission registered by this source's aggregates must belong to; null for a
+    /// source that is not a module's (a test's <see cref="FromTypes"/>), which skips that check.
+    /// </summary>
+    public string? Schema { get; }
 
     /// <summary>The command configuration types.</summary>
     public IReadOnlyCollection<Type> ConfigurationTypes { get; }
@@ -23,13 +30,14 @@ public sealed class CommandConfigurationSource
     /// <summary>The aggregate feature configuration types, read for the requests bound to an aggregate.</summary>
     public IReadOnlyCollection<Type> AggregateConfigurationTypes { get; }
 
-    public static CommandConfigurationSource FromAssembly(Assembly assembly)
+    public static CommandConfigurationSource FromAssembly(Assembly assembly, string? schema = null)
     {
         ArgumentNullException.ThrowIfNull(assembly);
 
         return new(
             [.. assembly.GetTypes().Where(CommandConfigurationRegistry.IsConfigurationType)],
-            AggregateFeatureRegistry.ConfigurationTypesIn(assembly));
+            AggregateFeatureRegistry.ConfigurationTypesIn(assembly),
+            schema);
     }
 
     /// <summary>Command and aggregate feature configuration types, in any mix.</summary>
@@ -40,6 +48,16 @@ public sealed class CommandConfigurationSource
         return new(
             [.. configurationTypes.Where(type =>
                 !AggregateFeatureRegistry.IsConfigurationType(type) || CommandConfigurationRegistry.IsConfigurationType(type))],
-            [.. configurationTypes.Where(AggregateFeatureRegistry.IsConfigurationType)]);
+            [.. configurationTypes.Where(AggregateFeatureRegistry.IsConfigurationType)],
+            schema: null);
+    }
+
+    /// <summary><see cref="FromTypes"/> that also states the module schema its permissions must belong to.</summary>
+    public static CommandConfigurationSource FromTypesInSchema(string schema, params Type[] configurationTypes)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(schema);
+
+        CommandConfigurationSource source = FromTypes(configurationTypes);
+        return new(source.ConfigurationTypes, source.AggregateConfigurationTypes, schema);
     }
 }

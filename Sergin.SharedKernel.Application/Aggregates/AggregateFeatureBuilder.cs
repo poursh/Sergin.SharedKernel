@@ -14,6 +14,9 @@ public abstract class AggregateFeatureBuilder
 
     /// <summary>The child entity types excepted from <see cref="AggregateFeatures.Audited"/>.</summary>
     internal HashSet<Type> AuditExceptions { get; } = [];
+
+    /// <summary>The permissions the aggregate registered, each definition once.</summary>
+    internal List<PermissionDefinition> PermissionDefinitions { get; } = [];
 }
 
 public sealed class AggregateFeatureBuilder<TAggregateRoot> : AggregateFeatureBuilder
@@ -66,6 +69,27 @@ public sealed class AggregateFeatureBuilder<TAggregateRoot> : AggregateFeatureBu
     public AggregateFeatureBuilder<TAggregateRoot> Scoped()
     {
         Features = Features with { Scoped = true };
+        return this;
+    }
+
+    /// <summary>
+    /// Registers the permissions this aggregate owns, for the permission catalogue the role editor lists. Not an
+    /// EF feature: it adds no column and needs no migration. Registering the same definition again is harmless;
+    /// the same name from another aggregate, or from a module of another schema, fails host start.
+    /// </summary>
+    public AggregateFeatureBuilder<TAggregateRoot> Permissions(PermissionDefinition permission, params PermissionDefinition[] more)
+    {
+        ArgumentNullException.ThrowIfNull(permission);
+        ArgumentNullException.ThrowIfNull(more);
+
+        foreach (PermissionDefinition definition in more.Prepend(permission))
+        {
+            if (!PermissionDefinitions.Contains(definition))
+            {
+                PermissionDefinitions.Add(definition);
+            }
+        }
+
         return this;
     }
 

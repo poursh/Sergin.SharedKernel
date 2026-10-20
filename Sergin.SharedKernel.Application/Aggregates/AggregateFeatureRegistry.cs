@@ -71,6 +71,16 @@ public sealed class AggregateFeatureRegistry
             : [];
     }
 
+    /// <summary>The permissions <paramref name="aggregateRoot"/> registered; empty for an unconfigured root.</summary>
+    public IReadOnlyCollection<PermissionDefinition> PermissionsOf(Type aggregateRoot)
+    {
+        ArgumentNullException.ThrowIfNull(aggregateRoot);
+
+        return declarations.TryGetValue(aggregateRoot, out Declaration? declaration)
+            ? declaration.Permissions
+            : [];
+    }
+
     public static AggregateFeatureRegistry FromAssemblies(IEnumerable<Assembly> assemblies)
     {
         ArgumentNullException.ThrowIfNull(assemblies);
@@ -142,13 +152,25 @@ public sealed class AggregateFeatureRegistry
         var builder = (AggregateFeatureBuilder)Activator.CreateInstance(
             typeof(AggregateFeatureBuilder<>).MakeGenericType(rootType), nonPublic: true)!;
 
-        // DoNotWrapExceptions: a refusal thrown inside Configure (ExceptChild of an aggregate root) reaches the
-        // caller as itself, not wrapped in a TargetInvocationException.
-        closedInterface
-            .GetMethod(nameof(IAggregateFeatureConfiguration<>.Configure))!
-            .Invoke(configuration, BindingFlags.DoNotWrapExceptions, binder: null, [builder], culture: null);
+        try
+        {
+            // DoNotWrapExceptions: a refusal thrown inside Configure (ExceptChild of an aggregate root) reaches the
+            // caller as itself, not wrapped in a TargetInvocationException.
+            closedInterface
+                .GetMethod(nameof(IAggregateFeatureConfiguration<>.Configure))!
+                .Invoke(configuration, BindingFlags.DoNotWrapExceptions, binder: null, [builder], culture: null);
+        }
+        catch (TypeInitializationException exception)
+        {
+            // A permission definition class whose static initializer threw: PermissionDefinition.Create refused
+            // a malformed name or label. Name the class and the configuration that touched it.
+            throw new InvalidOperationException(
+                $"Aggregate feature configuration {configurationType.FullName} uses {exception.TypeName}, whose permission "
+                + $"definitions are malformed: {exception.InnerException?.Message ?? exception.Message}",
+                exception);
+        }
 
-        return new Declaration(builder.Features, builder.AuditExceptions.ToHashSet());
+        return new Declaration(builder.Features, builder.AuditExceptions.ToHashSet(), [.. builder.PermissionDefinitions]);
     }
 
     internal static bool IsConfigurationType(Type type) =>
@@ -158,5 +180,6 @@ public sealed class AggregateFeatureRegistry
     private static bool IsClosedConfigurationInterface(Type type) =>
         type.IsGenericType && type.GetGenericTypeDefinition() == typeof(IAggregateFeatureConfiguration<>);
 
-    private sealed record Declaration(AggregateFeatures Features, IReadOnlySet<Type> AuditExceptions);
+    private sealed record Declaration(AggregateFeatures Features, IReadOnlySet<Type> AuditExceptions,
+        IReadOnlyCollection<PermissionDefinition> Permissions);
 }
