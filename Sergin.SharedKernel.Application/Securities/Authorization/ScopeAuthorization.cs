@@ -63,4 +63,32 @@ internal sealed class ScopeAuthorization(
 
         return reach.ReachesAnywhere;
     }
+
+    public Task<bool> CurrentUserHasAsync(PermissionDefinition permission, Guid scopeId, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(permission);
+
+        return CurrentUserHasAsync(permission.Permission, scopeId, cancellationToken);
+    }
+
+    public Task<bool> CurrentUserHasAsync(PermissionDefinition permission, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(permission);
+
+        return CurrentUserHasAsync(permission.Permission, cancellationToken);
+    }
+
+    public Task<ScopeReach> CurrentUserReachAsync(PermissionDefinition permission, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(permission);
+
+        return CurrentUserReachAsync(permission.Permission, cancellationToken);
+    }
+
+    public Task<bool> CurrentUserHoldsAnywhereAsync(PermissionDefinition permission, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(permission);
+
+        return CurrentUserHoldsAnywhereAsync(permission.Permission, cancellationToken);
+    }
 }

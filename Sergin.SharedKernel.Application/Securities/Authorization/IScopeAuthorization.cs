@@ -25,4 +25,16 @@ public interface IScopeAuthorization
     /// no scope. True for a system identity, false when the lookup fails.
     /// </summary>
     Task<bool> CurrentUserHoldsAnywhereAsync(Permission permission, CancellationToken cancellationToken = default);
+
+    /// <summary>The <see cref="PermissionDefinition"/> form of <see cref="CurrentUserHasAsync(Permission, Guid, CancellationToken)"/>.</summary>
+    Task<bool> CurrentUserHasAsync(PermissionDefinition permission, Guid scopeId, CancellationToken cancellationToken = default);
+
+    /// <summary>The <see cref="PermissionDefinition"/> form of <see cref="CurrentUserHasAsync(Permission, CancellationToken)"/>.</summary>
+    Task<bool> CurrentUserHasAsync(PermissionDefinition permission, CancellationToken cancellationToken = default);
+
+    /// <summary>The <see cref="PermissionDefinition"/> form of <see cref="CurrentUserReachAsync(Permission, CancellationToken)"/>.</summary>
+    Task<ScopeReach> CurrentUserReachAsync(PermissionDefinition permission, CancellationToken cancellationToken = default);
+
+    /// <summary>The <see cref="PermissionDefinition"/> form of <see cref="CurrentUserHoldsAnywhereAsync(Permission, CancellationToken)"/>.</summary>
+    Task<bool> CurrentUserHoldsAnywhereAsync(PermissionDefinition permission, CancellationToken cancellationToken = default);
 }

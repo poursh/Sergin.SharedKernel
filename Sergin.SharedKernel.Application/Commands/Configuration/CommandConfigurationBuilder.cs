@@ -29,6 +29,20 @@ public sealed class CommandConfigurationBuilder<TCommand> : CommandConfiguration
     }
 
     /// <summary>
+    /// The same requirement, named by the aggregate's <see cref="PermissionDefinition"/>s: each is read as its
+    /// <see cref="PermissionDefinition.Permission"/>.
+    /// </summary>
+    public CommandConfigurationBuilder<TCommand> RequirePermissions(PermissionDefinition permission, params PermissionDefinition[] more)
+    {
+        ArgumentNullException.ThrowIfNull(permission);
+        ArgumentNullException.ThrowIfNull(more);
+
+        Permissions.Add(permission.Permission);
+        Permissions.AddRange(more.Select(definition => definition.Permission));
+        return this;
+    }
+
+    /// <summary>
     /// A send without an expected version answers <c>VersionErrors.Required</c> (428) before the handler runs.
     /// Commands only: the registry refuses it on a query, and on a command bound to an aggregate that is not
     /// <c>Versioned()</c>.
