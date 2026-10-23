@@ -131,21 +131,21 @@ public static class SerginCoreExtensions
         // resolve it so a bad declaration fails host start, not the first send.
         foreach (ISerginModule module in localModules)
         {
-            builder.Services.AddSingleton(CommandConfigurationSource.FromAssembly(module.ConfigurationsAssembly, module.Schema));
+            builder.Services.AddSingleton(ModuleConfigurationSource.FromAssembly(module.ConfigurationsAssembly, module.Schema));
         }
 
         foreach (ISerginRemoteModule remoteModule in remoteModules)
         {
-            builder.Services.AddSingleton(CommandConfigurationSource.FromAssembly(remoteModule.ConfigurationsAssembly, remoteModule.Schema));
+            builder.Services.AddSingleton(ModuleConfigurationSource.FromAssembly(remoteModule.ConfigurationsAssembly, remoteModule.Schema));
         }
 
         builder.Services.AddSingleton(provider =>
-            CommandConfigurationRegistry.FromSources(provider.GetServices<CommandConfigurationSource>()));
+            CommandConfigurationRegistry.FromSources(provider.GetServices<ModuleConfigurationSource>()));
 
         // What the aggregates registered with .Permissions(...), from the same sources; resolved at start beside
         // the registry above so a duplicate or misplaced permission fails host start.
         builder.Services.AddSingleton(provider =>
-            PermissionCatalog.FromSources(provider.GetServices<CommandConfigurationSource>()));
+            PermissionCatalog.FromSources(provider.GetServices<ModuleConfigurationSource>()));
 
         builder.Services.AddSingleton<IIntegrationEventTypeRegistry, IntegrationEventTypeRegistry>();
         builder.Services.AddSingleton<IIntegrationEventSerializer, JsonIntegrationEventSerializer>();

@@ -5,7 +5,7 @@ namespace Sergin.SharedKernel.Application.Commands.Configuration;
 
 /// <summary>
 /// What every <see cref="ICommandConfiguration{TCommand}"/> declared, keyed by request type. Built once per
-/// host from every registered <see cref="CommandConfigurationSource"/> and read by the permission and
+/// host from every registered <see cref="ModuleConfigurationSource"/> and read by the permission and
 /// expected-version pipeline behaviors on each send. Refuses two configurations for one request, a
 /// configuration without a parameterless constructor, an expected version on a request that is not an
 /// <see cref="ICommand{TResponse}"/> or whose aggregate is not versioned, and a configuration whose Configure
@@ -35,11 +35,11 @@ public sealed class CommandConfigurationRegistry
         return settings.TryGetValue(requestType, out CommandSettings? declared) ? declared : CommandSettings.None;
     }
 
-    public static CommandConfigurationRegistry FromSources(IEnumerable<CommandConfigurationSource> sources)
+    public static CommandConfigurationRegistry FromSources(IEnumerable<ModuleConfigurationSource> sources)
     {
         ArgumentNullException.ThrowIfNull(sources);
 
-        CommandConfigurationSource[] all = [.. sources];
+        ModuleConfigurationSource[] all = [.. sources];
 
         return Build(
             all.SelectMany(source => source.ConfigurationTypes).Distinct(),
@@ -51,7 +51,7 @@ public sealed class CommandConfigurationRegistry
     {
         ArgumentNullException.ThrowIfNull(configurationTypes);
 
-        return FromSources([CommandConfigurationSource.FromTypes([.. configurationTypes])]);
+        return FromSources([ModuleConfigurationSource.FromTypes([.. configurationTypes])]);
     }
 
     private static CommandConfigurationRegistry Build(IEnumerable<Type> configurationTypes, AggregateFeatureRegistry aggregates)

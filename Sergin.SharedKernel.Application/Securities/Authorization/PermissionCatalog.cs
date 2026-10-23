@@ -31,13 +31,13 @@ public sealed class PermissionCatalog
     /// <summary>Every registered permission, <see cref="PermissionDefinition.AllPlatform"/> included.</summary>
     public IReadOnlyCollection<PermissionCatalogEntry> Entries => entries;
 
-    public static PermissionCatalog FromSources(IEnumerable<CommandConfigurationSource> sources)
+    public static PermissionCatalog FromSources(IEnumerable<ModuleConfigurationSource> sources)
     {
         ArgumentNullException.ThrowIfNull(sources);
 
         List<PermissionCatalogEntry> collected = [new(PermissionDefinition.AllPlatform, AggregateRoot: null)];
 
-        foreach (CommandConfigurationSource source in sources)
+        foreach (ModuleConfigurationSource source in sources)
         {
             var registry = AggregateFeatureRegistry.FromConfigurationTypes(source.AggregateConfigurationTypes);
 

@@ -4,14 +4,15 @@ using Sergin.SharedKernel.Application.Aggregates;
 namespace Sergin.SharedKernel.Application.Commands.Configuration;
 
 /// <summary>
-/// A set of configuration types to put in the registry, registered as a singleton per assembly the way
-/// <c>AssemblyIntegrationEventSource</c> is. <c>AddSerginCore</c> adds one per module ConfigurationsAssembly; a test
-/// host adds <see cref="FromTypes"/> for its own requests, so it never scans a test assembly whole. It carries the
-/// aggregate feature configurations too, because a request bound to an aggregate takes policy from its features.
+/// One module's configurations: its command configurations, its aggregate feature configurations and its schema,
+/// registered as a singleton per assembly the way <c>AssemblyIntegrationEventSource</c> is. <c>AddSerginCore</c> adds
+/// one per module ConfigurationsAssembly; a test host adds <see cref="FromTypes"/> for its own requests, so it never
+/// scans a test assembly whole. The command configuration registry and the permission catalogue both read every
+/// source, so a test's configurations reach both.
 /// </summary>
-public sealed class CommandConfigurationSource
+public sealed class ModuleConfigurationSource
 {
-    private CommandConfigurationSource(IReadOnlyCollection<Type> configurationTypes, IReadOnlyCollection<Type> aggregateConfigurationTypes, string? schema)
+    private ModuleConfigurationSource(IReadOnlyCollection<Type> configurationTypes, IReadOnlyCollection<Type> aggregateConfigurationTypes, string? schema)
     {
         Schema = schema;
         ConfigurationTypes = configurationTypes;
@@ -34,7 +35,7 @@ public sealed class CommandConfigurationSource
     /// The configurations in a module's configurations assembly. The schema is required: it is what lets the
     /// catalogue refuse a permission registered outside its module.
     /// </summary>
-    public static CommandConfigurationSource FromAssembly(Assembly assembly, string schema)
+    public static ModuleConfigurationSource FromAssembly(Assembly assembly, string schema)
     {
         ArgumentNullException.ThrowIfNull(assembly);
         ArgumentException.ThrowIfNullOrWhiteSpace(schema);
@@ -46,7 +47,7 @@ public sealed class CommandConfigurationSource
     }
 
     /// <summary>Command and aggregate feature configuration types, in any mix.</summary>
-    public static CommandConfigurationSource FromTypes(params Type[] configurationTypes)
+    public static ModuleConfigurationSource FromTypes(params Type[] configurationTypes)
     {
         ArgumentNullException.ThrowIfNull(configurationTypes);
 
@@ -58,11 +59,11 @@ public sealed class CommandConfigurationSource
     }
 
     /// <summary><see cref="FromTypes"/> that also states the module schema its permissions must belong to.</summary>
-    public static CommandConfigurationSource FromTypesInSchema(string schema, params Type[] configurationTypes)
+    public static ModuleConfigurationSource FromTypesInSchema(string schema, params Type[] configurationTypes)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(schema);
 
-        CommandConfigurationSource source = FromTypes(configurationTypes);
+        ModuleConfigurationSource source = FromTypes(configurationTypes);
         return new(source.ConfigurationTypes, source.AggregateConfigurationTypes, schema);
     }
 }
