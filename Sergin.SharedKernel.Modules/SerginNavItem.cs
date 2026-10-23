@@ -5,7 +5,10 @@ namespace Sergin.SharedKernel.Modules;
 /// <param name="Label">Display text. Rendered through ILocalizer, so a resource key also works.</param>
 /// <param name="Href">Absolute, schema-prefixed path, e.g. "/mm/devices".</param>
 /// <param name="Icon">Raw SVG path data. A string keeps this contract leaf free of any UI library.</param>
-/// <param name="Order">Cross-module ordering; ties broken by Label.</param>
+/// <param name="Order">
+/// Ordering within the module's <see cref="SerginNavGroup"/>; ties broken by Label. The home entry, which belongs
+/// to no group, is ordered among the groups instead.
+/// </param>
 /// <param name="RequiredPermission">
 /// Permission the current user must hold for this entry to appear, or null to always show it: a definition an
 /// aggregate registered with <c>Permissions(...)</c>, which the UI host checks at start, refusing to start over
