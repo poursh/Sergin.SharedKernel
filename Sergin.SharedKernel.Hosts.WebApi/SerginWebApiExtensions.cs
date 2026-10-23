@@ -5,6 +5,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
 using Scalar.AspNetCore;
 using Sergin.SharedKernel.Application.Commands.Configuration;
+using Sergin.SharedKernel.Application.Securities.Authorization;
 using Sergin.SharedKernel.Application.Securities.Users;
 using Sergin.SharedKernel.Hosts.Authentication;
 using Sergin.SharedKernel.Infrastracture.WebApi.Users;
@@ -51,6 +52,7 @@ public static class SerginWebApiExtensions
 
         // Builds the registry now, so a bad ICommandConfiguration fails start rather than the first send.
         app.Services.GetRequiredService<CommandConfigurationRegistry>();
+        app.Services.GetRequiredService<PermissionCatalog>();
 
         if (app.Environment.IsDevelopment())
         {

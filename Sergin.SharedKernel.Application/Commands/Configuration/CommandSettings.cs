@@ -8,7 +8,7 @@ namespace Sergin.SharedKernel.Application.Commands.Configuration;
 /// <see cref="AggregateRoot"/> is the root the configuration bound the request to, or null.
 /// </summary>
 public sealed record CommandSettings(
-    IReadOnlyCollection<Permission> RequiredPermissions,
+    IReadOnlyCollection<PermissionDefinition> RequiredPermissions,
     bool RequiresExpectedVersion,
     PermissionScope PermissionScope = PermissionScope.Current,
     Type? AggregateRoot = null)

@@ -4,7 +4,9 @@ using Microsoft.AspNetCore.Components;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
+using Sergin.SharedKernel.Application;
 using Sergin.SharedKernel.Application.Commands.Configuration;
+using Sergin.SharedKernel.Application.Securities.Authorization;
 using Sergin.SharedKernel.Application.Securities.Users;
 using Sergin.SharedKernel.Hosts.Authentication;
 using Sergin.SharedKernel.Hosts.WebUi;
@@ -94,7 +96,7 @@ public static class SerginWebUiExtensions
 
         builder.AddSerginCore(modules, remoteModules);
 
-        builder.Services.AddSingleton(new SerginUiModuleCatalog([.. modules.OfType<ISerginWebUiModule>()]));
+        builder.Services.AddSingleton(CreateUiModuleCatalog(modules));
 
         SerginHomeBuilder homeBuilder = new();
 
@@ -105,6 +107,21 @@ public static class SerginWebUiExtensions
         return builder;
     }
 
+    // The catalogue reads every module's NavItems eagerly, and a module's nav entries reference its permission
+    // definitions: a malformed definition surfaces here, as a nested TypeInitializationException that names only
+    // the navigation class. Unwrap it to the class that actually failed.
+    private static SerginUiModuleCatalog CreateUiModuleCatalog(IReadOnlyCollection<ISerginModule> modules)
+    {
+        try
+        {
+            return new SerginUiModuleCatalog([.. modules.OfType<ISerginWebUiModule>()]);
+        }
+        catch (TypeInitializationException exception)
+        {
+            throw StaticInitializationFailure.Describe("Composing the UI modules' navigation", exception);
+        }
+    }
+
     public static async Task<WebApplication> UseSerginWebUiAsync<TRootComponent>(
         this WebApplication app, IReadOnlyCollection<ISerginModule> modules)
         where TRootComponent : IComponent
@@ -112,6 +129,9 @@ public static class SerginWebUiExtensions
         SerginUiModuleCatalog catalog = app.Services.GetRequiredService<SerginUiModuleCatalog>();
 
         ValidateRoutePrefixes(catalog);
+
+        // Builds the catalogue now, so a bad registration fails start, and checks the nav against it.
+        ValidateNavPermissions(catalog, app.Services.GetRequiredService<PermissionCatalog>());
 
         AggregateFeatureGuard.EnsureApplied(app.Services);
 
@@ -216,6 +236,30 @@ public static class SerginWebUiExtensions
                 "Module routable components must sit under their module's schema prefix, because Razor @page "
                 + "templates are compile-time constants and cannot be prefixed at map time the way "
                 + "MapGroup(schema) prefixes minimal-API endpoints:"
+                + Environment.NewLine
+                + string.Join(Environment.NewLine, violations));
+        }
+    }
+
+    /// <summary>
+    /// Every nav entry's required permission must be in the catalogue. The nav cannot hand a typo to the menu any
+    /// more, but it can name a definition no aggregate registered, which no role could grant: the entry would never
+    /// show, and the page behind it would refuse everyone.
+    /// </summary>
+    private static void ValidateNavPermissions(SerginUiModuleCatalog catalog, PermissionCatalog permissions)
+    {
+        string[] violations =
+        [
+            .. catalog.Modules.SelectMany(module => module.NavItems
+                .Where(item => item.RequiredPermission is not null && !permissions.Contains(item.RequiredPermission))
+                .Select(item => $"  {module.GetType().FullName}: nav entry \"{item.Label}\" requires {item.RequiredPermission}")),
+        ];
+
+        if (violations.Length > 0)
+        {
+            throw new InvalidOperationException(
+                "Nav entries must require a permission an aggregate registers with Permissions(...), "
+                + "or the permission catalogue holds nothing a role could grant for them:"
                 + Environment.NewLine
                 + string.Join(Environment.NewLine, violations));
         }

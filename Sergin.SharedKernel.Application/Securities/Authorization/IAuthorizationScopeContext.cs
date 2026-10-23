@@ -2,7 +2,7 @@ namespace Sergin.SharedKernel.Application.Securities.Authorization;
 
 /// <summary>
 /// The scope the caller is working in: the target of every permission a command configuration requires (unless the
-/// request is bound to an aggregate that is not scoped, which is checked on any scope), and of <see cref="IScopeAuthorization.CurrentUserHasAsync(Permission, CancellationToken)"/>.
+/// request is bound to an aggregate that is not scoped, which is checked on any scope), and of <see cref="IScopeAuthorization.CurrentUserHasAsync(PermissionDefinition, CancellationToken)"/>.
 /// It is <see cref="AuthorizationScope.RootId"/> until code sets it: the shell's scope picker for an explicit choice, or the
 /// code that opens the scope when the system knows the target.
 /// <para>
