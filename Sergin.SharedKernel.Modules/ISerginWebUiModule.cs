@@ -12,5 +12,11 @@ public interface ISerginWebUiModule : ISerginModule
     /// </summary>
     Assembly UiAssembly { get; }
 
+    /// <summary>
+    /// The drawer group this module's <see cref="NavItems"/> are shown under. It also names the module in every
+    /// breadcrumb trail whose first step is one of them.
+    /// </summary>
+    SerginNavGroup NavGroup { get; }
+
     IReadOnlyCollection<SerginNavItem> NavItems { get; }
 }
