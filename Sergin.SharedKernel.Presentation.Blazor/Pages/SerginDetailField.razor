@@ -1,0 +1,11 @@
+<MudItem xs="12" sm="4">
+    <MudText Typo="Typo.caption" Class="d-block">@Localizer[Label]</MudText>
+    @if (ChildContent is not null)
+    {
+        <MudText Typo="Typo.body1">@ChildContent</MudText>
+    }
+    else
+    {
+        <MudText Typo="Typo.body1">@(string.IsNullOrEmpty(Value) ? "—" : Value)</MudText>
+    }
+</MudItem>

@@ -1,0 +1,29 @@
+@* The aggregate page's three slots, top to bottom: Overview (optional, collapsible), Actions, Body. A page with
+   no overview renders no slot for it and the actions move up. *@
+<div class="sergin-aggregate-page">
+    @if (Overview is not null)
+    {
+        <section class="sergin-overview border border-solid mud-border-lines-default rounded pa-4 mb-4" aria-label="@Localizer["Overview"]">
+            <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2" >
+                <MudText Typo="Typo.overline">@Localizer["Overview"]</MudText>
+                @if (collapsed && OverviewSummary is not null)
+                {
+                    <div class="d-flex align-center flex-wrap" style="gap: 16px;">@OverviewSummary</div>
+                }
+                <MudSpacer />
+                <MudButton Variant="Variant.Text" Size="Size.Small" OnClick="ToggleOverview"
+                           EndIcon="@(collapsed ? Icons.Material.Filled.ExpandMore : Icons.Material.Filled.ExpandLess)">
+                    @(collapsed ? Localizer["Expand"] : Localizer["Collapse"])
+                </MudButton>
+            </MudStack>
+            @if (!collapsed)
+            {
+                @Overview
+            }
+        </section>
+    }
+
+    <SerginActionBar Actions="Actions" Class="mb-4" />
+
+    @ChildContent
+</div>

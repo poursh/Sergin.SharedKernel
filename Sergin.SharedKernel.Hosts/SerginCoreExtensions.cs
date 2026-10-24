@@ -233,6 +233,10 @@ public static class SerginCoreExtensions
         builder.Services.TryAddScoped<IScopeDirectory, RootOnlyScopeDirectory>();
         builder.Services.AddScoped<IScopeAuthorization, ScopeAuthorization>();
 
+        // User names for display (audit stamps). The user-store module (UserAccess) supplies the directory; a host
+        // without one shows ids.
+        builder.Services.TryAddScoped<IUserDirectory, EmptyUserDirectory>();
+
         return serginSection;
     }
 

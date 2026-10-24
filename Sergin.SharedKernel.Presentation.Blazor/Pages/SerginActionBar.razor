@@ -1,0 +1,23 @@
+@* The actions bar an aggregate page and an entity list section share: primary and secondary actions first, a
+   spacer, danger actions at the far end. Renders nothing while no action is visible. *@
+@if (visibleActions.Count > 0)
+{
+    <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2" Class="@($"sergin-actions {Class}")" Wrap="Wrap.Wrap">
+        @foreach (SerginPageAction action in visibleActions.Where(action => action.Kind != SerginActionKind.Danger))
+        {
+            <MudButton Variant="@(action.Kind == SerginActionKind.Primary ? Variant.Filled : Variant.Outlined)"
+                       Color="Color.Primary" StartIcon="@action.Icon" Href="@action.Href" OnClick="action.OnClick"
+                       Disabled="action.Disabled">
+                @Localizer[action.Label]
+            </MudButton>
+        }
+        <MudSpacer />
+        @foreach (SerginPageAction action in visibleActions.Where(action => action.Kind == SerginActionKind.Danger))
+        {
+            <MudButton Variant="Variant.Text" Color="Color.Error" StartIcon="@action.Icon" Href="@action.Href"
+                       OnClick="action.OnClick" Disabled="action.Disabled">
+                @Localizer[action.Label]
+            </MudButton>
+        }
+    </MudStack>
+}

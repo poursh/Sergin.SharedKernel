@@ -22,6 +22,15 @@ public static class AuditColumns
     public const string ModifiedByColumn = "modified_by";
 
     /// <summary>
+    /// The select list a raw-SQL read of <c>AuditInfo</c> uses, aliased to its constructor parameters so Dapper
+    /// binds it. A constant, so a query that embeds it stays a constant; its columns are unqualified, like
+    /// <c>ScopeColumns.ReachSql</c>'s, so select from the audited table alone.
+    /// </summary>
+    public const string SelectSql =
+        CreatedAtUtcColumn + " AS createdAtUtc, " + CreatedByColumn + " AS createdBy, "
+        + ModifiedAtUtcColumn + " AS modifiedAtUtc, " + ModifiedByColumn + " AS modifiedBy";
+
+    /// <summary>
     /// Walks <paramref name="entityType"/> and its <see cref="IReadOnlyEntityType.BaseType"/> chain, because
     /// EF annotations are not inherited: in a TPH hierarchy, a derived type configured only through its base's
     /// <c>Audited()</c> call shares the base's shadow columns but carries no <see cref="AuditedAnnotation"/> of

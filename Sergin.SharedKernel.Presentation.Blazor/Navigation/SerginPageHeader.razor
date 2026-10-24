@@ -1,0 +1,47 @@
+@* Declared on the page, shown in the shell: SectionContent projects the header into SerginMainLayout's
+   SectionOutlet for SerginBreadcrumbs.SectionId, the same mechanism PageTitle uses to reach HeadOutlet — so it
+   renders under prerender and interactive server alike, and re-renders with the page once an async load fills the
+   tail. When the page unmounts the outlet empties, which is why a page that declares no trail shows no header.
+   The icons render twice: in a row from md up, folded into one menu below it — CSS display classes, not a
+   breakpoint listener, so the prerender is already right. *@
+<SectionContent SectionId="SerginBreadcrumbs.SectionId">
+    @* MudBlazor pads each separator 0 12px; the trail reads tighter at 4px. A style element here, not scoped CSS,
+       because no host links the scoped-CSS bundle and this keeps the rule shipping with the component. *@
+    <style>.sergin-page-header .mud-breadcrumb-separator { padding: 0 4px; }</style>
+    <div class="sergin-page-header mb-4">
+        <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween" Spacing="2" Wrap="Wrap.NoWrap">
+            <div class="sergin-page-header-trail" style="min-width: 0; flex: 0 1 80%; overflow: hidden;">
+                <MudBreadcrumbs Items="items" Class="pa-0">
+                    <ItemTemplate Context="item">
+                        @* The template replaces the item's whole content, anchor included, so it renders the anchor
+                           the way MudBlazor's default does (href "#" for a step with none, the li's mud-disabled
+                           class stopping the click, aria-current on the last). A step with an icon (home) shows the
+                           icon alone, its label kept as aria-label and tooltip. *@
+                        @if (item.Icon is not null)
+                        {
+                            <a href="@(item.Href ?? "#")" aria-current="@AriaCurrent(item)" aria-label="@item.Text" title="@item.Text"><MudIcon Icon="@item.Icon" Size="Size.Small" Style="margin: 0;" /></a>
+                        }
+                        else
+                        {
+                            <a href="@(item.Href ?? "#")" aria-current="@AriaCurrent(item)">@item.Text</a>
+                        }
+                    </ItemTemplate>
+                </MudBreadcrumbs>
+            </div>
+            @if (ChildContent is not null)
+            {
+                <div class="d-none d-md-flex align-center justify-end" style="flex: 0 0 auto; gap: 2px;">
+                    @ChildContent
+                </div>
+                <div class="d-flex d-md-none justify-end" style="flex: 0 0 auto;">
+                    <MudMenu Icon="@Icons.Material.Filled.MoreHoriz" AriaLabel="@Localizer["Page actions"]" Dense="true">
+                        <div class="d-flex align-center px-2" style="gap: 2px;">
+                            @ChildContent
+                        </div>
+                    </MudMenu>
+                </div>
+            }
+        </MudStack>
+        <MudDivider />
+    </div>
+</SectionContent>
