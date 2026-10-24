@@ -1,0 +1,87 @@
+@typeparam TItem
+@* The list body: quick search, the advanced-filter toggle, the filter panel (pushes the table down, never covers
+   it), the applied filters as chips, then the server-paged table with a row-commands column. Search, filters and
+   sorting all travel to the query as Term, Filtering and Sorting. *@
+<section class="sergin-aggregate-list border border-solid mud-border-lines-default rounded pa-4 mb-4">
+    <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2" Class="mb-2">
+        @* Sized by its wrapper: MudTextField's root grows to fill a flex row, which would push the filter
+           toggle to the far edge, away from the search it refines. *@
+        @if (Searchable)
+        {
+        <div style="flex: 0 1 420px; min-width: 0;">
+            <MudTextField T="string" Value="term" ValueChanged="OnTermChangedAsync" DebounceInterval="300" Immediate="true"
+                          Placeholder="@Localizer[SearchPlaceholder]" Adornment="Adornment.Start"
+                          AdornmentIcon="@Icons.Material.Filled.Search" Variant="Variant.Outlined" Margin="Margin.Dense"
+                          Clearable="true" aria-label="@Localizer["Quick search"]" />
+        </div>
+        }
+        @if (FilterPanel is not null)
+        {
+            <MudTooltip Text="@Localizer["Advanced filter"]">
+                <MudIconButton Icon="@Icons.Material.Filled.FilterList" aria-label="@Localizer["Advanced filter"]"
+                               Variant="@(filters.Count > 0 ? Variant.Filled : Variant.Outlined)" Color="Color.Primary"
+                               Size="Size.Medium" OnClick="ToggleFilterPanel" aria-pressed="@(filterPanelOpen ? "true" : "false")" />
+            </MudTooltip>
+        }
+    </MudStack>
+
+    @if (filterPanelOpen && FilterPanel is not null)
+    {
+        <MudPaper Outlined="true" Class="pa-4 mb-3 sergin-filter-panel">
+            <MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-2">
+                <MudText Typo="Typo.subtitle2">@Localizer["Advanced filter"]</MudText>
+                <MudSpacer />
+                <MudIconButton Icon="@Icons.Material.Filled.Close" Size="Size.Small" OnClick="ToggleFilterPanel" aria-label="@Localizer["Close"]" />
+            </MudStack>
+            @FilterPanel
+            <MudStack Row="true" Justify="Justify.FlexEnd" Spacing="2" Class="mt-3">
+                <MudButton Variant="Variant.Text" OnClick="ResetFiltersAsync">@Localizer["Reset"]</MudButton>
+                <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="ApplyFiltersAsync">@Localizer["Apply"]</MudButton>
+            </MudStack>
+        </MudPaper>
+    }
+
+    @if (HasCriteria)
+    {
+        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1" Wrap="Wrap.Wrap" Class="mb-2 sergin-filter-chips">
+            <MudText Typo="Typo.caption">@Localizer["Filtered by"]</MudText>
+            @if (!string.IsNullOrWhiteSpace(term))
+            {
+                <MudChip T="string" Size="Size.Small" Color="Color.Primary" Variant="Variant.Outlined" OnClose="ClearTermAsync">
+                    @Localizer["Search"]: @term
+                </MudChip>
+            }
+            @foreach (SerginAppliedFilter filter in filters)
+            {
+                <MudChip T="string" Size="Size.Small" Color="Color.Primary" Variant="Variant.Outlined"
+                         OnClose="@(_ => RemoveFilterAsync(filter))">
+                    @filter.Label
+                </MudChip>
+            }
+            <MudButton Variant="Variant.Text" Size="Size.Small" OnClick="ClearAllAsync">@Localizer["Clear all"]</MudButton>
+        </MudStack>
+    }
+
+    <MudTable @ref="table" T="TItem" ServerData="LoadAsync" Hover="true" Dense="Dense" RowsPerPage="RowsPerPage" Elevation="0">
+        <HeaderContent>
+            @HeaderContent
+            @if (RowCommands is not null)
+            {
+                <MudTh Style="width: 1%;" />
+            }
+        </HeaderContent>
+        <RowTemplate>
+            @RowTemplate(context)
+            @if (RowCommands is not null)
+            {
+                <MudTd Style="white-space: nowrap; text-align: right;">@RowCommands(context)</MudTd>
+            }
+        </RowTemplate>
+        <NoRecordsContent>
+            <MudText Typo="Typo.body2">@Localizer[HasCriteria ? "Nothing matches these filters." : "Nothing here yet."]</MudText>
+        </NoRecordsContent>
+        <PagerContent>
+            <MudTablePager />
+        </PagerContent>
+    </MudTable>
+</section>

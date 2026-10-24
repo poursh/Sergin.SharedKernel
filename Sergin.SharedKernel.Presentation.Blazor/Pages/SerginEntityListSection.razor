@@ -1,0 +1,18 @@
+@* The entity list section: the aggregate page's shape without the overview and without being a page. A titled,
+   collapsible section ("Device models · 3"), the collection's actions bar, then its body — usually a
+   SerginEntityList. Collapsing hides the actions and the body but keeps them rendered, so the body's state and the
+   count in the title stay live. Outlined like every Sergin section, so it reads as one block on the page. *@
+<section class="sergin-entity-list-section border border-solid mud-border-lines-default rounded pa-4 mb-4" aria-label="@Localizer[Title]">
+    <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2" Class="mb-2">
+        <MudText Typo="Typo.h6">@Localizer[Title]@(Count is { } count ? $" · {count}" : string.Empty)</MudText>
+        <MudSpacer />
+        <MudButton Variant="Variant.Text" Size="Size.Small" OnClick="Toggle" aria-expanded="@(collapsed ? "false" : "true")"
+                   EndIcon="@(collapsed ? Icons.Material.Filled.ExpandMore : Icons.Material.Filled.ExpandLess)">
+            @(collapsed ? Localizer["Expand"] : Localizer["Collapse"])
+        </MudButton>
+    </MudStack>
+    <div class="@(collapsed ? "d-none" : null)">
+        <SerginActionBar Actions="Actions" Class="mb-2" />
+        @ChildContent
+    </div>
+</section>

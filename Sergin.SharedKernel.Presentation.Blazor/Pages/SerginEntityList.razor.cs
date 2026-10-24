@@ -1,0 +1,109 @@
+using Microsoft.AspNetCore.Components;
+using MudBlazor;
+using Sergin.SharedKernel.Application.Localizations;
+using Sergin.SharedKernel.Presentation.Blazor.Errors;
+
+namespace Sergin.SharedKernel.Presentation.Blazor.Pages;
+
+/// <summary>
+/// The list body of a <see cref="SerginEntityListSection"/>: a server-paged <c>MudTable</c> of the entities inside one
+/// aggregate, with a quick search, optional sortable headers and a column of per-row commands.
+/// </summary>
+/// <remarks>
+/// The page or component supplies <see cref="Load"/>, which builds its feature's list record from a
+/// <see cref="SerginListRequest"/> — paging, the search as <c>Term</c>, and sorting when a header carries a
+/// <c>MudTableSortLabel</c>; never a filter, since this list has no filter panel. Each load reports the total through
+/// <see cref="TotalChanged"/> when it changes, so the owner can show it in the section title.
+/// </remarks>
+public sealed partial class SerginEntityList<TItem>
+{
+    private MudTable<TItem> table = default!;
+    private int? total;
+    private string? term;
+
+    [Parameter]
+    [EditorRequired]
+    public Func<SerginListRequest, CancellationToken, Task<ErrorOr<ListQueryResponse<TItem>>>> Load { get; set; } = default!;
+
+    [Parameter]
+    [EditorRequired]
+    public RenderFragment HeaderContent { get; set; } = default!;
+
+    [Parameter]
+    [EditorRequired]
+    public RenderFragment<TItem> RowTemplate { get; set; } = default!;
+
+    [Parameter]
+    public RenderFragment<TItem>? RowCommands { get; set; }
+
+    /// <summary>Raised after a load whose total differs from the last one.</summary>
+    [Parameter]
+    public EventCallback<int> TotalChanged { get; set; }
+
+    /// <summary>The text shown when the collection is empty, localised by the list.</summary>
+    [Parameter]
+    public string EmptyText { get; set; } = "Nothing here yet.";
+
+    /// <summary>Whether to show the quick search; false for a list whose query repository does not read <c>Term</c>.</summary>
+    [Parameter]
+    public bool Searchable { get; set; } = true;
+
+    /// <summary>The search box's placeholder, localised by the list.</summary>
+    [Parameter]
+    public string SearchPlaceholder { get; set; } = "Quick search…";
+
+    [Parameter]
+    public int RowsPerPage { get; set; } = 10;
+
+    [Parameter]
+    public bool Dense { get; set; } = true;
+
+    [Inject]
+    private IUiErrorPresenter ErrorPresenter { get; set; } = default!;
+
+    [Inject]
+    private ILocalizer Localizer { get; set; } = default!;
+
+    /// <summary>Loads the current page again — after a row command, or when the owning page reloads.</summary>
+    public Task ReloadAsync() => table.ReloadServerData();
+
+    private async Task<TableData<TItem>> LoadAsync(TableState state, CancellationToken cancellationToken)
+    {
+        // MudBlazor's TableState.Page is 0-based; PageIndex is 1-based.
+        SerginListRequest request = new(
+            Paggination.Create(state.PageSize, state.Page + 1),
+            string.IsNullOrWhiteSpace(term) ? null : new Term(term.Trim()),
+            Filtering: null,
+            state.SortDirection == SortDirection.None ? null : SerginListQueryParts.ToSorting(state.SortLabel, state.SortDirection == SortDirection.Descending));
+
+        ErrorOr<ListQueryResponse<TItem>> result = await Load(request, cancellationToken);
+
+        if (result.IsError)
+        {
+            ErrorPresenter.Notify(result.FirstError);
+            return new TableData<TItem> { Items = [], TotalItems = 0 };
+        }
+
+        if (total != result.Value.Total)
+        {
+            total = result.Value.Total;
+            await TotalChanged.InvokeAsync(result.Value.Total);
+        }
+
+        return new TableData<TItem> { Items = result.Value.Data, TotalItems = result.Value.Total };
+    }
+
+    // A new search starts again at the first page; NavigateTo reloads on its own.
+    private Task OnTermChangedAsync(string? value)
+    {
+        term = value;
+
+        if (table.CurrentPage != 0)
+        {
+            table.NavigateTo(0);
+            return Task.CompletedTask;
+        }
+
+        return table.ReloadServerData();
+    }
+}
