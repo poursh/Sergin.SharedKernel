@@ -1,0 +1,8 @@
+@* The bar a list shows above its table while rows are selected: the count, the bulk actions laid out like the
+   actions bar, and Clear. *@
+<div class="sergin-selection-bar d-flex align-center flex-wrap rounded px-3 py-1 mb-2"
+     style="gap: 8px; background-color: var(--mud-palette-action-default-hover);" role="region" aria-label="@Localizer["Selection"]">
+    <MudText Typo="Typo.body2"><b>@Count</b> @Localizer["selected"]</MudText>
+    <SerginActionBar Actions="Actions" Class="flex-grow-1" />
+    <MudButton Variant="Variant.Text" Size="Size.Small" OnClick="OnClear">@Localizer["Clear"]</MudButton>
+</div>
