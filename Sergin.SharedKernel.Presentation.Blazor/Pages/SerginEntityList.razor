@@ -4,15 +4,14 @@
 <div class="sergin-entity-list">
     @if (Searchable)
     {
-        @* Sized by its wrapper, as on the aggregate list: MudTextField's root grows to fill a flex row. *@
-        <div class="mb-2" style="max-width: 420px;">
+        <div class="mb-2">
             <MudTextField T="string" Value="term" ValueChanged="OnTermChangedAsync" DebounceInterval="300" Immediate="true"
                           Placeholder="@Localizer[SearchPlaceholder]" Adornment="Adornment.Start"
                           AdornmentIcon="@Icons.Material.Filled.Search" Variant="Variant.Outlined" Margin="Margin.Dense"
-                          Clearable="true" aria-label="@Localizer["Quick search"]" />
+                          Clearable="true" Class="sergin-search" aria-label="@Localizer["Quick search"]" />
         </div>
-    }
-    <MudTable @ref="table" T="TItem" ServerData="LoadAsync" Hover="true" Dense="Dense" RowsPerPage="RowsPerPage" Elevation="0">
+    }    
+    <MudTable @ref="table" T="TItem" ServerData="LoadAsync" Hover="true" Striped="true" Bordered="true" Dense="Dense" Loading="loading" LoadingProgressColor="Color.Primary" RowsPerPage="RowsPerPage" Elevation="0">
         <HeaderContent>
             @HeaderContent
             @if (RowCommands is not null)

@@ -20,6 +20,7 @@ public sealed partial class SerginEntityList<TItem>
     private MudTable<TItem> table = default!;
     private int? total;
     private string? term;
+    private bool loading;
 
     [Parameter]
     [EditorRequired]
@@ -76,21 +77,32 @@ public sealed partial class SerginEntityList<TItem>
             Filtering: null,
             state.SortDirection == SortDirection.None ? null : SerginListQueryParts.ToSorting(state.SortLabel, state.SortDirection == SortDirection.Descending));
 
-        ErrorOr<ListQueryResponse<TItem>> result = await Load(request, cancellationToken);
+        // Shown for the first load and for every page, search and sort change: all of them come through here.
+        loading = true;
+        StateHasChanged();
 
-        if (result.IsError)
+        try
         {
-            ErrorPresenter.Notify(result.FirstError);
-            return new TableData<TItem> { Items = [], TotalItems = 0 };
-        }
+            ErrorOr<ListQueryResponse<TItem>> result = await Load(request, cancellationToken);
 
-        if (total != result.Value.Total)
+            if (result.IsError)
+            {
+                ErrorPresenter.Notify(result.FirstError);
+                return new TableData<TItem> { Items = [], TotalItems = 0 };
+            }
+
+            if (total != result.Value.Total)
+            {
+                total = result.Value.Total;
+                await TotalChanged.InvokeAsync(result.Value.Total);
+            }
+
+            return new TableData<TItem> { Items = result.Value.Data, TotalItems = result.Value.Total };
+        }
+        finally
         {
-            total = result.Value.Total;
-            await TotalChanged.InvokeAsync(result.Value.Total);
+            loading = false;
         }
-
-        return new TableData<TItem> { Items = result.Value.Data, TotalItems = result.Value.Total };
     }
 
     // A new search starts again at the first page; NavigateTo reloads on its own.

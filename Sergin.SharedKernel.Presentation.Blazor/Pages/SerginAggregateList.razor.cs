@@ -28,6 +28,7 @@ public sealed partial class SerginAggregateList<TItem>
     private IReadOnlyList<SerginAppliedFilter> filters = [];
     private string? term;
     private bool filterPanelOpen;
+    private bool loading;
 
     [Parameter]
     [EditorRequired]
@@ -72,13 +73,15 @@ public sealed partial class SerginAggregateList<TItem>
     public int RowsPerPage { get; set; } = 10;
 
     [Parameter]
-    public bool Dense { get; set; }
+    public bool Dense { get; set; } = true;
 
     [Inject]
     private IUiErrorPresenter ErrorPresenter { get; set; } = default!;
 
     [Inject]
     private ILocalizer Localizer { get; set; } = default!;
+
+    private bool FilterActive => filters.Count > 0;
 
     private bool HasCriteria => filters.Count > 0 || !string.IsNullOrWhiteSpace(term);
 
@@ -94,15 +97,26 @@ public sealed partial class SerginAggregateList<TItem>
             SerginListQueryParts.ToFiltering(filters),
             state.SortDirection == SortDirection.None ? null : SerginListQueryParts.ToSorting(state.SortLabel, state.SortDirection == SortDirection.Descending));
 
-        ErrorOr<ListQueryResponse<TItem>> result = await Load(request, cancellationToken);
+        // Shown for the first load and for every page, search, filter and sort change: all of them come through here.
+        loading = true;
+        StateHasChanged();
 
-        if (result.IsError)
+        try
         {
-            ErrorPresenter.Notify(result.FirstError);
-            return new TableData<TItem> { Items = [], TotalItems = 0 };
-        }
+            ErrorOr<ListQueryResponse<TItem>> result = await Load(request, cancellationToken);
 
-        return new TableData<TItem> { Items = result.Value.Data, TotalItems = result.Value.Total };
+            if (result.IsError)
+            {
+                ErrorPresenter.Notify(result.FirstError);
+                return new TableData<TItem> { Items = [], TotalItems = 0 };
+            }
+
+            return new TableData<TItem> { Items = result.Value.Data, TotalItems = result.Value.Total };
+        }
+        finally
+        {
+            loading = false;
+        }
     }
 
     private Task OnTermChangedAsync(string? value)

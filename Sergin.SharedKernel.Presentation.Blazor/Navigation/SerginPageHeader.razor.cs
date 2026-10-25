@@ -56,7 +56,8 @@ public sealed partial class SerginPageHeader
         // that entry belongs to is known here and no page names it. Not a link — a module has no page of its own.
         if (Trail.Count > 0 && Trail[0].Href is { } sectionHref && Catalog.GroupOf(sectionHref) is { } group)
         {
-            built.Add(new BreadcrumbItem(Localizer[group.Title], href: null, disabled: true));
+            // Icon alone, like home: the template renders the group's icon with the title as aria-label and tooltip.
+            built.Add(new BreadcrumbItem(Localizer[group.Title], href: null, disabled: true, icon: group.Icon));
         }
 
         for (int index = 0; index < Trail.Count; index++)

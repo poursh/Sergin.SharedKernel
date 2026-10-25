@@ -4,6 +4,19 @@
    keeps the last one rendered and the body renders after the layout. *@
 <PageTitle>@ApplicationName</PageTitle>
 
+@* MudBlazor 9 has no global default for a button's size, so the page and dialog buttons that ask for none (Size.Medium)
+   get the Small metrics here. The app bar and drawer sit outside .mud-main-content and keep theirs; an explicit
+   Small or Large keeps its own. A style element rather than scoped CSS, as in SerginPageHeader. *@
+<style>
+    :is(.mud-main-content, .mud-dialog) .mud-button-text:not(.mud-button-text-size-small, .mud-button-text-size-large) { padding: 4px 5px; font-size: .8125rem; }
+    :is(.mud-main-content, .mud-dialog) .mud-button-outlined:not(.mud-button-outlined-size-small, .mud-button-outlined-size-large) { padding: 3px 9px; font-size: .8125rem; }
+    :is(.mud-main-content, .mud-dialog) .mud-button-filled:not(.mud-button-filled-size-small, .mud-button-filled-size-large) { padding: 4px 10px; font-size: .8125rem; }
+    :is(.mud-main-content, .mud-dialog) .mud-icon-button:not(.mud-icon-button-size-small, .mud-icon-button-size-large) { padding: 3px; font-size: 1.125rem; }
+    .mud-main-content .mud-card-actions { gap: 12px; padding: 8px 16px 16px; }
+    .sergin-search .mud-input-root-outlined.mud-input-root-margin-dense { padding: 4px 8px; font-size: .8125rem; }
+    .sergin-search .mud-input-adornment .mud-icon-root { font-size: 1.125rem; }
+</style>
+
 <MudThemeProvider Theme="themeManagerTheme.Theme" @bind-IsDarkMode="isDarkMode" />
 <MudPopoverProvider />
 <MudDialogProvider />
