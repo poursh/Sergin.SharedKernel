@@ -1,0 +1,28 @@
+@* The modal body of the scope picker: a searchable, indented tree of every scope the user can work in. Closes with the chosen scope id. *@
+<MudDialog>
+    <TitleContent>
+        <MudText Typo="Typo.h6">@Localizer["Scope"]</MudText>
+    </TitleContent>
+    <DialogContent>
+        <MudTextField @bind-Value="search" Placeholder="@Localizer["Search scopes"]" Immediate="true"
+                      Variant="Variant.Outlined" Margin="Margin.Dense" Clearable="true" AutoFocus="true"
+                      Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Filled.Search" />
+        <MudList T="Guid" Dense="true" Class="mt-1" Style="max-height: 50vh; overflow-y: auto;">
+            @foreach (ScopeOption option in Shown)
+            {
+                <MudListItem T="Guid" Value="option.Id" Style="@IndentOf(option)"
+                             Icon="@(option.Id == Session.Current?.Id ? Icons.Material.Filled.Check : Icons.Material.Filled.AccountTree)"
+                             OnClick="@(() => Select(option.Id))">
+                    @option.Name
+                </MudListItem>
+            }
+            @if (Shown.Count == 0)
+            {
+                <MudText Typo="Typo.body2" Class="pa-2">@Localizer["No scope matches."]</MudText>
+            }
+        </MudList>
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="Cancel">@Localizer["Cancel"]</MudButton>
+    </DialogActions>
+</MudDialog>

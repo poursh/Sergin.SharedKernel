@@ -1,5 +1,5 @@
-using System.Globalization;
 using Microsoft.AspNetCore.Components;
+using MudBlazor;
 using Sergin.SharedKernel.Application.Localizations;
 using Sergin.SharedKernel.Application.Securities.Authorization;
 
@@ -17,10 +17,9 @@ namespace Sergin.SharedKernel.Presentation.Blazor.Security;
 public sealed partial class SerginScopePicker
 {
     private const string TrailSeparator = " › ";
-    private const int IndentStepPixels = 16;
 
-    private bool open;
-    private string? search;
+    [Inject]
+    private IDialogService Dialogs { get; set; } = default!;
 
     [Inject]
     private SerginScopeSession Session { get; set; } = default!;
@@ -47,59 +46,20 @@ public sealed partial class SerginScopePicker
     /// </summary>
     private string AriaLabel => $"{Localizer["Scope"].Value}: {CurrentName}";
 
-    /// <summary>
-    /// The listed scopes whose name matches the search, with their listed ancestors so each match keeps its place
-    /// in the tree.
-    /// </summary>
-    private IReadOnlyList<ScopeOption> Shown
+    private async Task OpenAsync()
     {
-        get
-        {
-            if (string.IsNullOrWhiteSpace(search))
-            {
-                return Session.Options;
-            }
-
-            string term = search.Trim();
-
-            HashSet<Guid> kept =
-            [
-                .. Session.Options
-                    .Where(option => option.Name.Contains(term, StringComparison.CurrentCultureIgnoreCase))
-                    .SelectMany(Session.TrailOf)
-                    .Select(option => option.Id)
-            ];
-
-            return [.. Session.Options.Where(option => kept.Contains(option.Id))];
-        }
-    }
-
-    private string IndentOf(ScopeOption option) =>
-        string.Create(CultureInfo.InvariantCulture, $"padding-inline-start: {(Session.TrailOf(option).Count - 1) * IndentStepPixels}px;");
-
-    private async Task ToggleAsync()
-    {
-        if (open)
-        {
-            open = false;
-            return;
-        }
-
-        search = null;
-
         if (await Session.RefreshAsync())
         {
             await ScopeChanged.InvokeAsync();
         }
 
-        open = true;
-    }
+        IDialogReference dialog = await Dialogs.ShowAsync<SerginScopePickerDialog>(
+            Localizer["Scope"].Value,
+            new DialogOptions { MaxWidth = MaxWidth.Small, FullWidth = true, CloseOnEscapeKey = true });
 
-    private async Task SelectAsync(Guid scopeId)
-    {
-        open = false;
+        DialogResult? result = await dialog.Result;
 
-        if (await Session.SelectAsync(scopeId))
+        if (result is { Canceled: false, Data: Guid scopeId } && await Session.SelectAsync(scopeId))
         {
             await ScopeChanged.InvokeAsync();
         }

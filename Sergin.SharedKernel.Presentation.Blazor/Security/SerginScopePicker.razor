@@ -1,34 +1,11 @@
-@* The scope the circuit works in, in the app bar; opens a searchable tree of every scope the user can work in. *@
+@* The scope the circuit works in, in the app bar; opens a modal with a searchable tree of every scope the user can work in. *@
 <div class="d-flex align-center mr-2">
     <MudTooltip Text="@Trail">
         <MudButton Variant="Variant.Text" Color="Color.Inherit" Disabled="@(Current is null)" Style="text-transform: none;"
                    StartIcon="@Icons.Material.Filled.AccountTree" EndIcon="@Icons.Material.Filled.ArrowDropDown"
-                   aria-label="@AriaLabel" aria-haspopup="true" aria-expanded="@(open ? "true" : "false")"
-                   OnClick="ToggleAsync">
+                   aria-label="@AriaLabel" aria-haspopup="dialog"
+                   OnClick="OpenAsync">
             @CurrentName
         </MudButton>
     </MudTooltip>
-
-    <MudPopover Open="open" AnchorOrigin="Origin.BottomLeft" TransformOrigin="Origin.TopLeft" MaxHeight="480"
-                Class="pa-2" Style="min-width: 280px;">
-        <MudTextField @bind-Value="search" Placeholder="@Localizer["Search scopes"]" Immediate="true"
-                      Variant="Variant.Outlined" Margin="Margin.Dense" Clearable="true" AutoFocus="true"
-                      Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Filled.Search" />
-        <MudList T="Guid" Dense="true" Class="mt-1">
-            @foreach (ScopeOption option in Shown)
-            {
-                <MudListItem T="Guid" Value="option.Id" Style="@IndentOf(option)"
-                             Icon="@(option.Id == Current?.Id ? Icons.Material.Filled.Check : Icons.Material.Filled.AccountTree)"
-                             OnClick="@(() => SelectAsync(option.Id))">
-                    @option.Name
-                </MudListItem>
-            }
-            @if (Shown.Count == 0)
-            {
-                <MudText Typo="Typo.body2" Class="pa-2">@Localizer["No scope matches."]</MudText>
-            }
-        </MudList>
-    </MudPopover>
 </div>
-
-<MudOverlay @bind-Visible="open" AutoClose="true" />
