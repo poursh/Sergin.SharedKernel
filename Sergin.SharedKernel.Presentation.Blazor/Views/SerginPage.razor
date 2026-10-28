@@ -1,0 +1,5 @@
+@* The page host: a routable page wraps its view in this and nothing else. The view projects the title and header
+   row itself, so this renders no markup of its own. *@
+<CascadingValue Value="host" IsFixed="true">
+    @ChildContent
+</CascadingValue>

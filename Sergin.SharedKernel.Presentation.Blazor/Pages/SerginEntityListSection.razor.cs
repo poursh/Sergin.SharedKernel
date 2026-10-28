@@ -13,6 +13,8 @@ namespace Sergin.SharedKernel.Presentation.Blazor.Pages;
 /// root's behaviours on the collection, so they are guarded by the root's permissions and sent at the root's row
 /// version like any other write to the aggregate. The owner sets <see cref="Count"/>, typically from the list's
 /// <see cref="SerginEntityList{TItem}.TotalChanged"/>.
+/// <para>Superseded by <see cref="Views.SerginEntityListView"/>, embedded in a detail view's entities; kept until UserAccess's
+/// pages move to views.</para>
 /// </remarks>
 public sealed partial class SerginEntityListSection
 {
