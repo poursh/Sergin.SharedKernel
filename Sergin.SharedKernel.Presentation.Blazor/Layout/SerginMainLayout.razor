@@ -13,6 +13,7 @@
     :is(.mud-main-content, .mud-dialog) .mud-button-filled:not(.mud-button-filled-size-small, .mud-button-filled-size-large) { padding: 4px 10px; font-size: .8125rem; }
     :is(.mud-main-content, .mud-dialog) .mud-icon-button:not(.mud-icon-button-size-small, .mud-icon-button-size-large) { padding: 3px; font-size: 1.125rem; }
     .mud-main-content .mud-card-actions { gap: 12px; padding: 8px 16px 16px; }
+    html, body { overflow: hidden; }
     .sergin-search .mud-input-root-outlined.mud-input-root-margin-dense { padding: 4px 8px; font-size: .8125rem; }
     .sergin-search .mud-input-adornment .mud-icon-root { font-size: 1.125rem; }
 </style>
@@ -61,7 +62,9 @@
     </MudDrawer>
 
     <MudMainContent>
-        <MudContainer MaxWidth="MaxWidth.ExtraLarge" Class="my-6">
+        @* Fixed to the viewport under the app bar: the header strip stays put and only the page body scrolls. *@
+        <MudContainer MaxWidth="MaxWidth.ExtraLarge" Class="py-6 d-flex flex-column"
+                      Style="height: calc(100vh - var(--mud-appbar-height)); overflow: hidden;">
             @* Filled by the page's <SerginBreadcrumbs>, which projects its strip here through a section: the
                shell owns where every trail sits, the page owns what it says. Empty on a page without one. *@
             <SectionOutlet SectionId="SerginBreadcrumbs.SectionId" />
@@ -69,7 +72,7 @@
                session settled the scope, so a page never loads on one the user cannot work in. *@
             @if (scopeReady)
             {
-                <div @key="scopeVersion">
+                <div @key="scopeVersion" class="sergin-page-body" style="flex: 1 1 auto; min-height: 0; overflow-y: auto;">
                     @Body
                 </div>
             }
