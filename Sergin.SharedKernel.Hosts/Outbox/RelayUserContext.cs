@@ -13,7 +13,7 @@ namespace Sergin.SharedKernel.Hosts.Outbox;
 /// </summary>
 internal sealed record RelayUserContext : ISystemUserContext
 {
-    public UserId Id { get; } = new(Guid.Parse("01920000-0000-7000-8000-00000000000f"));
+    public UserId Id { get; } = new(SystemActor.Id);
 
     public string UserName => "outbox-relay";
 

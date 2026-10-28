@@ -3,6 +3,7 @@ namespace Sergin.SharedKernel.Application.Aggregates;
 /// <summary>
 /// The audit stamps of one record of an <c>Audited()</c> aggregate, as a read model: who created it and when, and
 /// who last changed it and when — <see langword="null"/> until its first update. The user ids are Sergin user ids;
-/// <see cref="Securities.Users.IUserDirectory"/> turns them into names for display.
+/// <see cref="Securities.Users.IUserDirectory"/> turns them into names for display. <see cref="ScopeId"/> is the scope
+/// the record belongs to, <see langword="null"/> for an aggregate that is not <c>Scoped()</c>.
 /// </summary>
-public sealed record AuditInfo(DateTime CreatedAtUtc, Guid CreatedBy, DateTime? ModifiedAtUtc, Guid? ModifiedBy);
+public sealed record AuditInfo(DateTime CreatedAtUtc, Guid CreatedBy, DateTime? ModifiedAtUtc, Guid? ModifiedBy, Guid? ScopeId);

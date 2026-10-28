@@ -40,6 +40,15 @@ public static class ScopeColumns
         + "AND (@ScopeUnrestricted OR " + ScopePathColumn + " <@ @ScopeSubtreePaths::ltree[] "
         + "OR " + ScopeIdColumn + " = ANY(@ScopeExactIds))";
 
+    /// <summary>
+    /// The scope column a raw-SQL read of <c>AuditInfo</c> appends to <c>AuditColumns.SelectSql</c>, aliased to its
+    /// constructor parameter so Dapper binds it; <see cref="UnscopedSelectSql"/> for a table that carries none.
+    /// </summary>
+    public const string SelectSql = ScopeIdColumn + " AS scopeId";
+
+    /// <summary><see cref="SelectSql"/> for a table that is not scoped: a null of the same type.</summary>
+    public const string UnscopedSelectSql = "NULL::uuid AS scopeId";
+
     /// <summary>Adds <see cref="ReachSql"/>'s parameters, read from <paramref name="filter"/>, to <paramref name="parameters"/>.</summary>
     public static DynamicParameters AddParameters(DynamicParameters parameters, ScopeFilter filter)
     {
