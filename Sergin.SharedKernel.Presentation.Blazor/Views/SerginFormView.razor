@@ -1,0 +1,39 @@
+@* A create or edit form as a view. On a page it renders the page title and the trail (no header buttons: a form
+   offers nothing beside its own buttons); embedded, neither. MudForm's details are deliberate, each verified against
+   MudBlazor 9.9.0: it renders a bare <form> with no submit handler, so onsubmit is splatted onto it — lowercase and
+   without @, an unmatched attribute — as an EventCallback so this view re-renders; SuppressImplicitSubmission is
+   false so Enter submits through the real submit button; and the button is disabled while invalid, not until valid,
+   since an untouched form starts valid. *@
+@if (Host.IsPage)
+{
+    <PageTitle>@Title</PageTitle>
+    <SerginPageHeader Trail="Trail" />
+}
+
+<SerginProblemPanel Problem="Problem" />
+
+@if (Ready)
+{
+    <MudText Typo="Typo.h5" Class="mb-4">@Title</MudText>
+
+    <MudForm @ref="form" Model="Model" Validation="@Validation" @bind-IsValid="isValid"
+             SuppressImplicitSubmission="false" onsubmit="@OnFormSubmit">
+        <MudCard>
+            <MudCardContent>
+                @ChildContent
+            </MudCardContent>
+            <MudCardActions>
+                <MudButton ButtonType="ButtonType.Submit" Variant="Variant.Filled"
+                           Color="Color.Primary" Disabled="@(Submitting || !isValid)">@SubmitLabel</MudButton>
+                @if (Host.IsPage)
+                {
+                    <MudButton Href="@CancelHref">Cancel</MudButton>
+                }
+                else
+                {
+                    <MudButton OnClick="CancelAsync">Cancel</MudButton>
+                }
+            </MudCardActions>
+        </MudCard>
+    </MudForm>
+}

@@ -1,0 +1,8 @@
+@* An entity collection's list: the shared view shape, the table as its body, the detail open mode cascaded to its links. *@
+<SerginView Title="@Title" Trail="Trail" HeaderActions="HeaderActions" Problem="Problem" Ready="Ready"
+            Overview="Overview" OverviewSummary="OverviewSummary" OverviewCollapsed="OverviewCollapsed"
+            Actions="Actions" Count="Count" Collapsed="Collapsed">
+    <CascadingValue Value="DetailMode" IsFixed="true">
+        @ChildContent
+    </CascadingValue>
+</SerginView>
