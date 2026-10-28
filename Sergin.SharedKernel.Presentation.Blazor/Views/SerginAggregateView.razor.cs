@@ -7,7 +7,7 @@ namespace Sergin.SharedKernel.Presentation.Blazor.Views;
 
 /// <summary>
 /// A view of one aggregate root — today exactly a <see cref="SerginView"/>. It exists as the seam where behaviour only
-/// roots have (the audit popover, the row version, the scope) lands later without touching the module views.
+/// roots have (the information dialog's audit, row version and scope) lands later without touching the module views.
 /// </summary>
 public sealed partial class SerginAggregateView
 {
