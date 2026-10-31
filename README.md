@@ -6,7 +6,7 @@
 [![Projects](https://img.shields.io/badge/projects-15-4D4D4D)](#what-is-inside)
 [![License: MIT](https://img.shields.io/badge/License-MIT-2E7D32)](LICENSE)
 
-This is the leaf of the Sergin dependency graph. It depends on no other Sergin repository, builds standalone, and is not runnable on its own — it is a library, consumed as a **git submodule**:
+This is the leaf of the Sergin dependency graph. It depends on no other Sergin repository and is not runnable on its own — it is a library, consumed as a **git submodule**:
 
 | Consumer | Mounted at | Notes |
 |---|---|---|
@@ -21,7 +21,7 @@ Because every consumer pins a commit of this repository, a change to a public co
 dotnet build Sergin.SharedKernel.slnx
 ```
 
-Requires the .NET 10 SDK. `Directory.Build.props` treats every analyzer, style and nullable warning as a build error (`TreatWarningsAsErrors`, `AnalysisMode=All`, SonarAnalyzer.CSharp, `EnforceCodeStyleInBuild`), and Central Package Management pins every version in `Directory.Packages.props` — the same rules as the other Sergin repositories. There is no test project with its own tests here; `Sergin.SharedKernel.IntegrationTests` is a fixture a host's test project references.
+Requires the .NET 10 SDK. `Directory.Build.props` treats every analyzer, style and nullable warning as a build error (`TreatWarningsAsErrors`, `AnalysisMode=All`, SonarAnalyzer.CSharp, `EnforceCodeStyleInBuild`), and Central Package Management pins every version in the host's `Directory.Packages.props` (this repo has none of its own, so it builds only inside a host) — the same rules as the other Sergin repositories. There is no test project with its own tests here; `Sergin.SharedKernel.IntegrationTests` is a fixture a host's test project references.
 
 ## What is inside
 
