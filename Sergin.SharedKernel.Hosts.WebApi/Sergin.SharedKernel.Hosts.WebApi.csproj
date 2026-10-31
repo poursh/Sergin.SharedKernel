@@ -19,10 +19,6 @@
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Update="Microsoft.Extensions.Options" />
-  </ItemGroup>
-
-  <ItemGroup>
     <!--
       GHSA-v5pm-xwqc-g5wc (CVE-2026-49451): stack overflow when PARSING untrusted OpenAPI
       documents in Microsoft.OpenApi. Pulled in transitively (2.x) by Microsoft.AspNetCore.OpenApi
