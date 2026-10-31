@@ -22,7 +22,7 @@ Requires the .NET 10 SDK. There is no project with its own `[Fact]`s in this rep
 
 ## Critical build constraint
 
-`Directory.Build.props` sets `TreatWarningsAsErrors=true`, `AnalysisMode=All`, and enables **SonarAnalyzer.CSharp** + `EnforceCodeStyleInBuild`. Any analyzer warning, style violation, or nullable warning **fails the build**. Nullable and implicit usings are enabled solution-wide. Write code that passes analysis cleanly the first time.
+The host's `Directory.Build.props` (this repo has none of its own) sets `TreatWarningsAsErrors=true`, `AnalysisMode=All`, and enables **SonarAnalyzer.CSharp** + `EnforceCodeStyleInBuild`. Any analyzer warning, style violation, or nullable warning **fails the build**. Nullable and implicit usings are enabled solution-wide. Write code that passes analysis cleanly the first time.
 
 **Central Package Management is on, and this repo has no `Directory.Packages.props`.** The host (`Sergin.MeterMinder`) holds every package version for the whole tree, SharedKernel's included, so this repo builds only inside a host — a build from inside it fails with NU1010. `PackageReference` items in `.csproj` files carry **no `Version` attribute**: add new packages version-less and add the matching `<PackageVersion>` entry to the host's `Directory.Packages.props` (a second PR there), keeping the list alphabetical.
 

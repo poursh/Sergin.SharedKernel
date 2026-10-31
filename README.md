@@ -21,7 +21,7 @@ Because every consumer pins a commit of this repository, a change to a public co
 dotnet build Sergin.SharedKernel.slnx
 ```
 
-Requires the .NET 10 SDK. `Directory.Build.props` treats every analyzer, style and nullable warning as a build error (`TreatWarningsAsErrors`, `AnalysisMode=All`, SonarAnalyzer.CSharp, `EnforceCodeStyleInBuild`), and Central Package Management pins every version in the host's `Directory.Packages.props` (this repo has none of its own, so it builds only inside a host) — the same rules as the other Sergin repositories. There is no test project with its own tests here; `Sergin.SharedKernel.IntegrationTests` is a fixture a host's test project references.
+Requires the .NET 10 SDK. The host's `Directory.Build.props` (this repo has none of its own) treats every analyzer, style and nullable warning as a build error (`TreatWarningsAsErrors`, `AnalysisMode=All`, SonarAnalyzer.CSharp, `EnforceCodeStyleInBuild`), and Central Package Management pins every version in the host's `Directory.Packages.props` (this repo has none of its own, so it builds only inside a host) — the same rules as the other Sergin repositories. There is no test project with its own tests here; `Sergin.SharedKernel.IntegrationTests` is a fixture a host's test project references.
 
 ## What is inside
 
