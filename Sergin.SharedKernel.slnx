@@ -7,8 +7,6 @@
   <Folder Name="/solution-items/">
     <File Path=".editorconfig" />
     <File Path=".gitignore" />
-    <File Path="Directory.Build.props" />
-    <File Path="Directory.Packages.props" />
     <File Path="LICENSE" />
     <File Path="README.md" />
   </Folder>
