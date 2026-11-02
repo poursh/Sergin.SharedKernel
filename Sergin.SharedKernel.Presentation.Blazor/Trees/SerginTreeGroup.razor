@@ -1,0 +1,67 @@
+@typeparam TNode where TNode : notnull
+@* One data source of a SerginTree. Rendered in the panel: its header when the tree has several groups (title,
+   root count, +, accordion chevron), then its tree while it is the active group. *@
+@if (Page.ShowGroupHeaders)
+{
+    <div class="@($"sergin-tree-group-header d-flex align-center {(Active ? "active" : string.Empty)}")">
+        <button type="button" class="sergin-tree-group-title" @onclick="ActivateAsync" aria-expanded="@(Active ? "true" : "false")">
+            @if (Icon is not null)
+            {
+                <MudIcon Icon="@Icon" Size="Size.Small" />
+            }
+            <span class="sergin-tree-text">@Localizer[Title]</span>
+            @if (roots is not null)
+            {
+                <span class="sergin-tree-count">@roots.Count</span>
+            }
+        </button>
+        @if (AddAction is not null)
+        {
+            <SerginActionIconButton Action="AddAction" />
+        }
+        <MudIcon Icon="@(Active ? Icons.Material.Filled.ExpandLess : Icons.Material.Filled.ExpandMore)" Size="Size.Small" Class="mx-1" />
+    </div>
+}
+
+@if (Active)
+{
+    <div role="tree" aria-label="@Localizer[Title]" class="sergin-tree">
+        @if (roots is null)
+        {
+            <div class="sergin-tree-loading" aria-busy="true">
+                <MudSkeleton Width="70%" Height="24px" />
+                <MudSkeleton Width="55%" Height="24px" Class="ml-4" />
+                <MudSkeleton Width="60%" Height="24px" />
+            </div>
+        }
+        else if (problem is not null)
+        {
+            <SerginProblemPanel Problem="problem" />
+        }
+        else if (roots.Count == 0)
+        {
+            @if (EmptyContent is not null)
+            {
+                @EmptyContent
+            }
+            else
+            {
+                <div class="sergin-tree-empty pa-4 text-center">
+                    <MudText Typo="Typo.body2">@Localizer[EmptyText]</MudText>
+                    @if (AddAction is not null)
+                    {
+                        <SerginActionBar Actions="EmptyActions" Class="justify-center mt-2" />
+                    }
+                </div>
+            }
+        }
+        else
+        {
+            @if (filterTerm is not null)
+            {
+                <MudText Typo="Typo.caption" Class="sergin-tree-matches px-2">@MatchSummary</MudText>
+            }
+            <SerginTreeBranch TNode="TNode" Group="this" Nodes="roots" />
+        }
+    </div>
+}

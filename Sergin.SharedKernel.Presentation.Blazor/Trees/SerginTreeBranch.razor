@@ -1,0 +1,60 @@
+@typeparam TNode where TNode : notnull
+@* One level of a tree group, recursive. Each row: the chevron (expands only, out of the tab order), the label button
+   (selects; the keyboard target, one row in the tab order), the count, and the ⋮ menu, shown on hover, on focus and on
+   the selected row. An expanded branch still loading shows skeleton rows. *@
+<ul class="sergin-tree-branch" role="@(Level == 0 ? "none" : "group")">
+    @foreach (SerginTreeNodeState<TNode> state in VisibleNodes)
+    {
+        <li role="treeitem" aria-level="@(state.Level + 1)" aria-selected="@(Group.IsSelected(state) ? "true" : "false")"
+            aria-expanded="@AriaExpanded(state)" data-node="@state.Id" @key="state.Id">
+            <div class="@($"sergin-tree-row {(Group.IsSelected(state) ? "selected" : string.Empty)}")" style="@Indent(state)">
+                @if (Group.CanExpand(state))
+                {
+                    <MudIconButton Icon="@(Group.IsExpanded(state) ? Icons.Material.Filled.ExpandMore : Icons.Material.Filled.ChevronRight)"
+                                   Size="Size.Small" Class="sergin-tree-chevron" tabindex="-1"
+                                   aria-label="@(Group.IsExpanded(state) ? Localizer["Collapse"] : Localizer["Expand"])"
+                                   OnClick="@(() => Group.ToggleAsync(state))" />
+                }
+                else
+                {
+                    <span class="sergin-tree-chevron-spacer"></span>
+                }
+                <button type="button" class="sergin-tree-label" @ref="Group.RowRefs[state.Id]"
+                        tabindex="@(Group.IsCursor(state) ? "0" : "-1")"
+                        @onclick="@(() => Group.SelectAsync(state))" @onkeydown="@(args => Group.OnKeyDownAsync(state, args))">
+                    @if (Group.IconOf(state) is { } icon)
+                    {
+                        <MudIcon Icon="@icon" Size="Size.Small" />
+                    }
+                    @if (Group.NodeTemplate is not null)
+                    {
+                        @Group.NodeTemplate(state.Node)
+                    }
+                    else
+                    {
+                        <span class="sergin-tree-text">@Group.LabelOf(state)</span>
+                    }
+                    @if (Group.CountOf(state) is { } count)
+                    {
+                        <span class="sergin-tree-count">@count</span>
+                    }
+                </button>
+                <SerginActionMenu Actions="Group.MenuFor(state)" Class="sergin-tree-menu" />
+            </div>
+            @if (Group.IsExpanded(state))
+            {
+                @if (state.Loading)
+                {
+                    <div class="sergin-tree-loading" style="@Indent(state, 1)" aria-busy="true">
+                        <MudSkeleton Width="60%" Height="22px" />
+                        <MudSkeleton Width="45%" Height="22px" />
+                    </div>
+                }
+                else if (state.Children is { Count: > 0 } children)
+                {
+                    <SerginTreeBranch TNode="TNode" Group="Group" Nodes="children" Level="state.Level + 1" />
+                }
+            }
+        </li>
+    }
+</ul>

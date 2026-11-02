@@ -3,19 +3,17 @@ using Microsoft.AspNetCore.Components;
 namespace Sergin.SharedKernel.Presentation.Blazor.Views;
 
 /// <summary>
-/// The host a routable page gives its view: <c>@page "/dm/devices/{Id:guid}"</c> then
-/// <c>&lt;SerginPage&gt;&lt;DeviceDetailView Id="Id" /&gt;&lt;/SerginPage&gt;</c>.
+/// The layout a routable page gives its view: <c>@page "/dm/devices/{Id:guid}"</c>, <c>@layout SerginPageLayout</c>,
+/// then <c>&lt;DeviceDetailView Id="Id" /&gt;</c>.
 /// </summary>
 /// <remarks>
-/// It cascades a <see cref="SerginViewHostKind.Page"/> <see cref="SerginViewHost"/>, which tells the view to render
-/// the page title and the header row (trail and header buttons) into the layout, and makes leaving a navigation.
+/// It nests in <c>SerginMainLayout</c> and cascades a <see cref="SerginViewHostKind.Page"/> <see cref="SerginViewHost"/>
+/// to the page, which tells the view to render the page title and the header row (trail and header buttons) into the
+/// shell, and makes leaving a navigation.
 /// </remarks>
-public sealed partial class SerginPage
+public sealed partial class SerginPageLayout
 {
     private SerginViewHost host = default!;
-
-    [Parameter]
-    public RenderFragment? ChildContent { get; set; }
 
     [Inject]
     private NavigationManager Navigation { get; set; } = default!;

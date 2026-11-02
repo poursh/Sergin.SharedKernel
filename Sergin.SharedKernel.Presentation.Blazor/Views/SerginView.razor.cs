@@ -13,7 +13,7 @@ namespace Sergin.SharedKernel.Presentation.Blazor.Views;
 /// </summary>
 /// <remarks>
 /// A module view (<c>DeviceDetailView</c>) is smart: it loads its record, holds its version, builds its actions and
-/// passes all of it here. Where the parts land is the host's: inside a <see cref="SerginPage"/> the title becomes the
+/// passes all of it here. Where the parts land is the host's: inside a <see cref="SerginPageLayout"/> the title becomes the
 /// page title and <see cref="Trail"/>/<see cref="HeaderActions"/> the header row; embedded, the view is an outlined
 /// section titled <see cref="Title"/> with <see cref="Count"/>, and the trail and header buttons are not shown. The
 /// typed views (<see cref="SerginAggregateListView"/>, <see cref="SerginAggregateDetailView"/>,

@@ -1,11 +1,19 @@
-@* One view, two shapes. On a page: the page title and header row go to the layout, then the problem, the overview,
-   the actions bar and the body. Embedded: an outlined, titled, collapsible section holding the same parts and no
+@* One view, three shapes. On a page: the page title and header row go to the layout, then the problem, the overview,
+   the actions bar and the body. In a pane: the same, except the header buttons go to the pane's header section and
+   the page title and trail stay the pane owner's. Embedded: an outlined, titled, collapsible section holding the same parts and no
    header — collapsing hides the parts but keeps them rendered, so the body's state and the count stay live. Either
    way the body sees an embedded host, so a nested view renders as a section. *@
-@if (Host.IsPage)
+@if (Host.IsPage || Host.IsPane)
 {
-    <PageTitle>@Title</PageTitle>
-    <SerginPageHeader Trail="Trail">@HeaderActions</SerginPageHeader>
+    @if (Host.IsPage)
+    {
+        <PageTitle>@Title</PageTitle>
+        <SerginPageHeader Trail="Trail">@HeaderActions</SerginPageHeader>
+    }
+    else if (HeaderActions is not null)
+    {
+        <SectionContent SectionId="Host.HeaderSectionId">@HeaderActions</SectionContent>
+    }
     <SerginProblemPanel Problem="Problem" />
 
     @if (Ready)

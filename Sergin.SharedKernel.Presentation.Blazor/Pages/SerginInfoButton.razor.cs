@@ -30,17 +30,5 @@ public sealed partial class SerginInfoButton
     [Inject]
     private ILocalizer Localizer { get; set; } = default!;
 
-    private async Task OpenAsync()
-    {
-        DialogParameters<SerginInfoDialog> parameters = new()
-        {
-            { dialog => dialog.Load, Load },
-            { dialog => dialog.Version, Version },
-        };
-
-        await Dialogs.ShowAsync<SerginInfoDialog>(
-            Localizer["Information"].Value,
-            parameters,
-            new DialogOptions { MaxWidth = MaxWidth.Small, FullWidth = true, CloseOnEscapeKey = true, CloseButton = true });
-    }
+    private Task OpenAsync() => Dialogs.ShowInfoAsync(Localizer["Information"].Value, Load, Version);
 }
