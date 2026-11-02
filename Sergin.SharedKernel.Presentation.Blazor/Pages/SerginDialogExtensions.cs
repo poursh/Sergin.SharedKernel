@@ -1,4 +1,6 @@
 using MudBlazor;
+using Sergin.SharedKernel.Application.Aggregates;
+using Sergin.SharedKernel.Domain;
 
 namespace Sergin.SharedKernel.Presentation.Blazor.Pages;
 
@@ -17,5 +19,25 @@ public static class SerginDialogExtensions
         bool? confirmed = await dialogs.ShowMessageBoxAsync(title, message, yesText: confirmText, cancelText: "Cancel");
 
         return confirmed == true;
+    }
+
+    /// <summary>
+    /// Opens <see cref="SerginInfoDialog"/>: the record's scope, the row version the caller holds and its audit
+    /// stamps, loaded through <paramref name="load"/> when the dialog opens.
+    /// </summary>
+    public static async Task ShowInfoAsync(this IDialogService dialogs, string title, Func<Task<ErrorOr<AuditInfo>>> load, RowVersion? version = null)
+    {
+        ArgumentNullException.ThrowIfNull(dialogs);
+
+        DialogParameters<SerginInfoDialog> parameters = new()
+        {
+            { dialog => dialog.Load, load },
+            { dialog => dialog.Version, version },
+        };
+
+        await dialogs.ShowAsync<SerginInfoDialog>(
+            title,
+            parameters,
+            new DialogOptions { MaxWidth = MaxWidth.Small, FullWidth = true, CloseOnEscapeKey = true, CloseButton = true });
     }
 }

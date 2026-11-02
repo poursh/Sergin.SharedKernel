@@ -1,0 +1,129 @@
+@* A tree on the left and its layout's page on the right. The page header keeps the tree's trail and buttons; the
+   panel holds the static actions row, the selected node's dynamic actions row, the filter and the groups; the content
+   side holds the tree header, then the page at the current route. It fills the shell's page body: the panel scrolls
+   its groups under the fixed action rows and filter, and the content scrolls under the fixed tree header. Styles ship
+   as a style element, like SerginPageHeader's, since no host links the scoped-CSS bundle. *@
+<PageTitle>@Localizer[Title]</PageTitle>
+<SerginPageHeader Trail="Trail" LinkLast="@(!AtRoot)">@HeaderActions</SerginPageHeader>
+
+<style>
+    .sergin-tree-page { display: flex; align-items: stretch; gap: 0; height: 100%; min-height: 0; }
+    .sergin-tree-panel { flex: 0 0 var(--sergin-tree-width); width: var(--sergin-tree-width); min-width: 0; min-height: 0; display: flex; flex-direction: column; }
+    .sergin-tree-panel > :not(.sergin-tree-groups) { flex: none; }
+    .sergin-tree-groups { flex: 1 1 auto; min-height: 0; overflow-y: auto; }
+    .sergin-tree-rail { flex: 0 0 auto; display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 4px; }
+    .sergin-tree-resize { flex: 0 0 12px; align-self: stretch; cursor: col-resize; position: relative; }
+    .sergin-tree-resize::after { content: ""; position: absolute; top: 0; bottom: 0; left: 5px; width: 2px; border-radius: 1px; }
+    .sergin-tree-resize:hover::after { background: var(--mud-palette-primary); }
+    .sergin-tree-gap { flex: 0 0 16px; }
+    .sergin-tree-content { flex: 1 1 auto; min-width: 0; min-height: 0; display: flex; flex-direction: column; }
+    .sergin-tree-content > .sergin-tree-page-header { flex: none; }
+    .sergin-tree-body { flex: 1 1 auto; min-height: 0; overflow-y: auto; }
+    .sergin-tree-drag { position: fixed; inset: 0; z-index: 1600; cursor: col-resize; }
+    .sergin-tree-branch { list-style: none; margin: 0; padding: 0; }
+    .sergin-tree-row { display: flex; align-items: center; min-height: 32px; border-radius: 4px; }
+    .sergin-tree-row:hover { background: var(--mud-palette-action-default-hover); }
+    .sergin-tree-row.selected { background: var(--mud-palette-primary-hover); }
+    .sergin-tree-row.selected .sergin-tree-label { color: var(--mud-palette-primary); font-weight: 600; }
+    .sergin-tree-chevron-spacer { display: inline-block; width: 30px; flex: none; }
+    .sergin-tree-label { flex: 1 1 auto; min-width: 0; display: flex; align-items: center; gap: 6px; padding: 4px 4px; border: 0; background: none; color: inherit; font: inherit; text-align: left; cursor: pointer; border-radius: 4px; }
+    .sergin-tree-label:focus-visible { outline: 2px solid var(--mud-palette-primary); outline-offset: -2px; }
+    .sergin-tree-text { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+    .sergin-tree-count { margin-left: auto; padding: 0 6px; font-size: 0.75rem; color: var(--mud-palette-text-secondary); }
+    .sergin-tree-row .sergin-tree-menu { visibility: hidden; }
+    .sergin-tree-row:hover .sergin-tree-menu, .sergin-tree-row:focus-within .sergin-tree-menu, .sergin-tree-row.selected .sergin-tree-menu { visibility: visible; }
+    .sergin-tree-group-header { min-height: 36px; border-radius: 4px; }
+    .sergin-tree-group-header.active { background: var(--mud-palette-action-default-hover); }
+    .sergin-tree-group-title { flex: 1 1 auto; min-width: 0; display: flex; align-items: center; gap: 6px; padding: 6px 8px; border: 0; background: none; color: inherit; font: inherit; font-weight: 600; text-align: left; cursor: pointer; }
+    .sergin-tree-page-header { gap: 8px; min-height: 40px; border-bottom: 1px solid var(--mud-palette-lines-default); }
+    .sergin-tree-page-header-path { flex: 0 1 80%; min-width: 0; overflow: hidden; gap: 2px; }
+    .sergin-tree-separator { color: var(--mud-palette-text-secondary); padding: 0 2px; }
+    @@media (max-width: 959.98px) {
+        .sergin-tree-page { flex-direction: column; height: auto; }
+        .sergin-tree-panel { flex-basis: auto; width: 100%; max-height: 50vh; }
+        .sergin-tree-body { overflow-y: visible; }
+        .sergin-tree-rail { flex-direction: row; }
+        .sergin-tree-resize { display: none; }
+        .sergin-tree-gap { flex-basis: 16px; }
+    }
+</style>
+
+<CascadingValue Value="this" IsFixed="true">
+    <div class="sergin-tree-page" style="@WidthStyle">
+        @if (hidden)
+        {
+            <aside class="sergin-tree-rail border border-solid mud-border-lines-default rounded" aria-label="@Localizer[Title]">
+                <MudTooltip Text="@Localizer["Show tree"]">
+                    <MudIconButton Icon="@Icons.Material.Filled.MenuOpen" Size="Size.Small" OnClick="ToggleHiddenAsync" aria-label="@Localizer["Show tree"]" />
+                </MudTooltip>
+                @foreach (SerginPageAction action in StaticRowActions)
+                {
+                    <SerginActionIconButton Action="action" />
+                }
+                <MudTooltip Text="@Localizer["Refresh"]">
+                    <MudIconButton Icon="@Icons.Material.Filled.Refresh" Size="Size.Small" OnClick="RefreshAsync" aria-label="@Localizer["Refresh"]" />
+                </MudTooltip>
+            </aside>
+            <div class="sergin-tree-gap"></div>
+        }
+        <aside class="@($"sergin-tree-panel border border-solid mud-border-lines-default rounded pa-2 {(hidden ? "d-none" : string.Empty)}")"
+               aria-label="@Localizer[Title]">
+            <div class="sergin-tree-static d-flex align-center" style="gap: 2px;">
+                <div class="flex-grow-1" style="min-width: 0;">
+                    <SerginActionBar Actions="StaticRowActions" />
+                </div>
+                <MudTooltip Text="@Localizer["Refresh"]">
+                    <MudIconButton Icon="@Icons.Material.Filled.Refresh" Size="Size.Small" OnClick="RefreshAsync" aria-label="@Localizer["Refresh"]" />
+                </MudTooltip>
+                <MudTooltip Text="@Localizer["Collapse all"]">
+                    <MudIconButton Icon="@Icons.Material.Filled.UnfoldLess" Size="Size.Small" OnClick="CollapseAll" aria-label="@Localizer["Collapse all"]" />
+                </MudTooltip>
+                @if (Collapsible)
+                {
+                    <MudTooltip Text="@Localizer["Hide tree"]">
+                        <MudIconButton Icon="@Icons.Material.Filled.MenuOpen" Size="Size.Small" Style="transform: scaleX(-1);" OnClick="ToggleHiddenAsync" aria-label="@Localizer["Hide tree"]" />
+                    </MudTooltip>
+                }
+            </div>
+            @if (SelectedNode is { DynamicActions.Count: > 0 } node)
+            {
+                <div class="sergin-tree-dynamic mt-2">
+                    <SerginActionBar Actions="node.DynamicActions" />
+                </div>
+            }
+            <MudTextField T="string" Value="@filter" ValueChanged="FilterChangedAsync" DebounceInterval="300" Immediate="true"
+                          Placeholder="@Localizer[FilterPlaceholder]" Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Filled.FilterList"
+                          Clearable="true" Variant="Variant.Outlined" Margin="Margin.Dense" Class="mt-2 mb-2" aria-label="@Localizer[FilterPlaceholder]" />
+            <div class="sergin-tree-groups">
+                @Groups
+            </div>
+        </aside>
+        @if (!hidden)
+        {
+            @if (Resizable)
+            {
+                <div class="sergin-tree-resize" role="separator" aria-orientation="vertical" aria-label="@Localizer["Resize tree"]"
+                     @onpointerdown="StartResize"></div>
+            }
+            else
+            {
+                <div class="sergin-tree-gap"></div>
+            }
+        }
+        <section class="sergin-tree-content">
+            <SerginTreePageHeader GroupTitle="@(ShowGroupHeaders ? ActiveGroup?.Title : null)" Node="SelectedNode"
+                                  HeaderSectionId="headerSection" OnAncestor="SelectAncestor" OnGroup="ClearSelectionAsync"
+                                  OnClose="ClearSelectionAsync" Tail="@tail" />
+            <div class="sergin-tree-body">
+                <CascadingValue Value="paneHost" IsFixed="true">
+                    @Content
+                </CascadingValue>
+            </div>
+        </section>
+    </div>
+</CascadingValue>
+
+@if (dragging)
+{
+    <div class="sergin-tree-drag" @onpointermove="Resize" @onpointerup="EndResizeAsync" @onpointerleave="EndResizeAsync"></div>
+}

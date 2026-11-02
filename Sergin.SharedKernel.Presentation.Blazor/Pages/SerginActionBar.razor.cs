@@ -1,7 +1,6 @@
 using Microsoft.AspNetCore.Components;
 using Sergin.SharedKernel.Application.Localizations;
 using Sergin.SharedKernel.Application.Securities.Authorization;
-using Sergin.SharedKernel.Domain.Securities;
 
 namespace Sergin.SharedKernel.Presentation.Blazor.Pages;
 
@@ -11,12 +10,11 @@ namespace Sergin.SharedKernel.Presentation.Blazor.Pages;
 /// </summary>
 /// <remarks>
 /// The owner computes its actions from its own state and passes them in on every render; this component only hides
-/// the ones whose permission the user lacks and lays the rest out. Permission answers are kept per permission and
-/// scope rule, so a re-render asks nothing new.
+/// the ones whose permission the user lacks (<see cref="SerginActionVisibility"/>) and lays the rest out.
 /// </remarks>
 public sealed partial class SerginActionBar
 {
-    private readonly Dictionary<(PermissionDefinition Permission, bool AnyScope), bool> held = [];
+    private SerginActionVisibility visibility = default!;
     private IReadOnlyList<SerginPageAction> visibleActions = [];
 
     [Parameter]
@@ -32,32 +30,7 @@ public sealed partial class SerginActionBar
     [Inject]
     private ILocalizer Localizer { get; set; } = default!;
 
-    protected override async Task OnParametersSetAsync()
-    {
-        List<SerginPageAction> visible = new(Actions.Count);
+    protected override void OnInitialized() => visibility = new SerginActionVisibility(ScopeAuthorization);
 
-        foreach (SerginPageAction action in Actions)
-        {
-            if (action.Permission is null || await HoldsAsync(action.Permission, action.AnyScope))
-            {
-                visible.Add(action);
-            }
-        }
-
-        visibleActions = visible;
-    }
-
-    private async Task<bool> HoldsAsync(PermissionDefinition permission, bool anyScope)
-    {
-        if (!held.TryGetValue((permission, anyScope), out bool holds))
-        {
-            holds = anyScope
-                ? await ScopeAuthorization.CurrentUserHoldsAnywhereAsync(permission)
-                : await ScopeAuthorization.CurrentUserHasAsync(permission);
-
-            held[(permission, anyScope)] = holds;
-        }
-
-        return holds;
-    }
+    protected override async Task OnParametersSetAsync() => visibleActions = await visibility.VisibleAsync(Actions);
 }

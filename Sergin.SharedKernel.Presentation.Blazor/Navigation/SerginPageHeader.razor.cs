@@ -30,6 +30,13 @@ public sealed partial class SerginPageHeader
     [EditorRequired]
     public IReadOnlyList<SerginBreadcrumb> Trail { get; set; } = [];
 
+    /// <summary>
+    /// Keeps the last step a link: a tree page with a node selected, whose own step clears the selection. Off for
+    /// every other page, whose last step is the page itself.
+    /// </summary>
+    [Parameter]
+    public bool LinkLast { get; set; }
+
     /// <summary>The page's icon buttons, right-aligned; none for a page with nothing to offer there.</summary>
     [Parameter]
     public RenderFragment? ChildContent { get; set; }
@@ -66,13 +73,13 @@ public sealed partial class SerginPageHeader
 
             // The href is dropped, not just disabled: MudBlazor keeps a disabled item's href on the anchor,
             // and the current page should not be a link to itself in any reading of the markup.
-            string? href = index == Trail.Count - 1 ? null : crumb.Href;
+            string? href = index == Trail.Count - 1 && !LinkLast ? null : crumb.Href;
 
             built.Add(new BreadcrumbItem(Localizer[crumb.Label], href, disabled: href is null));
         }
 
         items = built;
-        current = built.Count > 0 ? built[^1] : null;
+        current = built.Count > 0 && !LinkLast ? built[^1] : null;
     }
 
     // Null leaves the attribute out; MudBlazor's default template marks only the trail's last item.

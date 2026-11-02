@@ -5,6 +5,7 @@ using Sergin.SharedKernel.Presentation.Blazor.Errors;
 using Sergin.SharedKernel.Presentation.Blazor.Security;
 using Sergin.SharedKernel.Presentation.Blazor.Theming;
 using Sergin.SharedKernel.Presentation.Blazor.Times;
+using Sergin.SharedKernel.Presentation.Blazor.Trees;
 using Sergin.SharedKernel.Presentation.Blazor.Validation;
 
 namespace Microsoft.Extensions.DependencyInjection;
@@ -27,6 +28,9 @@ public static class SerginBlazorKitExtensions
         // Scoped for the same reason. Browser-detected wins; falls back to the app-wide Sergin:TimeZone
         // default (bound below) when JS hasn't run yet or the browser's reported id doesn't resolve.
         services.AddScoped<IUiTimeZoneStore, BrowserTimeZoneStore>();
+
+        // Scoped for the same reason: a tree page's panel width, hidden state and last group.
+        services.AddScoped<IUiTreeLayoutStore, LocalStorageTreeLayoutStore>();
 
         // Scoped, not singleton: it carries the caller's IUserContext into the root-provider scope it
         // opens per send. See ScopedSerginDispatcher's remarks — a singleton here strips authorization.

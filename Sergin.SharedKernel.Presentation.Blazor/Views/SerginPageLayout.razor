@@ -1,0 +1,8 @@
+@using Sergin.SharedKernel.Presentation.Blazor.Layout
+@inherits LayoutComponentBase
+@layout SerginMainLayout
+@* The page layout: a routable page names it with @layout and renders its view and nothing else. The view projects
+   the title and header row itself, so this renders no markup of its own. *@
+<CascadingValue Value="host" IsFixed="true">
+    @Body
+</CascadingValue>
