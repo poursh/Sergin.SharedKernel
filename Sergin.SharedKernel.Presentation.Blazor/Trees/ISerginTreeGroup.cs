@@ -18,7 +18,7 @@ internal interface ISerginTreeGroup
     /// <summary>Whether the roots are in; until then the group reads the requested node itself.</summary>
     bool Loaded { get; }
 
-    /// <summary>The href of a loaded node, for a step of the tree header's path; null if not loaded.</summary>
+    /// <summary>The href of a loaded node, for a step of the selected node's path in the page header; null if not loaded.</summary>
     string? HrefFor(string nodeId);
 
     /// <summary>The selected node of this group; null while it has none.</summary>

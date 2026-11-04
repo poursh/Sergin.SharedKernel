@@ -11,8 +11,8 @@ public enum SerginViewHostKind
 
     /// <summary>
     /// The view fills a pane of a page that owns the page title and header row — the content side of a
-    /// <c>SerginTree</c>. It renders like a page's view, but its header buttons go to the pane's header
-    /// (<see cref="SerginViewHost.HeaderSectionId"/>) and it renders no page title or trail.
+    /// <c>SerginTree</c>. It renders like a page's view, but its header buttons go to the owner's page header
+    /// (<see cref="SerginViewHost.HeaderSlot"/>) and it renders no page title or trail.
     /// </summary>
     Pane,
 }
@@ -35,29 +35,29 @@ public sealed class SerginViewHost
     private readonly Func<Task>? changed;
 
     public SerginViewHost(SerginViewHostKind kind, Func<string, Task> leave)
-        : this(kind, leave, headerSectionId: null)
+        : this(kind, leave, headerSlot: null)
     {
     }
 
     /// <param name="kind">Where the view is shown.</param>
     /// <param name="leave">What leaving the view does.</param>
-    /// <param name="headerSectionId">
-    /// The section a <see cref="SerginViewHostKind.Pane"/> view projects its header buttons into; required for a pane.
+    /// <param name="headerSlot">
+    /// The slot a <see cref="SerginViewHostKind.Pane"/> view writes its header buttons into; required for a pane.
     /// </param>
     /// <param name="changed">What the host does when the view changed its record and stays open; null for nothing.</param>
-    public SerginViewHost(SerginViewHostKind kind, Func<string, Task> leave, object? headerSectionId, Func<Task>? changed = null)
+    public SerginViewHost(SerginViewHostKind kind, Func<string, Task> leave, SerginHeaderSlot? headerSlot, Func<Task>? changed = null)
     {
         ArgumentNullException.ThrowIfNull(leave);
 
-        if (kind == SerginViewHostKind.Pane && headerSectionId is null)
+        if (kind == SerginViewHostKind.Pane && headerSlot is null)
         {
-            throw new ArgumentException("A pane host needs the section its view's header buttons render into.", nameof(headerSectionId));
+            throw new ArgumentException("A pane host needs the slot its view's header buttons render into.", nameof(headerSlot));
         }
 
         Kind = kind;
         this.leave = leave;
         this.changed = changed;
-        HeaderSectionId = headerSectionId;
+        HeaderSlot = headerSlot;
     }
 
     /// <summary>The host of a view rendered outside any <see cref="SerginPageLayout"/>: embedded, and unable to leave.</summary>
@@ -71,8 +71,8 @@ public sealed class SerginViewHost
 
     public bool IsPane => Kind == SerginViewHostKind.Pane;
 
-    /// <summary>The section a pane view's header buttons render into; null for any other host.</summary>
-    public object? HeaderSectionId { get; }
+    /// <summary>The slot a pane view's header buttons render into; null for any other host.</summary>
+    public SerginHeaderSlot? HeaderSlot { get; }
 
     /// <summary>Ends the view: a page navigates to <paramref name="href"/>; a tree's pane reads the tree again, then navigates.</summary>
     public Task LeaveAsync(string href)
@@ -87,5 +87,5 @@ public sealed class SerginViewHost
 
     /// <summary>The host a view hands its own body: embedded, leaving and reporting changes the way this host does.</summary>
     public SerginViewHost Embedded() =>
-        Kind == SerginViewHostKind.Embedded ? this : new SerginViewHost(SerginViewHostKind.Embedded, leave, headerSectionId: null, changed);
+        Kind == SerginViewHostKind.Embedded ? this : new SerginViewHost(SerginViewHostKind.Embedded, leave, headerSlot: null, changed);
 }

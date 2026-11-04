@@ -7,7 +7,7 @@ namespace Sergin.SharedKernel.Presentation.Blazor.Trees;
 /// detail page, <c>&lt;SerginTreeSelect Node="@ParentId?.ToString()" Tail="New scope" /&gt;</c> on a create page.
 /// </summary>
 /// <remarks>
-/// The tree highlights the node, opens its ancestors and draws its path in the tree header. Navigating to another page
+/// The tree highlights the node, opens its ancestors and adds its path to the page header's trail. Navigating to another page
 /// in the same layout hands the selection to that page's marker; the old marker, disposed afterwards, clears it only if
 /// it still owns it. Outside a <see cref="SerginTree"/> it does nothing, so the page still renders.
 /// </remarks>
@@ -22,7 +22,7 @@ public sealed partial class SerginTreeSelect : IDisposable
     [Parameter]
     public string? Group { get; set; }
 
-    /// <summary>What the page shows under the node, as the tree header's last step (localised); null on the node's page.</summary>
+    /// <summary>What the page shows under the node, as the trail's last step (localised); null on the node's page.</summary>
     [Parameter]
     public string? Tail { get; set; }
 
