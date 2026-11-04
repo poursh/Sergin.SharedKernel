@@ -63,7 +63,7 @@
 
     <MudMainContent>
         @* Fixed to the viewport under the app bar: the header strip stays put and only the page body scrolls. *@
-        <MudContainer MaxWidth="MaxWidth.ExtraLarge" Class="py-6 d-flex flex-column"
+        <MudContainer MaxWidth="MaxWidth.ExtraLarge" Gutters="false" Class="px-3 py-2 d-flex flex-column"
                       Style="height: calc(100vh - var(--mud-appbar-height)); overflow: hidden;">
             @* Filled by the page's <SerginBreadcrumbs>, which projects its strip here through a section: the
                shell owns where every trail sits, the page owns what it says. Empty on a page without one. *@

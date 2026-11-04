@@ -8,7 +8,7 @@
     @* MudBlazor pads each separator 0 12px; the trail reads tighter at 4px. A style element here, not scoped CSS,
        because no host links the scoped-CSS bundle and this keeps the rule shipping with the component. *@
     <style>.sergin-page-header .mud-breadcrumb-separator { padding: 0 4px; }</style>
-    <div class="sergin-page-header mb-4">
+    <div class="sergin-page-header mb-2">
         <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween" Spacing="2" Wrap="Wrap.NoWrap">
             <div class="sergin-page-header-trail" style="min-width: 0; flex: 0 1 80%; overflow: hidden;">
                 <MudBreadcrumbs Items="items" Class="pa-0">

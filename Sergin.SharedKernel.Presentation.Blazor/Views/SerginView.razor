@@ -20,7 +20,7 @@
     {
         <div class="sergin-view sergin-aggregate-page">
             <SerginViewBody Overview="Overview" OverviewSummary="OverviewSummary" OverviewCollapsed="OverviewCollapsed"
-                            Actions="Actions" ActionsClass="mb-4" Host="bodyHost">
+                            Actions="Actions" ActionsClass="mb-3" Host="bodyHost">
                 @ChildContent
             </SerginViewBody>
         </div>
@@ -28,7 +28,7 @@
 }
 else
 {
-    <section class="sergin-view sergin-entity-list-section border border-solid mud-border-lines-default rounded pa-4 mb-4" aria-label="@Localizer[Title]">
+    <section class="sergin-view sergin-entity-list-section border border-solid mud-border-lines-default rounded pa-3 mb-3" aria-label="@Localizer[Title]">
         <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2" Class="mb-2">
             <MudText Typo="Typo.h6">@Localizer[Title]@(Count is { } count ? $" · {count}" : string.Empty)</MudText>
             <MudSpacer />
