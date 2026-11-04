@@ -22,8 +22,9 @@ namespace Sergin.SharedKernel.Presentation.Blazor.Trees;
 /// </para>
 /// <para>
 /// The tree cascades a <see cref="SerginViewHostKind.Pane"/> <see cref="SerginViewHost"/> to its content, so a view
-/// keeps the tree's title and trail and puts its header buttons in the tree header. Leaving reads the tree again and
-/// navigates; a change that keeps the view open reads the tree again.
+/// keeps the tree's title, the trail goes on with the selected node's path, and the view's header buttons follow the
+/// tree's in the page header. Leaving reads the tree again and navigates; a change that keeps the view open reads the
+/// tree again.
 /// </para>
 /// <para>
 /// The groups (<see cref="SerginTreeGroup{TNode}"/>, one per data source) go in <see cref="Groups"/>; one group reads as
@@ -32,13 +33,13 @@ namespace Sergin.SharedKernel.Presentation.Blazor.Trees;
 /// it is hidden are kept per browser (<see cref="IUiTreeLayoutStore"/>) under <see cref="LayoutKey"/>.
 /// </para>
 /// </remarks>
-public sealed partial class SerginTree
+public sealed partial class SerginTree : IDisposable
 {
     private const int MinWidth = 200;
     private const int MaxWidth = 480;
 
     private readonly List<ISerginTreeGroup> groups = [];
-    private readonly object headerSection = new();
+    private readonly SerginHeaderSlot headerSlot = new();
     private SerginViewHost paneHost = default!;
     private object? owner;
     private string? requestedGroup;
@@ -52,6 +53,7 @@ public sealed partial class SerginTree
     private bool dragging;
     private double dragStartX;
     private int dragStartWidth;
+    private bool paneHasActions;
 
     /// <summary>The page title and the panel's accessible name (localised).</summary>
     [Parameter]
@@ -63,11 +65,14 @@ public sealed partial class SerginTree
     [EditorRequired]
     public string Href { get; set; } = string.Empty;
 
-    /// <summary>The tree's steps below home; the last is the tree, a link on every page but <see cref="Href"/>.</summary>
+    /// <summary>
+    /// The tree's steps below home; the last is the tree, a link on every page but <see cref="Href"/>. The selected
+    /// node's path follows it.
+    /// </summary>
     [Parameter]
     public IReadOnlyList<SerginBreadcrumb> Trail { get; set; } = [];
 
-    /// <summary>The page header's icon buttons.</summary>
+    /// <summary>The page header's icon buttons; the pane view's follow them.</summary>
     [Parameter]
     public RenderFragment? HeaderActions { get; set; }
 
@@ -122,7 +127,47 @@ public sealed partial class SerginTree
     private IReadOnlyList<SerginPageAction> StaticRowActions =>
         groups.Count == 1 && groups[0].AddAction is { } add ? [.. StaticActions, add] : StaticActions;
 
+    private bool HasHeaderActions => HeaderActions is not null || paneHasActions;
+
+    // The tree's own step stays a link wherever a page shows, unless the page named nothing to put after it.
+    private bool LinkLast => !AtRoot && SelectedNode is null && tail is null;
+
+    // The tree's trail, then the selected node's path: the group with several, the ancestors, the node — a link when
+    // the page shows something under it — and the page's tail.
+    private IReadOnlyList<SerginBreadcrumb> PageTrail
+    {
+        get
+        {
+            if (SelectedNode is null && tail is null)
+            {
+                return Trail;
+            }
+
+            List<SerginBreadcrumb> trail = [.. Trail];
+
+            if (ShowGroupHeaders && ActiveGroup is { } group)
+            {
+                trail.Add(new SerginBreadcrumb(group.Title, Href));
+            }
+
+            if (SelectedNode is { } node)
+            {
+                trail.AddRange(node.Ancestors.Select(step => new SerginBreadcrumb(step.Label, ActiveGroup?.HrefFor(step.Id))));
+                trail.Add(new SerginBreadcrumb(node.Label, tail is null ? null : ActiveGroup?.HrefFor(node.Id)));
+            }
+
+            if (tail is not null)
+            {
+                trail.Add(new SerginBreadcrumb(tail));
+            }
+
+            return trail;
+        }
+    }
+
     private string WidthStyle => string.Create(CultureInfo.InvariantCulture, $"--sergin-tree-width: {width}px");
+
+    public void Dispose() => headerSlot.Changed -= OnHeaderSlotChanged;
 
     /// <summary>Back to nothing selected: navigates to <see cref="Href"/>.</summary>
     public Task ClearSelectionAsync()
@@ -190,7 +235,7 @@ public sealed partial class SerginTree
 
     /// <summary>
     /// A marker names no node, or went away: the selection clears, unless another marker owns it by now. A marker that
-    /// names no node can still give the tree header its <paramref name="label"/>.
+    /// names no node can still give the page header its <paramref name="label"/>.
     /// </summary>
     internal void Release(object marker, string? label = null)
     {
@@ -252,7 +297,8 @@ public sealed partial class SerginTree
     protected override void OnInitialized()
     {
         width = Math.Clamp(PanelWidth, MinWidth, MaxWidth);
-        paneHost = new SerginViewHost(SerginViewHostKind.Pane, LeaveAsync, headerSection, ReloadActiveAsync);
+        paneHost = new SerginViewHost(SerginViewHostKind.Pane, LeaveAsync, headerSlot, ReloadActiveAsync);
+        headerSlot.Changed += OnHeaderSlotChanged;
     }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
@@ -311,12 +357,17 @@ public sealed partial class SerginTree
     // The view renamed or moved its record: the tree reads it again, keeping the selection.
     private Task ReloadActiveAsync() => ActiveGroup?.ReloadAsync() ?? Task.CompletedTask;
 
-    private void SelectAncestor(string nodeId)
+    // The outlet renders the view's buttons itself; the tree renders again only when the page header gains or loses
+    // its buttons, since rendering the tree renders the view again, which writes the slot again.
+    private void OnHeaderSlotChanged(object? sender, EventArgs args)
     {
-        if (ActiveGroup?.HrefFor(nodeId) is { } href)
+        if (paneHasActions == headerSlot.Content is not null)
         {
-            Navigation.NavigateTo(href);
+            return;
         }
+
+        paneHasActions = headerSlot.Content is not null;
+        _ = InvokeAsync(StateHasChanged);
     }
 
     private void CollapseAll()

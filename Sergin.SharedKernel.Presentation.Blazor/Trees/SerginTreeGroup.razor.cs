@@ -41,7 +41,7 @@ public sealed partial class SerginTreeGroup<TNode> : ISerginTreeGroup, IDisposab
     [EditorRequired]
     public string Key { get; set; } = string.Empty;
 
-    /// <summary>The group header's title and the tree header's first step (localised).</summary>
+    /// <summary>The group header's title and, with several groups, the page header's step before the selected node's path (localised).</summary>
     [Parameter]
     [EditorRequired]
     public string Title { get; set; } = string.Empty;
@@ -104,7 +104,7 @@ public sealed partial class SerginTreeGroup<TNode> : ISerginTreeGroup, IDisposab
     [Parameter]
     public Func<TNode, IReadOnlyList<SerginPageAction>>? DynamicActions { get; set; }
 
-    /// <summary>A node's ⋮ menu, on its row and in the tree header.</summary>
+    /// <summary>A node's ⋮ menu, on its row.</summary>
     [Parameter]
     public Func<TNode, IReadOnlyList<SerginPageAction>>? NodeMenu { get; set; }
 
@@ -344,10 +344,8 @@ public sealed partial class SerginTreeGroup<TNode> : ISerginTreeGroup, IDisposab
     private SerginTreeSelectedNode Describe(SerginTreeNodeState<TNode> state) => new(
         state.Id,
         LabelOf(state),
-        IconOf(state),
-        [.. state.SelfAndAncestors().Skip(1).Reverse().Select(step => new SerginTreePathStep(step.Id, LabelOf(step), IconOf(step)))],
-        DynamicActions?.Invoke(state.Node) ?? [],
-        MenuFor(state));
+        [.. state.SelfAndAncestors().Skip(1).Reverse().Select(step => new SerginTreePathStep(step.Id, LabelOf(step)))],
+        DynamicActions?.Invoke(state.Node) ?? []);
 
     private async Task LoadRootsAsync()
     {

@@ -1,10 +1,19 @@
-@* A tree on the left and its layout's page on the right. The page header keeps the tree's trail and buttons; the
-   panel holds the static actions row, the selected node's dynamic actions row, the filter and the groups; the content
-   side holds the tree header, then the page at the current route. It fills the shell's page body: the panel scrolls
-   its groups under the fixed action rows and filter, and the content scrolls under the fixed tree header. Styles ship
-   as a style element, like SerginPageHeader's, since no host links the scoped-CSS bundle. *@
+@* A tree on the left and its layout's page on the right. The page header carries the tree's trail with the selected
+   node's path under it (the group's title when the tree has several, then the ancestors, the node and the page's tail
+   such as "New scope"), and the tree's buttons followed by the pane view's; the panel holds the static actions row,
+   the selected node's dynamic actions row, the filter and the groups; the content side holds the page at the current
+   route. It fills the shell's page body: the panel scrolls its groups under the fixed action rows and filter, and the
+   content scrolls on its own. Styles ship as a style element, like SerginPageHeader's, since no host links the
+   scoped-CSS bundle. *@
 <PageTitle>@Localizer[Title]</PageTitle>
-<SerginPageHeader Trail="Trail" LinkLast="@(!AtRoot)">@HeaderActions</SerginPageHeader>
+@if (HasHeaderActions)
+{
+    <SerginPageHeader Trail="PageTrail" LinkLast="LinkLast">@HeaderActions<SerginHeaderSlotOutlet Slot="headerSlot" /></SerginPageHeader>
+}
+else
+{
+    <SerginPageHeader Trail="PageTrail" LinkLast="LinkLast" />
+}
 
 <style>
     .sergin-tree-page { display: flex; align-items: stretch; gap: 0; height: 100%; min-height: 0; }
@@ -17,7 +26,6 @@
     .sergin-tree-resize:hover::after { background: var(--mud-palette-primary); }
     .sergin-tree-gap { flex: 0 0 16px; }
     .sergin-tree-content { flex: 1 1 auto; min-width: 0; min-height: 0; display: flex; flex-direction: column; }
-    .sergin-tree-content > .sergin-tree-page-header { flex: none; }
     .sergin-tree-body { flex: 1 1 auto; min-height: 0; overflow-y: auto; }
     .sergin-tree-drag { position: fixed; inset: 0; z-index: 1600; cursor: col-resize; }
     .sergin-tree-branch { list-style: none; margin: 0; padding: 0; }
@@ -35,9 +43,6 @@
     .sergin-tree-group-header { min-height: 36px; border-radius: 4px; }
     .sergin-tree-group-header.active { background: var(--mud-palette-action-default-hover); }
     .sergin-tree-group-title { flex: 1 1 auto; min-width: 0; display: flex; align-items: center; gap: 6px; padding: 6px 8px; border: 0; background: none; color: inherit; font: inherit; font-weight: 600; text-align: left; cursor: pointer; }
-    .sergin-tree-page-header { gap: 8px; min-height: 40px; border-bottom: 1px solid var(--mud-palette-lines-default); }
-    .sergin-tree-page-header-path { flex: 0 1 80%; min-width: 0; overflow: hidden; gap: 2px; }
-    .sergin-tree-separator { color: var(--mud-palette-text-secondary); padding: 0 2px; }
     @@media (max-width: 959.98px) {
         .sergin-tree-page { flex-direction: column; height: auto; }
         .sergin-tree-panel { flex-basis: auto; width: 100%; max-height: 50vh; }
@@ -111,9 +116,6 @@
             }
         }
         <section class="sergin-tree-content">
-            <SerginTreePageHeader GroupTitle="@(ShowGroupHeaders ? ActiveGroup?.Title : null)" Node="SelectedNode"
-                                  HeaderSectionId="headerSection" OnAncestor="SelectAncestor" OnGroup="ClearSelectionAsync"
-                                  OnClose="ClearSelectionAsync" Tail="@tail" />
             <div class="sergin-tree-body">
                 <CascadingValue Value="paneHost" IsFixed="true">
                     @Content
