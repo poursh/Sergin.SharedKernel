@@ -2,6 +2,7 @@ using MudBlazor;
 using MudBlazor.Services;
 using Sergin.SharedKernel.Presentation.Blazor.Dispatching;
 using Sergin.SharedKernel.Presentation.Blazor.Errors;
+using Sergin.SharedKernel.Presentation.Blazor.Localizations;
 using Sergin.SharedKernel.Presentation.Blazor.Security;
 using Sergin.SharedKernel.Presentation.Blazor.Theming;
 using Sergin.SharedKernel.Presentation.Blazor.Times;
@@ -38,6 +39,9 @@ public static class SerginBlazorKitExtensions
 
         // Scoped for the same reason: it seeds the caller's IUserContext into the scope it opens per call.
         services.AddScoped<ISerginFormValidator, ScopedSerginFormValidator>();
+
+        // Singleton: it only reads the culture of the calling thread and the process-wide translation cache.
+        services.AddSingleton<SerginDocumentCulture>();
 
         return services;
     }

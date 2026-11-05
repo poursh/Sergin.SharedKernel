@@ -4,6 +4,7 @@ using Microsoft.Extensions.Options;
 using MudBlazor;
 using MudBlazor.ThemeManager;
 using Sergin.SharedKernel.Application.Securities.Users;
+using Sergin.SharedKernel.Presentation.Blazor.Localizations;
 using Sergin.SharedKernel.Presentation.Blazor.Security;
 using Sergin.SharedKernel.Presentation.Blazor.Theming;
 
@@ -34,6 +35,9 @@ public sealed partial class SerginMainLayout
 
     [Inject]
     private IHostEnvironment HostEnvironment { get; set; } = default!;
+
+    [Inject]
+    private SerginDocumentCulture DocumentCulture { get; set; } = default!;
 
     [Inject]
     private IStringLocalizer Localizer { get; set; } = default!;

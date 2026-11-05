@@ -1,0 +1,14 @@
+@* The language the page shows in, in the app bar; hidden while only the default language is offered. A native select
+   rather than a MudMenu: the options are in the prerendered markup, and every assistive technology knows it. *@
+@if (languages.Count > 1)
+{
+    <div class="sergin-language-switcher d-flex align-center mx-2">
+        <MudIcon Icon="@Icons.Material.Filled.Translate" Size="Size.Small" />
+        <select class="sergin-language-select" aria-label="@Label" title="@Label" @onchange="OnChanged">
+            @foreach (LanguageChoice language in languages)
+            {
+                <option value="@language.Culture" selected="@(language.Culture == current)">@language.Label</option>
+            }
+        </select>
+    </div>
+}

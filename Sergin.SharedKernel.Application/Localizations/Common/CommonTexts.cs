@@ -12,4 +12,8 @@ public static class CommonTexts
     public static TextDefinition Delete { get; } = category.Text("Delete", "Delete");
 
     public static TextDefinition Reload { get; } = category.Text("Reload", "Reload");
+
+    public static TextDefinition Language { get; } = category.Text("Language", "Language");
+
+    public static TextDefinition DraftSuffix { get; } = category.Text("DraftSuffix", "draft");
 }

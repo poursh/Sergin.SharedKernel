@@ -23,6 +23,7 @@
 <MudDialogProvider />
 <MudSnackbarProvider />
 
+<MudRTLProvider RightToLeft="DocumentCulture.IsRightToLeft">
 <MudLayout>
     <MudAppBar Elevation="themeManagerTheme.AppBarElevation" >
         <MudIconButton Icon="@Icons.Material.Filled.Menu" Color="Color.Inherit" Edge="Edge.Start"
@@ -34,6 +35,7 @@
         {
             <SerginScopePicker @key="scopeVersion" ScopeChanged="OnScopeChanged" />
         }
+        <SerginLanguageSwitcher />
         <MudText Typo="Typo.body2" Class="mr-3">@DisplayName</MudText>
         @* A form rather than a link: a GET sign-out can be triggered by any third-party page that
            embeds the URL. The token satisfies the antiforgery middleware the host leaves enabled. *@
@@ -90,3 +92,4 @@
                          IsDarkMode="isDarkMode" />
     }
 </MudLayout>
+</MudRTLProvider>
