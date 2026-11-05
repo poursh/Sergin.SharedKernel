@@ -12,7 +12,7 @@ public sealed class SerginHomeBuilder
 {
     private Type componentType = typeof(SerginWelcome);
 
-    private SerginNavItem? navItem = NavItemFor("Home", Icons.Material.Filled.Home, order: 0);
+    private SerginNavItem? navItem = NavItemFor(ShellTexts.Navigation.Home, Icons.Material.Filled.Home, order: 0);
 
     /// <summary>
     /// Renders <typeparamref name="TComponent"/> at the site root.
@@ -42,12 +42,19 @@ public sealed class SerginHomeBuilder
     /// repeat it or contradict it — and a contradiction is a nav entry that 404s, with nothing at
     /// startup to catch it. Label, icon and order are the host's to choose; the path is not.
     /// </remarks>
-    public SerginHomeBuilder UseNavItem(string label, string icon, int order = 0)
+    public SerginHomeBuilder UseNavItem(TextDefinition label, string icon, int order = 0)
     {
         navItem = NavItemFor(label, icon, order);
 
         return this;
     }
+
+    /// <summary>
+    /// Transitional: <see cref="UseNavItem(TextDefinition, string, int)"/> with a label written as a plain string,
+    /// shown as written. Goes once every host declares its texts.
+    /// </summary>
+    public SerginHomeBuilder UseNavItem(string label, string icon, int order = 0) =>
+        UseNavItem(TransitionalText.Of(label), icon, order);
 
     /// <summary>
     /// Drops the shell's nav entry for the root, leaving the home page reachable only by URL.
@@ -66,6 +73,6 @@ public sealed class SerginHomeBuilder
     /// </summary>
     public SerginHome Build() => new(componentType, navItem);
 
-    private static SerginNavItem NavItemFor(string label, string icon, int order)
+    private static SerginNavItem NavItemFor(TextDefinition label, string icon, int order)
         => new(label, SerginHome.RootPath, icon, order);
 }

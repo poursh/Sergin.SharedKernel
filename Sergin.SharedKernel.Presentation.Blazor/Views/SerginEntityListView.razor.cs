@@ -17,9 +17,13 @@ namespace Sergin.SharedKernel.Presentation.Blazor.Views;
 /// </remarks>
 public sealed partial class SerginEntityListView
 {
+    /// <summary>Transitional: the title as a plain string, shown as written. <see cref="TitleText"/> wins when both are set.</summary>
     [Parameter]
-    [EditorRequired]
     public string Title { get; set; } = string.Empty;
+
+    /// <summary>The title, a declared text.</summary>
+    [Parameter]
+    public TextDefinition? TitleText { get; set; }
 
     [Parameter]
     public IReadOnlyList<SerginBreadcrumb> Trail { get; set; } = [];

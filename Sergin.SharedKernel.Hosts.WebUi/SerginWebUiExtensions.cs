@@ -288,7 +288,7 @@ public static class SerginWebUiExtensions
         [
             .. catalog.Modules.SelectMany(module => module.NavItems
                 .Where(item => item.RequiredPermission is not null && !permissions.Contains(item.RequiredPermission))
-                .Select(item => $"  {module.GetType().FullName}: nav entry \"{item.Label}\" requires {item.RequiredPermission}")),
+                .Select(item => $"  {module.GetType().FullName}: nav entry \"{item.Label.Default}\" requires {item.RequiredPermission}")),
         ];
 
         if (violations.Length > 0)

@@ -8,9 +8,13 @@ namespace Sergin.SharedKernel.Presentation.Blazor.Pages;
 /// </summary>
 public sealed partial class SerginOverviewCard
 {
+    /// <summary>Transitional: the label as a plain string, shown as written. <see cref="LabelText"/> wins when both are set.</summary>
     [Parameter]
-    [EditorRequired]
     public string Label { get; set; } = string.Empty;
+
+    /// <summary>The label, a declared text.</summary>
+    [Parameter]
+    public TextDefinition? LabelText { get; set; }
 
     [Parameter]
     public string? Value { get; set; }
@@ -20,4 +24,6 @@ public sealed partial class SerginOverviewCard
 
     [Inject]
     private IStringLocalizer Localizer { get; set; } = default!;
+
+    private string LabelShown => Localizer.Show(LabelText, Label);
 }

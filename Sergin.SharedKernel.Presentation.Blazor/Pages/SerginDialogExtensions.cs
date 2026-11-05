@@ -12,11 +12,38 @@ public static class SerginDialogExtensions
     /// (<c>Delete device</c>), <paramref name="message"/> what happens (<c>Delete MTR-000142? It disappears from
     /// every list and page.</c>).
     /// </summary>
-    public static async Task<bool> ConfirmDeleteAsync(this IDialogService dialogs, string title, string message, string confirmText = "Delete")
+    public static async Task<bool> ConfirmDeleteAsync(
+        this IDialogService dialogs,
+        IStringLocalizer localizer,
+        TextDefinition title,
+        TextDefinition message,
+        object? arguments = null,
+        TextDefinition? confirmText = null)
+    {
+        ArgumentNullException.ThrowIfNull(dialogs);
+        ArgumentNullException.ThrowIfNull(localizer);
+        ArgumentNullException.ThrowIfNull(title);
+        ArgumentNullException.ThrowIfNull(message);
+
+        bool? confirmed = await dialogs.ShowMessageBoxAsync(
+            localizer.Text(title, arguments),
+            localizer.Text(message, arguments),
+            yesText: localizer.Text(confirmText ?? CommonTexts.Delete),
+            cancelText: localizer.Text(CommonTexts.Cancel));
+
+        return confirmed == true;
+    }
+
+    /// <summary>
+    /// Transitional: the confirmation with its texts written as plain strings, shown as written, and the buttons'
+    /// English defaults. Goes once every module declares its texts.
+    /// </summary>
+    public static async Task<bool> ConfirmDeleteAsync(this IDialogService dialogs, string title, string message, string? confirmText = null)
     {
         ArgumentNullException.ThrowIfNull(dialogs);
 
-        bool? confirmed = await dialogs.ShowMessageBoxAsync(title, message, yesText: confirmText, cancelText: "Cancel");
+        bool? confirmed = await dialogs.ShowMessageBoxAsync(
+            title, message, yesText: confirmText ?? CommonTexts.Delete.Default, cancelText: CommonTexts.Cancel.Default);
 
         return confirmed == true;
     }

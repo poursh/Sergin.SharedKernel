@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Components;
+using Sergin.SharedKernel.Presentation.Blazor.Navigation;
 
 namespace Sergin.SharedKernel.Presentation.Blazor.Trees;
 
@@ -22,9 +23,26 @@ public sealed partial class SerginTreeSelect : IDisposable
     [Parameter]
     public string? Group { get; set; }
 
-    /// <summary>What the page shows under the node, as the trail's last step (localised); null on the node's page.</summary>
+    /// <summary>Transitional: the trail's last step as a plain string, shown as written.</summary>
     [Parameter]
     public string? Tail { get; set; }
+
+    /// <summary>What the page shows under the node, as the trail's last step; null on the node's page.</summary>
+    [Parameter]
+    public TextDefinition? TailText { get; set; }
+
+    private SerginBreadcrumb? TailStep
+    {
+        get
+        {
+            if (TailText is { } text)
+            {
+                return new SerginBreadcrumb(text);
+            }
+
+            return Tail is { } value ? SerginBreadcrumb.Data(value) : null;
+        }
+    }
 
     [CascadingParameter]
     private SerginTree? Tree { get; set; }
@@ -40,11 +58,11 @@ public sealed partial class SerginTreeSelect : IDisposable
 
         if (string.IsNullOrWhiteSpace(Node))
         {
-            Tree.Release(this, Tail);
+            Tree.Release(this, TailStep);
         }
         else
         {
-            Tree.Select(this, Group, Node, Tail);
+            Tree.Select(this, Group, Node, TailStep);
         }
     }
 }

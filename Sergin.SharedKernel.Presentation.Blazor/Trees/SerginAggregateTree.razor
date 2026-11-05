@@ -1,13 +1,13 @@
 @typeparam TNode where TNode : notnull
 @* One self-referencing aggregate as a tree: the whole tree loads once into an index, and the group's loaders, counts,
    path and menus are answered from it. More groups can sit beside it. The child content is the layout's @Body. *@
-<SerginTree Title="@Title" Href="@Href" Trail="Trail" HeaderActions="HeaderActions" StaticActions="StaticActions"
-            LayoutKey="@LayoutKey" PanelWidth="PanelWidth" FilterPlaceholder="@FilterPlaceholder" Content="ChildContent">
+<SerginTree Title="@Title" TitleText="TitleText" Href="@Href" Trail="Trail" HeaderActions="HeaderActions" StaticActions="StaticActions"
+            LayoutKey="@LayoutKey" PanelWidth="PanelWidth" FilterPlaceholder="@FilterPlaceholder" FilterPlaceholderText="FilterPlaceholderText" Content="ChildContent">
     <Groups>
-        <SerginTreeGroup TNode="TNode" @ref="group" Key="@GroupKey" Title="@(GroupTitle ?? Title)" Icon="@GroupIcon"
+        <SerginTreeGroup TNode="TNode" @ref="group" Key="@GroupKey" Title="@GroupTitleString" TitleText="GroupTitleDeclared" Icon="@GroupIcon"
                          Roots="LoadRootsAsync" Children="LoadChildrenAsync" PathTo="PathToAsync" Eager="true"
                          NodeId="NodeId" NodeLabel="NodeLabel" NodeIcon="NodeIcon" NodeCount="CountOf" NodeHref="NodeHref"
-                         AddAction="AddRoot" DynamicActions="DynamicActionsOf" NodeMenu="MenuOf" EmptyText="@EmptyText" />
+                         AddAction="AddRoot" DynamicActions="DynamicActionsOf" NodeMenu="MenuOf" EmptyText="@EmptyText" EmptyMessage="EmptyMessage" />
         @AdditionalGroups
     </Groups>
 </SerginTree>

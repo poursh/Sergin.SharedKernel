@@ -29,5 +29,5 @@ public sealed partial class SerginInfoButton
     [Inject]
     private IStringLocalizer Localizer { get; set; } = default!;
 
-    private Task OpenAsync() => Dialogs.ShowInfoAsync(Localizer["Information"].Value, Load, Version);
+    private Task OpenAsync() => Dialogs.ShowInfoAsync(Localizer.Text(CommonTexts.Information), Load, Version);
 }

@@ -88,7 +88,7 @@ public sealed partial class SerginMainLayout
         ? Icons.Material.Outlined.LightMode
         : Icons.Material.Outlined.DarkMode;
 
-    private string DarkModeLabel => Localizer[isDarkMode ? "Switch to light mode" : "Switch to dark mode"];
+    private string DarkModeLabel => Localizer.Text(isDarkMode ? ShellTexts.Layout.SwitchToLightMode : ShellTexts.Layout.SwitchToDarkMode);
 
     /// <summary>
     /// Settles the scope the circuit works in before the page renders: the home scope when the current one is not

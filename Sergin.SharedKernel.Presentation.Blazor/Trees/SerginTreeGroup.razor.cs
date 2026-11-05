@@ -40,10 +40,16 @@ public sealed partial class SerginTreeGroup<TNode> : ISerginTreeGroup, IDisposab
     [EditorRequired]
     public string Key { get; set; } = string.Empty;
 
-    /// <summary>The group header's title and, with several groups, the page header's step before the selected node's path (localised).</summary>
+    /// <summary>
+    /// Transitional: the group header's title and, with several groups, the page header's step before the selected
+    /// node's path, as a plain string shown as written.
+    /// </summary>
     [Parameter]
-    [EditorRequired]
     public string Title { get; set; } = string.Empty;
+
+    /// <summary>The title, a declared text; wins over <see cref="Title"/>.</summary>
+    [Parameter]
+    public TextDefinition? TitleText { get; set; }
 
     [Parameter]
     public string? Icon { get; set; }
@@ -113,14 +119,23 @@ public sealed partial class SerginTreeGroup<TNode> : ISerginTreeGroup, IDisposab
     [Parameter]
     public RenderFragment? EmptyContent { get; set; }
 
+    /// <summary>Transitional: the empty state's text as a plain string, shown as written.</summary>
     [Parameter]
-    public string EmptyText { get; set; } = "Nothing here yet.";
+    public string? EmptyText { get; set; }
+
+    /// <summary>The empty state's text; the shell's <c>Nothing here yet.</c> when neither this nor <see cref="EmptyText"/> is set.</summary>
+    [Parameter]
+    public TextDefinition? EmptyMessage { get; set; }
 
     [CascadingParameter]
     private SerginTree? CascadedPage { get; set; }
 
     [Inject]
     private IStringLocalizer Localizer { get; set; } = default!;
+
+    private string TitleShown => Localizer.Show(TitleText, Title);
+
+    private string EmptyShown => Localizer.Show(EmptyMessage, EmptyText, ShellTexts.Lists.NothingHereYet);
 
     [Inject]
     private ICultureFormatter Formatter { get; set; } = default!;
@@ -139,8 +154,8 @@ public sealed partial class SerginTreeGroup<TNode> : ISerginTreeGroup, IDisposab
         AddAction is null ? [] : [AddAction with { Kind = SerginActionKind.Primary }];
 
     private string MatchSummary => matchCount == 1
-        ? Localizer["1 match"].Value
-        : string.Format(Formatter.Culture, Localizer["{0} matches"].Value, Formatter.Number(matchCount));
+        ? Localizer.Text(ShellTexts.Trees.OneMatch)
+        : Localizer.Text(ShellTexts.Trees.Matches, new { Count = Formatter.Number(matchCount) });
 
     SerginTreeSelectedNode? ISerginTreeGroup.Selected => selected is null ? null : Describe(selected);
 

@@ -17,9 +17,5 @@ public sealed partial class SerginWelcome
 
     private string ApplicationName => ApplicationOptions.Value.ApplicationName;
 
-    /// <summary>
-    /// Single-argument lookup on purpose. <c>IStringLocalizer</c>'s <c>params object[]</c> overload discards its
-    /// arguments, so a composed key such as <c>"Welcome to {0}"</c> would render the placeholder verbatim.
-    /// </summary>
-    private string Prompt => Localizer["Choose a section from the menu to get started."];
+    private string Prompt => Localizer.Text(ShellTexts.Welcome.Prompt);
 }

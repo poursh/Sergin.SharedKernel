@@ -4,6 +4,7 @@
 	</ItemGroup>
 
 	<ItemGroup>
+		<ProjectReference Include="..\Sergin.SharedKernel.Application\Sergin.SharedKernel.Application.csproj" />
 		<ProjectReference Include="..\Sergin.SharedKernel.Domain\Sergin.SharedKernel.Domain.csproj" />
 	</ItemGroup>
 </Project>

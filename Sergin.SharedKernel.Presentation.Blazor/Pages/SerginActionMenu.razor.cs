@@ -19,9 +19,13 @@ public sealed partial class SerginActionMenu
     [Parameter]
     public string Icon { get; set; } = Icons.Material.Filled.MoreVert;
 
-    /// <summary>The button's accessible name (localised).</summary>
+    /// <summary>Transitional: the button's accessible name as a plain string, shown as written.</summary>
     [Parameter]
-    public string AriaLabel { get; set; } = "Actions";
+    public string? AriaLabel { get; set; }
+
+    /// <summary>The button's accessible name; the shell's <c>Actions</c> when neither this nor <see cref="AriaLabel"/> is set.</summary>
+    [Parameter]
+    public TextDefinition? AriaLabelText { get; set; }
 
     [Parameter]
     public string? Class { get; set; }
@@ -31,6 +35,8 @@ public sealed partial class SerginActionMenu
 
     [Inject]
     private IStringLocalizer Localizer { get; set; } = default!;
+
+    private string AriaLabelShown => Localizer.Show(AriaLabelText, AriaLabel, ShellTexts.Navigation.Actions);
 
     protected override void OnInitialized() => visibility = new SerginActionVisibility(ScopeAuthorization);
 

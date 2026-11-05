@@ -32,9 +32,13 @@ public sealed partial class SerginAggregateTree<TNode>
     private SerginTreeGroup<TNode> group = default!;
     private SerginTreeIndex<TNode>? index;
 
+    /// <summary>Transitional: the title as a plain string, shown as written.</summary>
     [Parameter]
-    [EditorRequired]
     public string Title { get; set; } = string.Empty;
+
+    /// <summary>The title, a declared text; wins over <see cref="Title"/>.</summary>
+    [Parameter]
+    public TextDefinition? TitleText { get; set; }
 
     [Parameter]
     public IReadOnlyList<SerginBreadcrumb> Trail { get; set; } = [];
@@ -97,9 +101,13 @@ public sealed partial class SerginAggregateTree<TNode>
     [Parameter]
     public bool DeleteWithChildren { get; set; }
 
-    /// <summary>The confirmation's title, e.g. <c>Delete scope</c>.</summary>
+    /// <summary>Transitional: the confirmation's title as a plain string, shown as written.</summary>
     [Parameter]
-    public string DeleteTitle { get; set; } = "Delete";
+    public string? DeleteTitle { get; set; }
+
+    /// <summary>The confirmation's title, e.g. <c>Delete scope</c>; <see cref="CommonTexts.Delete"/> when neither this nor <see cref="DeleteTitle"/> is set.</summary>
+    [Parameter]
+    public TextDefinition? DeleteTitleText { get; set; }
 
     /// <summary>The tree's own route, where nothing is selected.</summary>
     [Parameter]
@@ -122,9 +130,13 @@ public sealed partial class SerginAggregateTree<TNode>
     [Parameter]
     public string GroupKey { get; set; } = "node";
 
-    /// <summary>The group's title; the page title when null.</summary>
+    /// <summary>Transitional: the group's title as a plain string, shown as written; the page title when null.</summary>
     [Parameter]
     public string? GroupTitle { get; set; }
+
+    /// <summary>The group's title; wins over <see cref="GroupTitle"/>. The page title when neither is set.</summary>
+    [Parameter]
+    public TextDefinition? GroupTitleText { get; set; }
 
     [Parameter]
     public string? GroupIcon { get; set; }
@@ -135,11 +147,19 @@ public sealed partial class SerginAggregateTree<TNode>
     [Parameter]
     public int PanelWidth { get; set; } = 260;
 
+    /// <summary>Transitional: the filter box's placeholder as a plain string, shown as written.</summary>
     [Parameter]
-    public string FilterPlaceholder { get; set; } = "Filter tree…";
+    public string? FilterPlaceholder { get; set; }
 
     [Parameter]
-    public string EmptyText { get; set; } = "Nothing here yet.";
+    public TextDefinition? FilterPlaceholderText { get; set; }
+
+    /// <summary>Transitional: the empty state's text as a plain string, shown as written.</summary>
+    [Parameter]
+    public string? EmptyText { get; set; }
+
+    [Parameter]
+    public TextDefinition? EmptyMessage { get; set; }
 
     [Inject]
     private IDialogService Dialogs { get; set; } = default!;
@@ -149,6 +169,11 @@ public sealed partial class SerginAggregateTree<TNode>
 
     [Inject]
     private IStringLocalizer Localizer { get; set; } = default!;
+
+    // The group's title: its own when either form is set, else the tree's; the declared form wins within each.
+    private string GroupTitleString => GroupTitle ?? Title;
+
+    private TextDefinition? GroupTitleDeclared => GroupTitleText ?? (GroupTitle is null ? TitleText : null);
 
     /// <summary>Reads the tree again.</summary>
     public Task ReloadAsync() => group.ReloadAsync();
@@ -194,7 +219,7 @@ public sealed partial class SerginAggregateTree<TNode>
     {
         List<SerginPageAction> menu =
         [
-            new("Open", Icons.Material.Outlined.OpenInBrowser, SerginActionKind.Secondary,
+            new(CommonTexts.Open, Icons.Material.Outlined.OpenInBrowser, SerginActionKind.Secondary,
                 Href: NodeHref(node)),
         ];
 
@@ -207,13 +232,13 @@ public sealed partial class SerginAggregateTree<TNode>
 
         if (LoadAudit is { } loadAudit)
         {
-            menu.Add(new("Information", Icons.Material.Outlined.Info, SerginActionKind.Secondary,
-                OnClick: EventCallback.Factory.Create(this, () => Dialogs.ShowInfoAsync(Localizer["Information"].Value, () => loadAudit(node)))));
+            menu.Add(new(CommonTexts.Information, Icons.Material.Outlined.Info, SerginActionKind.Secondary,
+                OnClick: EventCallback.Factory.Create(this, () => Dialogs.ShowInfoAsync(Localizer.Text(CommonTexts.Information), () => loadAudit(node)))));
         }
 
         if (Delete is not null)
         {
-            menu.Add(new("Delete", Icons.Material.Outlined.Delete, SerginActionKind.Danger,
+            menu.Add(new(CommonTexts.Delete, Icons.Material.Outlined.Delete, SerginActionKind.Danger,
                 OnClick: EventCallback.Factory.Create(this, () => DeleteAsync(node)),
                 Permission: DeletePermission, AnyScope: DeleteAnyScope,
                 Disabled: !DeleteWithChildren && CountOf(node) > 0));
@@ -225,7 +250,10 @@ public sealed partial class SerginAggregateTree<TNode>
     private async Task DeleteAsync(TNode node)
     {
         if (Delete is null || !await Dialogs.ConfirmDeleteAsync(
-                Localizer[DeleteTitle].Value, $"Delete {NodeLabel(node)}? It disappears from every list and page."))
+                Localizer,
+                DeleteTitleText ?? (DeleteTitle is null ? CommonTexts.Delete : TransitionalText.Of(DeleteTitle)),
+                ShellTexts.Trees.DeleteConfirm,
+                new { Name = NodeLabel(node) }))
         {
             return;
         }

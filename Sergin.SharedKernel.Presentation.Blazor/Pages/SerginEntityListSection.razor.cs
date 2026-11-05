@@ -20,9 +20,13 @@ public sealed partial class SerginEntityListSection
 {
     private bool collapsed;
 
+    /// <summary>Transitional: the title as a plain string, shown as written. <see cref="TitleText"/> wins when both are set.</summary>
     [Parameter]
-    [EditorRequired]
     public string Title { get; set; } = string.Empty;
+
+    /// <summary>The title, a declared text.</summary>
+    [Parameter]
+    public TextDefinition? TitleText { get; set; }
 
     /// <summary>The number of entities, shown after the title; null until known.</summary>
     [Parameter]
@@ -40,6 +44,8 @@ public sealed partial class SerginEntityListSection
 
     [Inject]
     private IStringLocalizer Localizer { get; set; } = default!;
+
+    private string TitleShown => Localizer.Show(TitleText, Title);
 
     [Inject]
     private ICultureFormatter Formatter { get; set; } = default!;

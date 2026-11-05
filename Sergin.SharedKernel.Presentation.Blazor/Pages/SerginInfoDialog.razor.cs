@@ -102,7 +102,7 @@ public sealed partial class SerginInfoDialog
         userId switch
         {
             null => string.Empty,
-            { } id when id == SystemActor.Id => Localizer[SystemActor.DisplayName],
+            { } id when id == SystemActor.Id => Localizer.Text(ShellTexts.Information.SystemActorName),
             { } id => names.GetValueOrDefault(id) ?? id.ToString("N")[..8],
         };
 

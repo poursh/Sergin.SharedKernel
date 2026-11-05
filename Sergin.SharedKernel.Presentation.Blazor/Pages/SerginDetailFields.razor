@@ -1,8 +1,8 @@
 @* A detail view's labelled fields, laid out on the grid: three to a row from sm up, one per row below. *@
 <MudPaper Outlined="true" Class="pa-4 mb-4 sergin-detail">
-    @if (Title is not null)
+    @if (TitleShown is { } title)
     {
-        <MudText Typo="Typo.h5" Class="mb-3">@Title</MudText>
+        <MudText Typo="Typo.h5" Class="mb-3">@title</MudText>
     }
     <MudGrid Spacing="3">
         @ChildContent

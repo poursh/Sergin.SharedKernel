@@ -1,8 +1,9 @@
+using Sergin.SharedKernel.Application.Localizations;
 using Sergin.SharedKernel.Domain.Securities;
 
 namespace Sergin.SharedKernel.Modules;
 
-/// <param name="Label">Display text. Rendered through IStringLocalizer, so a resource key also works.</param>
+/// <param name="Label">Display text, a declared text rendered in the current UI culture.</param>
 /// <param name="Href">Absolute, schema-prefixed path, e.g. "/mm/devices".</param>
 /// <param name="Icon">Raw SVG path data. A string keeps this contract leaf free of any UI library.</param>
 /// <param name="Order">
@@ -17,4 +18,14 @@ namespace Sergin.SharedKernel.Modules;
 /// the entry stays reachable whichever scope the user works in now; the page answers for the current scope.
 /// </param>
 public sealed record SerginNavItem(
-    string Label, string Href, string Icon, int Order = 0, PermissionDefinition? RequiredPermission = null);
+    TextDefinition Label, string Href, string Icon, int Order = 0, PermissionDefinition? RequiredPermission = null)
+{
+    /// <summary>
+    /// Transitional: a label written as a plain string, shown as written (<see cref="TransitionalText"/>). Goes once
+    /// every module declares its nav texts.
+    /// </summary>
+    public SerginNavItem(string Label, string Href, string Icon, int Order = 0, PermissionDefinition? RequiredPermission = null)
+        : this(TransitionalText.Of(Label), Href, Icon, Order, RequiredPermission)
+    {
+    }
+}

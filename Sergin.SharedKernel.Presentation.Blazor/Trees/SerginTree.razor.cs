@@ -43,7 +43,7 @@ public sealed partial class SerginTree : IDisposable
     private object? owner;
     private string? requestedGroup;
     private string? requestedNode;
-    private string? tail;
+    private SerginBreadcrumb? tail;
     private bool leaving;
     private string? activeKey;
     private string? filter;
@@ -54,10 +54,13 @@ public sealed partial class SerginTree : IDisposable
     private int dragStartWidth;
     private bool paneHasActions;
 
-    /// <summary>The page title and the panel's accessible name (localised).</summary>
+    /// <summary>Transitional: the page title and the panel's accessible name as a plain string, shown as written.</summary>
     [Parameter]
-    [EditorRequired]
     public string Title { get; set; } = string.Empty;
+
+    /// <summary>The title, a declared text; wins over <see cref="Title"/>.</summary>
+    [Parameter]
+    public TextDefinition? TitleText { get; set; }
 
     /// <summary>The tree's own route, where nothing is selected: the close button, Esc and a deleted node go there.</summary>
     [Parameter]
@@ -100,8 +103,13 @@ public sealed partial class SerginTree : IDisposable
     [Parameter]
     public bool Collapsible { get; set; } = true;
 
+    /// <summary>Transitional: the filter box's placeholder as a plain string, shown as written.</summary>
     [Parameter]
-    public string FilterPlaceholder { get; set; } = "Filter tree…";
+    public string? FilterPlaceholder { get; set; }
+
+    /// <summary>The filter box's placeholder; the shell's <c>Filter tree…</c> when neither this nor <see cref="FilterPlaceholder"/> is set.</summary>
+    [Parameter]
+    public TextDefinition? FilterPlaceholderText { get; set; }
 
     [Inject]
     private NavigationManager Navigation { get; set; } = default!;
@@ -111,6 +119,10 @@ public sealed partial class SerginTree : IDisposable
 
     [Inject]
     private IStringLocalizer Localizer { get; set; } = default!;
+
+    private string TitleShown => Localizer.Show(TitleText, Title);
+
+    private string FilterPlaceholderShown => Localizer.Show(FilterPlaceholderText, FilterPlaceholder, ShellTexts.Trees.FilterPlaceholder);
 
     internal bool ShowGroupHeaders => groups.Count > 1;
 
@@ -146,18 +158,18 @@ public sealed partial class SerginTree : IDisposable
 
             if (ShowGroupHeaders && ActiveGroup is { } group)
             {
-                trail.Add(new SerginBreadcrumb(group.Title, Href));
+                trail.Add(group.TitleText is { } title ? new SerginBreadcrumb(title, Href) : SerginBreadcrumb.Data(group.Title, Href));
             }
 
             if (SelectedNode is { } node)
             {
-                trail.AddRange(node.Ancestors.Select(step => new SerginBreadcrumb(step.Label, ActiveGroup?.HrefFor(step.Id))));
-                trail.Add(new SerginBreadcrumb(node.Label, tail is null ? null : ActiveGroup?.HrefFor(node.Id)));
+                trail.AddRange(node.Ancestors.Select(step => SerginBreadcrumb.Data(step.Label, ActiveGroup?.HrefFor(step.Id))));
+                trail.Add(SerginBreadcrumb.Data(node.Label, tail is null ? null : ActiveGroup?.HrefFor(node.Id)));
             }
 
             if (tail is not null)
             {
-                trail.Add(new SerginBreadcrumb(tail));
+                trail.Add(tail);
             }
 
             return trail;
@@ -210,7 +222,7 @@ public sealed partial class SerginTree : IDisposable
     /// A page's <see cref="SerginTreeSelect"/> names its node; a null <paramref name="group"/> means the active group.
     /// The marker becomes the owner of the selection.
     /// </summary>
-    internal void Select(object marker, string? group, string nodeId, string? label)
+    internal void Select(object marker, string? group, string nodeId, SerginBreadcrumb? label)
     {
         owner = marker;
         tail = label;
@@ -236,7 +248,7 @@ public sealed partial class SerginTree : IDisposable
     /// A marker names no node, or went away: the selection clears, unless another marker owns it by now. A marker that
     /// names no node can still give the page header its <paramref name="label"/>.
     /// </summary>
-    internal void Release(object marker, string? label = null)
+    internal void Release(object marker, SerginBreadcrumb? label = null)
     {
         if (owner is not null && !ReferenceEquals(owner, marker))
         {

@@ -151,12 +151,12 @@ public static class SerginCoreExtensions
         // resolve it so a bad declaration fails host start, not the first send.
         foreach (ISerginModule module in localModules)
         {
-            builder.Services.AddSingleton(ModuleConfigurationSource.FromAssembly(module.ConfigurationsAssembly, module.Schema));
+            builder.Services.AddSingleton(ModuleConfigurationSource.FromAssembly(module.ConfigurationsAssembly, module.Schema, module.Name));
         }
 
         foreach (ISerginRemoteModule remoteModule in remoteModules)
         {
-            builder.Services.AddSingleton(ModuleConfigurationSource.FromAssembly(remoteModule.ConfigurationsAssembly, remoteModule.Schema));
+            builder.Services.AddSingleton(ModuleConfigurationSource.FromAssembly(remoteModule.ConfigurationsAssembly, remoteModule.Schema, remoteModule.Name));
         }
 
         builder.Services.AddSingleton(provider =>
@@ -181,7 +181,10 @@ public static class SerginCoreExtensions
             builder.Services.AddSingleton(TextSource.FromAssembly(remoteModule.ConfigurationsAssembly, remoteModule.Name));
         }
 
-        builder.Services.AddSingleton(provider => TextCatalog.FromSources(provider.GetServices<TextSource>()));
+        // Plus the permission labels, derived from the permission catalogue (one text per definition, its label the
+        // English default), so the role pages show them translated.
+        builder.Services.AddSingleton(provider => TextCatalog.FromSources(
+            provider.GetServices<TextSource>().Concat(TextSource.FromPermissions(provider.GetRequiredService<PermissionCatalog>()))));
 
         builder.Services.AddSingleton<IIntegrationEventTypeRegistry, IntegrationEventTypeRegistry>();
         builder.Services.AddSingleton<IIntegrationEventSerializer, JsonIntegrationEventSerializer>();

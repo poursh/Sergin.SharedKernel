@@ -7,7 +7,7 @@
 {
     @if (Host.IsPage)
     {
-        <PageTitle>@Title</PageTitle>
+        <PageTitle>@TitleShown</PageTitle>
         <SerginPageHeader Trail="Trail">@HeaderActions</SerginPageHeader>
     }
     else
@@ -28,13 +28,13 @@
 }
 else
 {
-    <section class="sergin-view sergin-entity-list-section border border-solid mud-border-lines-default rounded pa-3 mb-3" aria-label="@Localizer[Title]">
+    <section class="sergin-view sergin-entity-list-section border border-solid mud-border-lines-default rounded pa-3 mb-3" aria-label="@TitleShown">
         <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2" Class="mb-2">
-            <MudText Typo="Typo.h6">@Localizer[Title]@(Count is { } count ? $" · {Formatter.Number(count)}" : string.Empty)</MudText>
+            <MudText Typo="Typo.h6">@TitleShown@(Count is { } count ? $" · {Formatter.Number(count)}" : string.Empty)</MudText>
             <MudSpacer />
             <MudButton Variant="Variant.Text" Size="Size.Small" OnClick="Toggle" aria-expanded="@(collapsed ? "false" : "true")"
                        EndIcon="@(collapsed ? Icons.Material.Filled.ExpandMore : Icons.Material.Filled.ExpandLess)">
-                @(collapsed ? Localizer["Expand"] : Localizer["Collapse"])
+                @(collapsed ? Localizer.Text(CommonTexts.Expand) : Localizer.Text(CommonTexts.Collapse))
             </MudButton>
         </MudStack>
         <div class="@(collapsed ? "d-none" : null)">

@@ -27,11 +27,11 @@ public sealed partial class SerginCopyLinkButton
         try
         {
             await JS.InvokeVoidAsync("navigator.clipboard.writeText", Navigation.Uri);
-            Snackbar.Add(Localizer["Link copied"], Severity.Normal);
+            Snackbar.Add(Localizer.Text(ShellTexts.Pages.LinkCopied), Severity.Normal);
         }
         catch (JSException)
         {
-            Snackbar.Add(Localizer["The browser did not allow copying the link."], Severity.Warning);
+            Snackbar.Add(Localizer.Text(ShellTexts.Pages.CopyRefused), Severity.Warning);
         }
     }
 }

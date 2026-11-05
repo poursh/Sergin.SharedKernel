@@ -8,16 +8,16 @@
         @if (Searchable)
         {
             <MudTextField T="string" Value="term" ValueChanged="OnTermChangedAsync" DebounceInterval="300" Immediate="true"
-                          Placeholder="@Localizer[SearchPlaceholder]" Adornment="Adornment.Start"
+                          Placeholder="@SearchPlaceholderShown" Adornment="Adornment.Start"
                           AdornmentIcon="@Icons.Material.Filled.Search" Variant="Variant.Outlined" Margin="Margin.Dense"
-                          Clearable="true" Class="sergin-search" aria-label="@Localizer["Quick search"]" />
+                          Clearable="true" Class="sergin-search" aria-label="@Localizer.Text(ShellTexts.Lists.QuickSearch)" />
         }
         @if (FilterPanel is not null) 
         {
             @* Toggle: panel open = filled primary, closed = default outline. Applied filters show as a count badge. *@
-            <MudTooltip Text="@Localizer["Advanced filter"]">
+            <MudTooltip Text="@Localizer.Text(ShellTexts.Lists.AdvancedFilter)">
                 <MudBadge Content="@Formatter.Number(filters.Count)" Visible="FilterActive" Color="Color.Secondary" Overlap="true">
-                    <MudIconButton Icon="@Icons.Material.Filled.FilterList" aria-label="@Localizer["Advanced filter"]"
+                    <MudIconButton Icon="@Icons.Material.Filled.FilterList" aria-label="@Localizer.Text(ShellTexts.Lists.AdvancedFilter)"
                                    Variant="@(filterPanelOpen ? Variant.Filled : Variant.Outlined)"
                                    Color="@(filterPanelOpen ? Color.Primary : Color.Default)"
                                    OnClick="ToggleFilterPanel" aria-pressed="@(filterPanelOpen ? "true" : "false")" />
@@ -30,14 +30,14 @@
     {
         <MudPaper Outlined="true" Class="pa-4 mb-3 sergin-filter-panel">
             <MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-2">
-                <MudText Typo="Typo.subtitle2">@Localizer["Advanced filter"]</MudText>
+                <MudText Typo="Typo.subtitle2">@Localizer.Text(ShellTexts.Lists.AdvancedFilter)</MudText>
                 <MudSpacer />
-                <MudIconButton Icon="@Icons.Material.Filled.Close" Size="Size.Small" OnClick="ToggleFilterPanel" aria-label="@Localizer["Close"]" />
+                <MudIconButton Icon="@Icons.Material.Filled.Close" Size="Size.Small" OnClick="ToggleFilterPanel" aria-label="@Localizer.Text(CommonTexts.Close)" />
             </MudStack>
             @FilterPanel
             <MudStack Row="true" Justify="Justify.FlexEnd" Spacing="2" Class="mt-3">
-                <MudButton Variant="Variant.Text" OnClick="ResetFiltersAsync">@Localizer["Reset"]</MudButton>
-                <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="ApplyFiltersAsync">@Localizer["Apply"]</MudButton>
+                <MudButton Variant="Variant.Text" OnClick="ResetFiltersAsync">@Localizer.Text(CommonTexts.Reset)</MudButton>
+                <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="ApplyFiltersAsync">@Localizer.Text(CommonTexts.Apply)</MudButton>
             </MudStack>
         </MudPaper>
     }
@@ -45,11 +45,11 @@
     @if (HasCriteria)
     {
         <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1" Wrap="Wrap.Wrap" Class="mb-2 sergin-filter-chips">
-            <MudText Typo="Typo.caption">@Localizer["Filtered by"]</MudText>
+            <MudText Typo="Typo.caption">@Localizer.Text(ShellTexts.Lists.FilteredBy)</MudText>
             @if (!string.IsNullOrWhiteSpace(term))
             {
                 <MudChip T="string" Size="Size.Small" Color="Color.Primary" Variant="Variant.Outlined" OnClose="ClearTermAsync">
-                    @Localizer["Search"]: @term
+                    @Localizer.Text(ShellTexts.Lists.Search): @term
                 </MudChip>
             }
             @foreach (SerginAppliedFilter filter in filters)
@@ -59,7 +59,7 @@
                     @filter.Label
                 </MudChip>
             }
-            <MudButton Variant="Variant.Text" Size="Size.Small" OnClick="ClearAllAsync">@Localizer["Clear all"]</MudButton>
+            <MudButton Variant="Variant.Text" Size="Size.Small" OnClick="ClearAllAsync">@Localizer.Text(CommonTexts.ClearAll)</MudButton>
         </MudStack>
     }
 
@@ -85,7 +85,7 @@
             }
         </RowTemplate>
         <NoRecordsContent>
-            <MudText Typo="Typo.body2">@Localizer[HasCriteria ? "Nothing matches these filters." : "Nothing here yet."]</MudText>
+            <MudText Typo="Typo.body2">@Localizer.Text(HasCriteria ? ShellTexts.Lists.NothingMatchesFilters : ShellTexts.Lists.NothingHereYet)</MudText>
         </NoRecordsContent>
         <PagerContent>
             <MudTablePager RowsPerPageString="@RowsPerPageText" />

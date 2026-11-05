@@ -2,7 +2,7 @@
    checks its writes against, then its history. *@
 <MudDialog>
     <TitleContent>
-        <MudText Typo="Typo.h6">@Localizer["Information"]</MudText>
+        <MudText Typo="Typo.h6">@Localizer.Text(CommonTexts.Information)</MudText>
     </TitleContent>
     <DialogContent>
         @if (loading)
@@ -11,11 +11,11 @@
         }
         else if (audit is not null)
         {
-            <MudText Typo="Typo.subtitle2">@Localizer["Scope"]</MudText>
+            <MudText Typo="Typo.subtitle2">@Localizer.Text(ShellTexts.Information.Scope)</MudText>
             @if (audit.ScopeId is null)
             {
-                <MudText Typo="Typo.body2">@Localizer["Global"]</MudText>
-                <MudText Typo="Typo.caption" Class="d-block">@Localizer["This record belongs to no scope."]</MudText>
+                <MudText Typo="Typo.body2">@Localizer.Text(ShellTexts.Information.Global)</MudText>
+                <MudText Typo="Typo.caption" Class="d-block">@Localizer.Text(ShellTexts.Information.NoScope)</MudText>
             }
             else
             {
@@ -29,29 +29,29 @@
             @if (Version is not null)
             {
                 <MudDivider Class="my-3" />
-                <MudText Typo="Typo.subtitle2">@Localizer["Version"]</MudText>
+                <MudText Typo="Typo.subtitle2">@Localizer.Text(ShellTexts.Information.Version)</MudText>
                 <MudText Typo="Typo.body2" Style="font-family: monospace;" title="@Version.Value.ToString()">@ShortVersion</MudText>
-                <MudText Typo="Typo.caption" Class="d-block">@Localizer["Edits and deletes are checked against this version."]</MudText>
+                <MudText Typo="Typo.caption" Class="d-block">@Localizer.Text(ShellTexts.Information.VersionHint)</MudText>
             }
 
             <MudDivider Class="my-3" />
-            <MudText Typo="Typo.subtitle2">@Localizer["Audit"]</MudText>
+            <MudText Typo="Typo.subtitle2">@Localizer.Text(ShellTexts.Information.Audit)</MudText>
             <MudSimpleTable Dense="true" Elevation="0" Class="sergin-audit">
                 <tbody>
                     <tr>
-                        <td><MudText Typo="Typo.caption">@Localizer["Created"]</MudText></td>
-                        <td><MudText Typo="Typo.body2">@FormatTime(audit.CreatedAtUtc) @Localizer["by"] @NameOf(audit.CreatedBy)</MudText></td>
+                        <td><MudText Typo="Typo.caption">@Localizer.Text(ShellTexts.Information.Created)</MudText></td>
+                        <td><MudText Typo="Typo.body2">@FormatTime(audit.CreatedAtUtc) @Localizer.Text(ShellTexts.Information.By) @NameOf(audit.CreatedBy)</MudText></td>
                     </tr>
                     <tr>
-                        <td><MudText Typo="Typo.caption">@Localizer["Modified"]</MudText></td>
+                        <td><MudText Typo="Typo.caption">@Localizer.Text(ShellTexts.Information.Modified)</MudText></td>
                         <td>
                             @if (audit.ModifiedAtUtc is { } modifiedAt)
                             {
-                                <MudText Typo="Typo.body2">@FormatTime(modifiedAt) @Localizer["by"] @NameOf(audit.ModifiedBy)</MudText>
+                                <MudText Typo="Typo.body2">@FormatTime(modifiedAt) @Localizer.Text(ShellTexts.Information.By) @NameOf(audit.ModifiedBy)</MudText>
                             }
                             else
                             {
-                                <MudText Typo="Typo.body2">@Localizer["Never"]</MudText>
+                                <MudText Typo="Typo.body2">@Localizer.Text(ShellTexts.Information.Never)</MudText>
                             }
                         </td>
                     </tr>
@@ -64,6 +64,6 @@
         }
     </DialogContent>
     <DialogActions>
-        <MudButton OnClick="Close">@Localizer["Close"]</MudButton>
+        <MudButton OnClick="Close">@Localizer.Text(CommonTexts.Close)</MudButton>
     </DialogActions>
 </MudDialog>

@@ -72,8 +72,13 @@ public sealed partial class SerginAggregateList<TItem>
     [Parameter]
     public bool Searchable { get; set; } = true;
 
+    /// <summary>Transitional: the search box's placeholder as a plain string, shown as written.</summary>
     [Parameter]
-    public string SearchPlaceholder { get; set; } = "Quick search…";
+    public string? SearchPlaceholder { get; set; }
+
+    /// <summary>The search box's placeholder; the shell's <c>Quick search…</c> when neither this nor <see cref="SearchPlaceholder"/> is set.</summary>
+    [Parameter]
+    public TextDefinition? SearchPlaceholderText { get; set; }
 
     [Parameter]
     public int RowsPerPage { get; set; } = 10;
@@ -90,6 +95,8 @@ public sealed partial class SerginAggregateList<TItem>
 
     [Inject]
     private IStringLocalizer Localizer { get; set; } = default!;
+
+    private string SearchPlaceholderShown => Localizer.Show(SearchPlaceholderText, SearchPlaceholder, ShellTexts.Lists.QuickSearchPlaceholder);
 
     [Inject]
     private MudLocalizer MudTexts { get; set; } = default!;

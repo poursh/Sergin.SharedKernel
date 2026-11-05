@@ -34,16 +34,16 @@ public sealed partial class SerginScopePicker
 
     private ScopeOption? Current => Session.Current;
 
-    private string CurrentName => Current?.Name ?? Localizer["No scope"].Value;
+    private string CurrentName => Current?.Name ?? Localizer.Text(ShellTexts.Scopes.NoScope);
 
     private string Trail => Current is null
-        ? Localizer["You have no scope to work in."].Value
+        ? Localizer.Text(ShellTexts.Scopes.NoScopeToWorkIn)
         : string.Join(TrailSeparator, Session.TrailOf(Current).Select(option => option.Name));
 
     /// <summary>
     /// Composed here rather than through the localizer's arguments, which the localizer ignores.
     /// </summary>
-    private string AriaLabel => $"{Localizer["Scope"].Value}: {CurrentName}";
+    private string AriaLabel => $"{Localizer.Text(ShellTexts.Scopes.Scope)}: {CurrentName}";
 
     private async Task OpenAsync()
     {
@@ -53,7 +53,7 @@ public sealed partial class SerginScopePicker
         }
 
         IDialogReference dialog = await Dialogs.ShowAsync<SerginScopePickerDialog>(
-            Localizer["Scope"].Value,
+            Localizer.Text(ShellTexts.Scopes.Scope),
             new DialogOptions { MaxWidth = MaxWidth.Small, FullWidth = true, CloseOnEscapeKey = true });
 
         DialogResult? result = await dialog.Result;

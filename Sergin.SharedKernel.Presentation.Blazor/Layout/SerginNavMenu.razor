@@ -3,14 +3,14 @@
     {
         @if (entry.Section is { } section)
         {
-            <MudNavGroup Title="@Localizer[section.Group.Title]"
+            <MudNavGroup Title="@Localizer.Text(section.Group.Title)"
                          Icon="@section.Group.Icon"
                          Expanded="@IsExpanded(section.Group)"
                          ExpandedChanged="@ExpandedChangedFor(section.Group)">
                 @foreach (SerginNavItem item in section.Items)
                 {
                     <MudNavLink Href="@item.Href" Icon="@item.Icon" Match="@MatchFor(item)">
-                        @Localizer[item.Label]
+                        @Localizer.Text(item.Label)
                     </MudNavLink>
                 }
             </MudNavGroup>
@@ -18,7 +18,7 @@
         else if (entry.Link is { } link)
         {
             <MudNavLink Href="@link.Href" Icon="@link.Icon" Match="@MatchFor(link)">
-                @Localizer[link.Label]
+                @Localizer.Text(link.Label)
             </MudNavLink>
         }
     }

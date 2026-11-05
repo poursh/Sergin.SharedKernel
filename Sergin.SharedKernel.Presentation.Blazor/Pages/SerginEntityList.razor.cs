@@ -44,17 +44,25 @@ public sealed partial class SerginEntityList<TItem>
     [Parameter]
     public EventCallback<int> TotalChanged { get; set; }
 
-    /// <summary>The text shown when the collection is empty, localised by the list.</summary>
+    /// <summary>Transitional: the text shown when the collection is empty, as a plain string shown as written.</summary>
     [Parameter]
-    public string EmptyText { get; set; } = "Nothing here yet.";
+    public string? EmptyText { get; set; }
+
+    /// <summary>The text shown when the collection is empty; the shell's <c>Nothing here yet.</c> when neither this nor <see cref="EmptyText"/> is set.</summary>
+    [Parameter]
+    public TextDefinition? EmptyMessage { get; set; }
 
     /// <summary>Whether to show the quick search; false for a list whose query repository does not read <c>Term</c>.</summary>
     [Parameter]
     public bool Searchable { get; set; } = true;
 
-    /// <summary>The search box's placeholder, localised by the list.</summary>
+    /// <summary>Transitional: the search box's placeholder as a plain string, shown as written.</summary>
     [Parameter]
-    public string SearchPlaceholder { get; set; } = "Quick search…";
+    public string? SearchPlaceholder { get; set; }
+
+    /// <summary>The search box's placeholder; the shell's <c>Quick search…</c> when neither this nor <see cref="SearchPlaceholder"/> is set.</summary>
+    [Parameter]
+    public TextDefinition? SearchPlaceholderText { get; set; }
 
     [Parameter]
     public int RowsPerPage { get; set; } = 10;
@@ -71,6 +79,12 @@ public sealed partial class SerginEntityList<TItem>
 
     [Inject]
     private IStringLocalizer Localizer { get; set; } = default!;
+
+    private string SearchPlaceholderShown => Localizer.Show(SearchPlaceholderText, SearchPlaceholder, ShellTexts.Lists.QuickSearchPlaceholder);
+
+    private string EmptyShown => string.IsNullOrWhiteSpace(term)
+        ? Localizer.Show(EmptyMessage, EmptyText, ShellTexts.Lists.NothingHereYet)
+        : Localizer.Text(ShellTexts.Lists.NothingMatchesSearch);
 
     [Inject]
     private MudLocalizer MudTexts { get; set; } = default!;

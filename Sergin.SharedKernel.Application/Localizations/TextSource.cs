@@ -1,12 +1,15 @@
 using System.Reflection;
 using System.Runtime.CompilerServices;
+using Sergin.SharedKernel.Application.Localizations.Common;
+using Sergin.SharedKernel.Application.Securities.Authorization;
 using Sergin.SharedKernel.Domain.Localizations;
 
 namespace Sergin.SharedKernel.Application.Localizations;
 
 /// <summary>
 /// The texts one module declares, found by scanning its types: every public static field or property of type
-/// <see cref="TextDefinition"/> or <see cref="FieldText"/> (and the three definitions of each field) on a public
+/// <see cref="TextDefinition"/>, <see cref="FieldText"/> (and the three definitions of each field) or
+/// <see cref="ErrorTextPair"/> (its title and detail) on a public
 /// static class, nested ones included. <see cref="TextCatalog"/> checks each against the source's module segment.
 /// </summary>
 public sealed class TextSource
@@ -54,6 +57,32 @@ public sealed class TextSource
             []);
     }
 
+    /// <summary>
+    /// The permission labels of <paramref name="catalog"/> as declared texts, one source per module the labels belong
+    /// to, each entry naming its aggregate root as where it came from. A label keyed by the permission name (a test
+    /// source's, which names no module) is left out.
+    /// </summary>
+    public static IReadOnlyList<TextSource> FromPermissions(PermissionCatalog catalog)
+    {
+        ArgumentNullException.ThrowIfNull(catalog);
+
+        return
+        [
+            .. catalog.Entries
+                .Where(entry => entry.InTextCatalog)
+                .GroupBy(entry => entry.Label.Key.Module, StringComparer.Ordinal)
+                .Select(module => new TextSource(
+                    module.Key,
+                    [
+                        .. module.Select(entry => EntryOf(
+                            entry.Label,
+                            [.. entry.Label.Key.Segments.Skip(1).SkipLast(1)],
+                            entry.AggregateRoot ?? typeof(PermissionCatalog))),
+                    ],
+                    [])),
+        ];
+    }
+
     public static TextSource FromTypes(string moduleName, params Type[] declaringTypes)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(moduleName);
@@ -98,6 +127,10 @@ public sealed class TextSource
                         }
 
                         break;
+                    case ErrorTextPair pair:
+                        entries.Add(EntryOf(pair.Title, [.. pair.Title.Key.Segments.Skip(1).SkipLast(1)], type));
+                        entries.Add(EntryOf(pair.Detail, [.. pair.Detail.Key.Segments.Skip(1).SkipLast(1)], type));
+                        break;
                     default:
                         break;
                 }
@@ -125,7 +158,8 @@ public sealed class TextSource
         }
     }
 
-    private static bool IsText(Type type) => type == typeof(TextDefinition) || type == typeof(FieldText);
+    private static bool IsText(Type type) =>
+        type == typeof(TextDefinition) || type == typeof(FieldText) || type == typeof(ErrorTextPair);
 
     private static TextCatalogEntry EntryOf(TextDefinition definition, IReadOnlyList<string> category, Type declaringType) =>
         new(definition, definition.Key.Module, category, declaringType);
