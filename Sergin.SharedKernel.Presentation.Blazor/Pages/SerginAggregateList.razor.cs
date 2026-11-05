@@ -92,6 +92,12 @@ public sealed partial class SerginAggregateList<TItem>
     private IStringLocalizer Localizer { get; set; } = default!;
 
     [Inject]
+    private MudLocalizer MudTexts { get; set; } = default!;
+
+    // MudTablePager has no localized default for this caption; it takes MudBlazor's own data-grid text.
+    private string RowsPerPageText => MudTexts["MudDataGridPager_RowsPerPage"].Value;
+
+    [Inject]
     private ICultureFormatter Formatter { get; set; } = default!;
 
     private bool FilterActive => filters.Count > 0;

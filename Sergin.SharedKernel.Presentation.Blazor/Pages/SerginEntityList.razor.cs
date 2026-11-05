@@ -72,6 +72,12 @@ public sealed partial class SerginEntityList<TItem>
     [Inject]
     private IStringLocalizer Localizer { get; set; } = default!;
 
+    [Inject]
+    private MudLocalizer MudTexts { get; set; } = default!;
+
+    // MudTablePager has no localized default for this caption; it takes MudBlazor's own data-grid text.
+    private string RowsPerPageText => MudTexts["MudDataGridPager_RowsPerPage"].Value;
+
     /// <summary>Loads the current page again — after a row command, or when the owning page reloads.</summary>
     public Task ReloadAsync() => table.ReloadServerData();
 

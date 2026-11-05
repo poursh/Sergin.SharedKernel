@@ -17,6 +17,10 @@ public static class SerginBlazorKitExtensions
     {
         services.AddMudServices(config => config.SnackbarConfiguration.PositionClass = Defaults.Classes.Position.BottomRight);
 
+        // After AddMudServices so it replaces MudBlazor's own localizer: its texts come from the catalog.
+        services.AddTransient<MudLocalizer, SerginMudLocalizer>();
+        services.AddSingleton(MudBlazorTexts.Source);
+
         services.AddScoped<IUiErrorPresenter, MudUiErrorPresenter>();
 
         // Scoped, not singleton: it depends on IJSRuntime, which in Blazor Server is per-circuit.

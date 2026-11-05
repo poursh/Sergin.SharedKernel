@@ -36,7 +36,7 @@
             <MudText Typo="Typo.body2">@Localizer[string.IsNullOrWhiteSpace(term) ? EmptyText : "Nothing matches this search."]</MudText>
         </NoRecordsContent>
         <PagerContent>
-            <MudTablePager />
+            <MudTablePager RowsPerPageString="@RowsPerPageText" />
         </PagerContent>
     </MudTable>
 </div>

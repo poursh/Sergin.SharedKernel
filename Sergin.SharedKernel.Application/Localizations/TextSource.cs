@@ -37,6 +37,23 @@ public sealed class TextSource
         return FromTypes(moduleName, assembly.GetTypes());
     }
 
+    /// <summary>
+    /// A source whose texts are built at runtime rather than declared as static members, e.g. a third party's resource
+    /// keys. <paramref name="origin"/> names where they come from in the catalog's refusals. The same module-segment
+    /// and duplicate-key checks apply as for a scanned source.
+    /// </summary>
+    public static TextSource FromDefinitions(string moduleName, IEnumerable<TextDefinition> definitions, Type origin)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(moduleName);
+        ArgumentNullException.ThrowIfNull(definitions);
+        ArgumentNullException.ThrowIfNull(origin);
+
+        return new TextSource(
+            SerginStringKey.ToSegment(moduleName),
+            [.. definitions.Select(definition => EntryOf(definition, [.. definition.Key.Segments.Skip(1).SkipLast(1)], origin))],
+            []);
+    }
+
     public static TextSource FromTypes(string moduleName, params Type[] declaringTypes)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(moduleName);
