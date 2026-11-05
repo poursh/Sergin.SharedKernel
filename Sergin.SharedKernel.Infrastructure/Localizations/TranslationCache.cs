@@ -58,6 +58,13 @@ internal sealed class TranslationCache(ITranslationStore store) : ITranslationCa
 
     public void InvalidateLanguages() => languages = null;
 
+    public void Invalidate(string culture)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(culture);
+
+        cultures.TryRemove(culture, out _);
+    }
+
     public bool TryGet(string culture, string key, [NotNullWhen(true)] out StoredTranslation? translation)
     {
         ArgumentNullException.ThrowIfNull(culture);

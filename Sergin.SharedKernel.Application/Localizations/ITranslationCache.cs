@@ -29,6 +29,12 @@ public interface ITranslationCache
     /// </summary>
     void InvalidateLanguages();
 
+    /// <summary>
+    /// Forgets <paramref name="culture"/>'s translations, so the next <see cref="EnsureLoadedAsync"/> reloads them; until
+    /// then its texts show their defaults. For a writer whose refresh after commit failed, as <see cref="InvalidateLanguages"/>.
+    /// </summary>
+    void Invalidate(string culture);
+
     /// <summary>The translation of <paramref name="key"/> in <paramref name="culture"/>; false when none, or when the culture is not loaded.</summary>
     bool TryGet(string culture, string key, [NotNullWhen(true)] out StoredTranslation? translation);
 }
