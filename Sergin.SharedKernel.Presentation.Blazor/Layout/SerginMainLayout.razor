@@ -18,12 +18,14 @@
     .sergin-search .mud-input-adornment .mud-icon-root { font-size: 1.125rem; }
 </style>
 
+@* The providers sit inside the direction provider: dialogs, snackbars and popovers (menus, select lists) render
+   through them, outside the layout's own markup, and read the cascading direction where they are placed. *@
+<MudRTLProvider RightToLeft="DocumentCulture.IsRightToLeft">
 <MudThemeProvider Theme="themeManagerTheme.Theme" @bind-IsDarkMode="isDarkMode" />
 <MudPopoverProvider />
 <MudDialogProvider />
 <MudSnackbarProvider />
 
-<MudRTLProvider RightToLeft="DocumentCulture.IsRightToLeft">
 <MudLayout>
     <MudAppBar Elevation="themeManagerTheme.AppBarElevation" >
         <MudIconButton Icon="@Icons.Material.Filled.Menu" Color="Color.Inherit" Edge="Edge.Start"
