@@ -1,5 +1,6 @@
 using System.Globalization;
 using Microsoft.AspNetCore.Components;
+using Sergin.SharedKernel.Presentation.Localizations;
 
 namespace Sergin.SharedKernel.Presentation.Blazor.Trees;
 
@@ -22,6 +23,9 @@ public sealed partial class SerginTreeBranch<TNode>
 
     [Inject]
     private IStringLocalizer Localizer { get; set; } = default!;
+
+    [Inject]
+    private ICultureFormatter Formatter { get; set; } = default!;
 
     private IEnumerable<SerginTreeNodeState<TNode>> VisibleNodes => Nodes.Where(Group.IsVisible);
 

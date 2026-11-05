@@ -36,7 +36,7 @@
                     }
                     @if (Group.CountOf(state) is { } count)
                     {
-                        <span class="sergin-tree-count">@count</span>
+                        <span class="sergin-tree-count">@Formatter.Number(count)</span>
                     }
                 </button>
                 <SerginActionMenu Actions="Group.MenuFor(state)" Class="sergin-tree-menu" />

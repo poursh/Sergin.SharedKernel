@@ -16,7 +16,7 @@
         {
             @* Toggle: panel open = filled primary, closed = default outline. Applied filters show as a count badge. *@
             <MudTooltip Text="@Localizer["Advanced filter"]">
-                <MudBadge Content="@filters.Count" Visible="FilterActive" Color="Color.Secondary" Overlap="true">
+                <MudBadge Content="@Formatter.Number(filters.Count)" Visible="FilterActive" Color="Color.Secondary" Overlap="true">
                     <MudIconButton Icon="@Icons.Material.Filled.FilterList" aria-label="@Localizer["Advanced filter"]"
                                    Variant="@(filterPanelOpen ? Variant.Filled : Variant.Outlined)"
                                    Color="@(filterPanelOpen ? Color.Primary : Color.Default)"

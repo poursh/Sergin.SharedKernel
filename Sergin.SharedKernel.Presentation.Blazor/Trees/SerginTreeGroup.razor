@@ -12,7 +12,7 @@
             <span class="sergin-tree-text">@Localizer[Title]</span>
             @if (roots is not null)
             {
-                <span class="sergin-tree-count">@roots.Count</span>
+                <span class="sergin-tree-count">@Formatter.Number(roots.Count)</span>
             }
         </button>
         @if (AddAction is not null)

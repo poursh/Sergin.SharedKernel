@@ -1,9 +1,9 @@
-using System.Globalization;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Web;
 using Sergin.SharedKernel.Presentation.Blazor.Errors;
 using Sergin.SharedKernel.Presentation.Blazor.Pages;
 using Sergin.SharedKernel.Presentation.Errors;
+using Sergin.SharedKernel.Presentation.Localizations;
 
 namespace Sergin.SharedKernel.Presentation.Blazor.Trees;
 
@@ -123,6 +123,9 @@ public sealed partial class SerginTreeGroup<TNode> : ISerginTreeGroup, IDisposab
     private IStringLocalizer Localizer { get; set; } = default!;
 
     [Inject]
+    private ICultureFormatter Formatter { get; set; } = default!;
+
+    [Inject]
     private IUiErrorPresenter ErrorPresenter { get; set; } = default!;
 
     /// <summary>The row buttons, so the keyboard can move focus between them.</summary>
@@ -137,7 +140,7 @@ public sealed partial class SerginTreeGroup<TNode> : ISerginTreeGroup, IDisposab
 
     private string MatchSummary => matchCount == 1
         ? Localizer["1 match"].Value
-        : string.Format(CultureInfo.CurrentCulture, Localizer["{0} matches"].Value, matchCount);
+        : string.Format(Formatter.Culture, Localizer["{0} matches"].Value, Formatter.Number(matchCount));
 
     SerginTreeSelectedNode? ISerginTreeGroup.Selected => selected is null ? null : Describe(selected);
 

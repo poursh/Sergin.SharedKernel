@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Components;
 using Sergin.SharedKernel.Presentation.Blazor.Navigation;
 using Sergin.SharedKernel.Presentation.Blazor.Pages;
 using Sergin.SharedKernel.Presentation.Errors;
+using Sergin.SharedKernel.Presentation.Localizations;
 
 namespace Sergin.SharedKernel.Presentation.Blazor.Views;
 
@@ -75,6 +76,9 @@ public sealed partial class SerginView
 
     [Inject]
     private IStringLocalizer Localizer { get; set; } = default!;
+
+    [Inject]
+    private ICultureFormatter Formatter { get; set; } = default!;
 
     protected override void OnInitialized()
     {

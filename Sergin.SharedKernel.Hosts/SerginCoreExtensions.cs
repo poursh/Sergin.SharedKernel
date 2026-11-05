@@ -129,6 +129,7 @@ public static class SerginCoreExtensions
             .ValidateOnStart();
         builder.Services.AddSingleton<IValidateOptions<SerginTimeZoneOptions>, SerginTimeZoneOptionsValidator>();
         builder.Services.TryAddSingleton<ILocalTimeConverter, SystemLocalTimeConverter>();
+        builder.Services.TryAddScoped<ICultureFormatter, CultureFormatter>();
 
         foreach (ISerginModule module in localModules)
         {
