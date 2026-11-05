@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using System.Globalization;
 using Microsoft.Extensions.Localization;
 using Sergin.SharedKernel.Application.Localizations;
@@ -11,6 +12,9 @@ namespace Sergin.SharedKernel.Infrastructure.Localizations;
 /// </summary>
 internal sealed class SerginStringLocalizer(TextCatalog catalog, ITranslationCache cache, Action<string> unknownKey) : IStringLocalizer
 {
+    // Each default's placeholder set, read once per key rather than on every lookup.
+    private readonly ConcurrentDictionary<string, IReadOnlySet<string>> defaultPlaceholders = new(StringComparer.Ordinal);
+
     public LocalizedString this[string name]
     {
         get
@@ -78,12 +82,12 @@ internal sealed class SerginStringLocalizer(TextCatalog catalog, ITranslationCac
 
     private string? Translate(TextDefinition definition, CultureInfo culture, bool includeParentCultures)
     {
-        IReadOnlySet<string> placeholders = definition.Placeholders;
+        IReadOnlySet<string> placeholders = defaultPlaceholders.GetOrAdd(definition.Key.Value, _ => definition.Placeholders);
 
         for (CultureInfo current = culture; !string.IsNullOrEmpty(current.Name); current = current.Parent)
         {
             if (cache.TryGet(current.Name, definition.Key.Value, out StoredTranslation? translation)
-                && placeholders.SetEquals(TextPlaceholders.In(translation.Text)))
+                && placeholders.SetEquals(translation.Placeholders))
             {
                 return translation.Text;
             }

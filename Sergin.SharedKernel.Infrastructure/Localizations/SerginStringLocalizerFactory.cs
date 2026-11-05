@@ -29,7 +29,7 @@ internal sealed class SerginStringLocalizerFactory : IStringLocalizerFactory
     {
         if (reported.TryAdd(key, 0))
         {
-            logger.LogWarning("Text key {Key} is not declared in the text catalog; showing the key.", key);
+            logger.LogWarning("Text key {Key} is not declared in the text catalog.", key);
         }
     }
 }
