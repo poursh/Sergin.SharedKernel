@@ -1,5 +1,4 @@
 using Microsoft.AspNetCore.Components;
-using Sergin.SharedKernel.Application.Localizations;
 
 namespace Sergin.SharedKernel.Presentation.Blazor.Pages;
 
@@ -39,7 +38,7 @@ public sealed partial class SerginEntityListSection
     public RenderFragment? ChildContent { get; set; }
 
     [Inject]
-    private ILocalizer Localizer { get; set; } = default!;
+    private IStringLocalizer Localizer { get; set; } = default!;
 
     protected override void OnInitialized() => collapsed = Collapsed;
 

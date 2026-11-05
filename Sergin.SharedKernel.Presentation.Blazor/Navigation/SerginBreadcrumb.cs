@@ -6,7 +6,7 @@ namespace Sergin.SharedKernel.Presentation.Blazor.Navigation;
 /// One step of a page's breadcrumb trail, declared by the page and rendered by <see cref="SerginBreadcrumbs"/>.
 /// </summary>
 /// <param name="Label">
-/// Display text. Rendered through <c>ILocalizer</c>, so a resource key also works — and an entity name passes
+/// Display text. Rendered through <c>IStringLocalizer</c>, so a resource key also works — and an entity name passes
 /// through untouched, since the default localizer returns an unknown key as is.
 /// </param>
 /// <param name="Href">

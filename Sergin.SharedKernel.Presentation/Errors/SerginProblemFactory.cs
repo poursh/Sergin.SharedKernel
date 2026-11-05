@@ -1,7 +1,7 @@
+using Microsoft.Extensions.Localization;
 using ErrorOr;
 using Microsoft.AspNetCore.Http;
 using Sergin.SharedKernel.Application.Concurrency;
-using Sergin.SharedKernel.Application.Localizations;
 
 namespace Sergin.SharedKernel.Presentation.Errors;
 
@@ -14,7 +14,7 @@ public static class SerginProblemFactory
     /// </summary>
     public const string ValidationTitleKey = "General.Validation.title";
 
-    public static SerginProblem Create(Error error, ILocalizer localizer)
+    public static SerginProblem Create(Error error, IStringLocalizer localizer)
         => new(GetStatusCode(error.Type), GetTitle(error, localizer), GetDetail(error, localizer), error.Type);
 
     public static int GetStatusCode(ErrorType errorType) =>
@@ -30,7 +30,7 @@ public static class SerginProblemFactory
             _ => StatusCodes.Status500InternalServerError
         };
 
-    private static string GetTitle(Error error, ILocalizer localizer) =>
+    private static string GetTitle(Error error, IStringLocalizer localizer) =>
         error.Type switch
         {
             ErrorType.Validation => localizer[ValidationTitleKey],
@@ -47,7 +47,7 @@ public static class SerginProblemFactory
     // already localised, through its own LanguageManager from CultureInfo.CurrentUICulture — so it is
     // shown as is. Its Code is the property name, which is what the API groups a ValidationProblem by;
     // looking that up as a resource key would render "UserName" as the whole error.
-    private static string GetDetail(Error error, ILocalizer localizer) =>
+    private static string GetDetail(Error error, IStringLocalizer localizer) =>
         error.Type switch
         {
             ErrorType.Validation => error.Description,

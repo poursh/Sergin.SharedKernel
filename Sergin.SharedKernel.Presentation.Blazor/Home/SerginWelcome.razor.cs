@@ -1,6 +1,5 @@
 using Microsoft.AspNetCore.Components;
 using Microsoft.Extensions.Options;
-using Sergin.SharedKernel.Application.Localizations;
 
 namespace Sergin.SharedKernel.Presentation.Blazor.Home;
 
@@ -14,12 +13,12 @@ public sealed partial class SerginWelcome
     private IOptions<SerginApplicationOptions> ApplicationOptions { get; set; } = default!;
 
     [Inject]
-    private ILocalizer Localizer { get; set; } = default!;
+    private IStringLocalizer Localizer { get; set; } = default!;
 
     private string ApplicationName => ApplicationOptions.Value.ApplicationName;
 
     /// <summary>
-    /// Single-argument lookup on purpose. <c>ILocalizer</c>'s <c>params object[]</c> overload discards its
+    /// Single-argument lookup on purpose. <c>IStringLocalizer</c>'s <c>params object[]</c> overload discards its
     /// arguments, so a composed key such as <c>"Welcome to {0}"</c> would render the placeholder verbatim.
     /// </summary>
     private string Prompt => Localizer["Choose a section from the menu to get started."];

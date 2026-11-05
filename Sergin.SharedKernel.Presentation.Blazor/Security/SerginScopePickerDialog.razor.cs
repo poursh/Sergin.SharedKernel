@@ -1,7 +1,6 @@
 using System.Globalization;
 using Microsoft.AspNetCore.Components;
 using MudBlazor;
-using Sergin.SharedKernel.Application.Localizations;
 using Sergin.SharedKernel.Application.Securities.Authorization;
 
 namespace Sergin.SharedKernel.Presentation.Blazor.Security;
@@ -23,7 +22,7 @@ public sealed partial class SerginScopePickerDialog
     private SerginScopeSession Session { get; set; } = default!;
 
     [Inject]
-    private ILocalizer Localizer { get; set; } = default!;
+    private IStringLocalizer Localizer { get; set; } = default!;
 
     /// <summary>
     /// The listed scopes whose name matches the search, with their listed ancestors so each match keeps its place

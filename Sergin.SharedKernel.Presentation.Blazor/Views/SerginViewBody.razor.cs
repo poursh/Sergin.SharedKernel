@@ -1,5 +1,4 @@
 using Microsoft.AspNetCore.Components;
-using Sergin.SharedKernel.Application.Localizations;
 using Sergin.SharedKernel.Presentation.Blazor.Pages;
 
 namespace Sergin.SharedKernel.Presentation.Blazor.Views;
@@ -37,7 +36,7 @@ public sealed partial class SerginViewBody
     public RenderFragment? ChildContent { get; set; }
 
     [Inject]
-    private ILocalizer Localizer { get; set; } = default!;
+    private IStringLocalizer Localizer { get; set; } = default!;
 
     protected override void OnInitialized() => collapsed = OverviewCollapsed;
 

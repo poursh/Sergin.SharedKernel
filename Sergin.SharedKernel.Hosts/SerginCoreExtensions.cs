@@ -247,7 +247,6 @@ public static class SerginCoreExtensions
             p.GetRequiredService<UserContextAccessor>().Current
             ?? p.GetRequiredService<IUserContextFactory>().CreateUserContext());
 
-        builder.Services.AddSingleton<ILocalizer, DefaultLocalizer>();
 
         // Texts: one localizer over the catalog and the translation cache. The module owning translations (Platform)
         // supplies the store; a host without one shows the English defaults.

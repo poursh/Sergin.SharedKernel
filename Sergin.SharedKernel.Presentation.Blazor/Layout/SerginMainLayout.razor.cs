@@ -3,7 +3,6 @@ using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Options;
 using MudBlazor;
 using MudBlazor.ThemeManager;
-using Sergin.SharedKernel.Application.Localizations;
 using Sergin.SharedKernel.Application.Securities.Users;
 using Sergin.SharedKernel.Presentation.Blazor.Security;
 using Sergin.SharedKernel.Presentation.Blazor.Theming;
@@ -37,7 +36,7 @@ public sealed partial class SerginMainLayout
     private IHostEnvironment HostEnvironment { get; set; } = default!;
 
     [Inject]
-    private ILocalizer Localizer { get; set; } = default!;
+    private IStringLocalizer Localizer { get; set; } = default!;
 
     [Inject]
     private IUiThemeStore ThemeStore { get; set; } = default!;

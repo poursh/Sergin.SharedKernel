@@ -1,6 +1,5 @@
 using Microsoft.AspNetCore.Components;
 using MudBlazor;
-using Sergin.SharedKernel.Application.Localizations;
 using Sergin.SharedKernel.Application.Securities.Authorization;
 
 namespace Sergin.SharedKernel.Presentation.Blazor.Pages;
@@ -31,7 +30,7 @@ public sealed partial class SerginActionMenu
     private IScopeAuthorization ScopeAuthorization { get; set; } = default!;
 
     [Inject]
-    private ILocalizer Localizer { get; set; } = default!;
+    private IStringLocalizer Localizer { get; set; } = default!;
 
     protected override void OnInitialized() => visibility = new SerginActionVisibility(ScopeAuthorization);
 

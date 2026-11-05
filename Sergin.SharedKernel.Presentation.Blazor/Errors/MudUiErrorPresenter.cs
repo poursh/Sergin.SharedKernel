@@ -1,11 +1,10 @@
 using Microsoft.AspNetCore.Http;
 using MudBlazor;
-using Sergin.SharedKernel.Application.Localizations;
 using Sergin.SharedKernel.Presentation.Errors;
 
 namespace Sergin.SharedKernel.Presentation.Blazor.Errors;
 
-internal sealed class MudUiErrorPresenter(ILocalizer localizer, ISnackbar snackbar) : IUiErrorPresenter
+internal sealed class MudUiErrorPresenter(IStringLocalizer localizer, ISnackbar snackbar) : IUiErrorPresenter
 {
     public SerginProblem Present(Error error) => SerginProblemFactory.Create(error, localizer);
 

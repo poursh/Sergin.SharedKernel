@@ -1,7 +1,6 @@
 using Microsoft.AspNetCore.Components;
 using MudBlazor;
 using Sergin.SharedKernel.Application.Aggregates;
-using Sergin.SharedKernel.Application.Localizations;
 using Sergin.SharedKernel.Domain;
 
 namespace Sergin.SharedKernel.Presentation.Blazor.Pages;
@@ -28,7 +27,7 @@ public sealed partial class SerginInfoButton
     private IDialogService Dialogs { get; set; } = default!;
 
     [Inject]
-    private ILocalizer Localizer { get; set; } = default!;
+    private IStringLocalizer Localizer { get; set; } = default!;
 
     private Task OpenAsync() => Dialogs.ShowInfoAsync(Localizer["Information"].Value, Load, Version);
 }

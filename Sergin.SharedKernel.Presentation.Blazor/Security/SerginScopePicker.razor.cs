@@ -1,6 +1,5 @@
 using Microsoft.AspNetCore.Components;
 using MudBlazor;
-using Sergin.SharedKernel.Application.Localizations;
 using Sergin.SharedKernel.Application.Securities.Authorization;
 
 namespace Sergin.SharedKernel.Presentation.Blazor.Security;
@@ -25,7 +24,7 @@ public sealed partial class SerginScopePicker
     private SerginScopeSession Session { get; set; } = default!;
 
     [Inject]
-    private ILocalizer Localizer { get; set; } = default!;
+    private IStringLocalizer Localizer { get; set; } = default!;
 
     /// <summary>
     /// Raised after the scope changed.
@@ -42,7 +41,7 @@ public sealed partial class SerginScopePicker
         : string.Join(TrailSeparator, Session.TrailOf(Current).Select(option => option.Name));
 
     /// <summary>
-    /// Composed here rather than through the localizer's arguments, which <c>DefaultLocalizer</c> ignores.
+    /// Composed here rather than through the localizer's arguments, which the localizer ignores.
     /// </summary>
     private string AriaLabel => $"{Localizer["Scope"].Value}: {CurrentName}";
 
