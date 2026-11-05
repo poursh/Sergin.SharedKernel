@@ -6,6 +6,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
 using Sergin.SharedKernel.Application;
 using Sergin.SharedKernel.Application.Commands.Configuration;
+using Sergin.SharedKernel.Application.Localizations;
 using Sergin.SharedKernel.Application.Securities.Authorization;
 using Sergin.SharedKernel.Application.Securities.Users;
 using Sergin.SharedKernel.Hosts.Authentication;
@@ -132,6 +133,9 @@ public static class SerginWebUiExtensions
 
         // Builds the catalogue now, so a bad registration fails start, and checks the nav against it.
         ValidateNavPermissions(catalog, app.Services.GetRequiredService<PermissionCatalog>());
+
+        // Collects every declared text now, so a duplicate or misplaced key fails start.
+        app.Services.GetRequiredService<TextCatalog>();
 
         AggregateFeatureGuard.EnsureApplied(app.Services);
 

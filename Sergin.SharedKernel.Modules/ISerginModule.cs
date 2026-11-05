@@ -6,6 +6,9 @@ namespace Sergin.SharedKernel.Modules;
 
 public interface ISerginModule
 {
+    /// <summary>The module's full name in PascalCase (DeviceManagement); its text keys start with the kebab-case form.</summary>
+    string Name { get; }
+
     string Schema { get; }
 
     Assembly ApplicationAssembly { get; }

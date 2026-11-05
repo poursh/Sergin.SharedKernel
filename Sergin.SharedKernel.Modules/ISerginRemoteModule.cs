@@ -15,6 +15,9 @@ namespace Sergin.SharedKernel.Modules;
 /// </summary>
 public interface ISerginRemoteModule
 {
+    /// <summary>The module's full name in PascalCase, as ISerginModule.Name.</summary>
+    string Name { get; }
+
     string Schema { get; }
 
     Assembly ContractsAssembly { get; }

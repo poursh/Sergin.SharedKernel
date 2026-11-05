@@ -64,6 +64,22 @@ public static class SerginCoreExtensions
                 + "Local and Remote in the same host, and two classes for the same schema runs AddServices twice.");
         }
 
+        string[] duplicateNames =
+        [
+            .. localModules.Select(m => m.Name)
+                .Concat(remoteModules.Select(m => m.Name))
+                .GroupBy(name => name, StringComparer.Ordinal)
+                .Where(group => group.Count() > 1)
+                .Select(group => group.Key)
+        ];
+
+        if (duplicateNames.Length > 0)
+        {
+            throw new InvalidOperationException(
+                $"Duplicate module name(s) registered: {string.Join(", ", duplicateNames)}. Each module name must "
+                + "appear exactly once across localModules and remoteModules combined; it is the first segment of its text keys.");
+        }
+
         EnsureConfigurationsArePlaced(localModules, remoteModules);
 
         builder.Services.AddMediatR(options =>
@@ -146,6 +162,22 @@ public static class SerginCoreExtensions
         // the registry above so a duplicate or misplaced permission fails host start.
         builder.Services.AddSingleton(provider =>
             PermissionCatalog.FromSources(provider.GetServices<ModuleConfigurationSource>()));
+
+        // Every declared text: SharedKernel's own plus each module's ConfigurationsAssembly, scanned. Resolved at start
+        // beside the permission catalogue so a duplicate key or a key outside its module fails host start.
+        builder.Services.AddSingleton(TextSource.Common);
+
+        foreach (ISerginModule module in localModules)
+        {
+            builder.Services.AddSingleton(TextSource.FromAssembly(module.ConfigurationsAssembly, module.Name));
+        }
+
+        foreach (ISerginRemoteModule remoteModule in remoteModules)
+        {
+            builder.Services.AddSingleton(TextSource.FromAssembly(remoteModule.ConfigurationsAssembly, remoteModule.Name));
+        }
+
+        builder.Services.AddSingleton(provider => TextCatalog.FromSources(provider.GetServices<TextSource>()));
 
         builder.Services.AddSingleton<IIntegrationEventTypeRegistry, IntegrationEventTypeRegistry>();
         builder.Services.AddSingleton<IIntegrationEventSerializer, JsonIntegrationEventSerializer>();
