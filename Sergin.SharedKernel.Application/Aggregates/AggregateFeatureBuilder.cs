@@ -1,3 +1,5 @@
+using Sergin.SharedKernel.Application.Localizations;
+
 namespace Sergin.SharedKernel.Application.Aggregates;
 
 /// <summary>
@@ -17,6 +19,9 @@ public abstract class AggregateFeatureBuilder
 
     /// <summary>The permissions the aggregate registered, each definition once.</summary>
     internal List<PermissionDefinition> PermissionDefinitions { get; } = [];
+
+    /// <summary>The text category the aggregate's fields are declared in, or null.</summary>
+    internal TextCategory? TextCategory { get; private protected set; }
 }
 
 public sealed class AggregateFeatureBuilder<TAggregateRoot> : AggregateFeatureBuilder
@@ -90,6 +95,19 @@ public sealed class AggregateFeatureBuilder<TAggregateRoot> : AggregateFeatureBu
             }
         }
 
+        return this;
+    }
+
+    /// <summary>
+    /// Names the text category the aggregate's <see cref="FieldText"/>s are declared in: a request bound to this root
+    /// takes its field labels (validation messages, form captions) from it unless its own configuration names another.
+    /// Not an EF feature. Calling it again replaces the category.
+    /// </summary>
+    public AggregateFeatureBuilder<TAggregateRoot> Texts(TextCategory category)
+    {
+        ArgumentNullException.ThrowIfNull(category);
+
+        TextCategory = category;
         return this;
     }
 

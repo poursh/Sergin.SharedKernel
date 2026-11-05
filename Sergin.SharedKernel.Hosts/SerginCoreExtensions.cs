@@ -12,6 +12,7 @@ using Sergin.SharedKernel.Application.Concurrency;
 using Sergin.SharedKernel.Application.Events;
 using Sergin.SharedKernel.Application.Events.Integration;
 using Sergin.SharedKernel.Application.Localizations;
+using Sergin.SharedKernel.Application.Localizations.Validation;
 using Sergin.SharedKernel.Application.Securities.Authorization;
 using Sergin.SharedKernel.Application.Securities.Users;
 using Sergin.SharedKernel.Application.Times;
@@ -255,6 +256,14 @@ public static class SerginCoreExtensions
         builder.Services.AddSingleton<IStringLocalizerFactory, SerginStringLocalizerFactory>();
         builder.Services.AddTransient(typeof(IStringLocalizer<>), typeof(StringLocalizer<>));
         builder.Services.AddSingleton<IStringLocalizer>(sp => sp.GetRequiredService<IStringLocalizerFactory>().Create(typeof(TextCatalog)));
+
+        // FluentValidation's messages and field names through the catalog. Its options are process-wide, so they point
+        // at stateless forwarders (once, whichever host starts first) and each validation makes this host's texts
+        // current for its own flow; see ValidationTexts.
+        ValidationTexts.Install();
+        builder.Services.AddSingleton<TextLanguageManager>();
+        builder.Services.AddSingleton<FieldDisplayNameResolver>();
+        builder.Services.AddSingleton<ValidationTexts>();
 
         foreach (ISerginModule module in localModules)
         {

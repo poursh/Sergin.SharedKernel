@@ -1,6 +1,7 @@
 using FluentValidation;
 using FluentValidation.Results;
 using Microsoft.Extensions.DependencyInjection;
+using Sergin.SharedKernel.Application.Localizations.Validation;
 using Sergin.SharedKernel.Application.Securities.Authorization;
 using Sergin.SharedKernel.Application.Securities.Users;
 
@@ -42,7 +43,13 @@ internal sealed class ScopedSerginFormValidator(
         var context = ValidationContext<TRequest>.CreateWithOptions(
             request, options => options.IncludeProperties(propertyName));
 
-        ValidationResult result = await validator.ValidateAsync(context, cancellationToken);
+        ValidationResult result;
+
+        // The pipeline's texts, so a field shows the same message, in the circuit's culture, as the submit would.
+        using (scope.ServiceProvider.GetService<ValidationTexts>()?.Use())
+        {
+            result = await validator.ValidateAsync(context, cancellationToken);
+        }
 
         return [.. result.Errors.Select(error => error.ErrorMessage)];
     }

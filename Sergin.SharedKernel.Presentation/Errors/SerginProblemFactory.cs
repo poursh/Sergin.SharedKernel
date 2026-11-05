@@ -1,7 +1,10 @@
+using System.Globalization;
 using Microsoft.Extensions.Localization;
 using ErrorOr;
 using Microsoft.AspNetCore.Http;
 using Sergin.SharedKernel.Application.Concurrency;
+using Sergin.SharedKernel.Application.Localizations;
+using Sergin.SharedKernel.Domain.Localizations;
 
 namespace Sergin.SharedKernel.Presentation.Errors;
 
@@ -14,8 +17,18 @@ public static class SerginProblemFactory
     /// </summary>
     public const string ValidationTitleKey = "General.Validation.title";
 
+    private static readonly IReadOnlyDictionary<string, object?> noArguments = new Dictionary<string, object?>(StringComparer.Ordinal);
+
     public static SerginProblem Create(Error error, IStringLocalizer localizer)
-        => new(GetStatusCode(error.Type), GetTitle(error, localizer), GetDetail(error, localizer), error.Type);
+    {
+        ArgumentNullException.ThrowIfNull(localizer);
+
+        return new(
+            GetStatusCode(error.Type),
+            GetTitle(error, localizer),
+            DeclaredDetail(error, localizer) ?? GetDetail(error, localizer),
+            error.Type);
+    }
 
     public static int GetStatusCode(ErrorType errorType) =>
         errorType switch
@@ -42,6 +55,34 @@ public static class SerginProblemFactory
             (ErrorType)VersionErrors.StaleType => localizer[$"{error.Code}.title"],
             _ => "ServerFailure"
         };
+
+    // An error that names a declared text in its metadata (ErrorText.MetadataKey) shows that text, its named
+    // placeholders filled from ErrorText.ArgumentsKey, whatever its type: the code stays what it is (a validation
+    // error's is the property name a form and the API group by). A key the catalog does not know falls through to the
+    // rule below rather than showing the raw key.
+    private static string? DeclaredDetail(Error error, IStringLocalizer localizer)
+    {
+        if (error.Metadata is not { } metadata
+            || !metadata.TryGetValue(ErrorText.MetadataKey, out object? key)
+            || key is not string name)
+        {
+            return null;
+        }
+
+        LocalizedString found = localizer[name];
+
+        if (found.ResourceNotFound)
+        {
+            return null;
+        }
+
+        IReadOnlyDictionary<string, object?> arguments =
+            metadata.TryGetValue(ErrorText.ArgumentsKey, out object? values) && values is not null
+                ? TextPlaceholders.ArgumentsOf(values)
+                : noArguments;
+
+        return TextPlaceholders.Format(found.Value, arguments, CultureInfo.CurrentCulture);
+    }
 
     // A validation error's Description is the human message FluentValidation already produced — and
     // already localised, through its own LanguageManager from CultureInfo.CurrentUICulture — so it is
