@@ -5,7 +5,7 @@ namespace Sergin.SharedKernel.Presentation.Blazor.Trees;
 
 /// <summary>
 /// Names the node a page inside a tree layout shows: <c>&lt;SerginTreeSelect Node="@Id.ToString()" /&gt;</c> on a
-/// detail page, <c>&lt;SerginTreeSelect Node="@ParentId?.ToString()" Tail="New scope" /&gt;</c> on a create page.
+/// detail page, <c>&lt;SerginTreeSelect Node="@ParentId?.ToString()" TailText="ScopeTexts.New" /&gt;</c> on a create page.
 /// </summary>
 /// <remarks>
 /// The tree highlights the node, opens its ancestors and adds its path to the page header's trail. Navigating to another page
@@ -23,26 +23,11 @@ public sealed partial class SerginTreeSelect : IDisposable
     [Parameter]
     public string? Group { get; set; }
 
-    /// <summary>Transitional: the trail's last step as a plain string, shown as written.</summary>
-    [Parameter]
-    public string? Tail { get; set; }
-
     /// <summary>What the page shows under the node, as the trail's last step; null on the node's page.</summary>
     [Parameter]
     public TextDefinition? TailText { get; set; }
 
-    private SerginBreadcrumb? TailStep
-    {
-        get
-        {
-            if (TailText is { } text)
-            {
-                return new SerginBreadcrumb(text);
-            }
-
-            return Tail is { } value ? SerginBreadcrumb.Data(value) : null;
-        }
-    }
+    private SerginBreadcrumb? TailStep => TailText is { } text ? new SerginBreadcrumb(text) : null;
 
     [CascadingParameter]
     private SerginTree? Tree { get; set; }

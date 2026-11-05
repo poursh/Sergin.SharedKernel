@@ -7,6 +7,10 @@ public static class CommonTexts
 
     private static readonly TextCategory actions = category.Child("Actions");
 
+    private static readonly TextCategory bulk = category.Child("Bulk");
+
+    private static readonly TextCategory permissionGroups = category.Child("Permissions").Child("Groups");
+
     public static TextDefinition Create { get; } = actions.Text("Create", "Create");
 
     public static TextDefinition Add { get; } = actions.Text("Add", "Add");
@@ -17,13 +21,25 @@ public static class CommonTexts
 
     public static TextDefinition Remove { get; } = actions.Text("Remove", "Remove");
 
-    /// <summary>What a bulk delete reports after its count: <c>3 deleted</c>.</summary>
-    public static TextDefinition Deleted { get; } =
-        actions.Text("Deleted", "deleted", "Follows the number of records a bulk delete removed.");
+    /// <summary>What a bulk delete reports: <c>3 deleted</c>.</summary>
+    public static TextDefinition BulkDeleted { get; } =
+        bulk.Text("Deleted", "{Count} deleted", "Reported after a bulk delete; {Count} is the number of records it removed.");
 
-    /// <summary>What a bulk remove reports after its count: <c>3 removed</c>.</summary>
-    public static TextDefinition Removed { get; } =
-        actions.Text("Removed", "removed", "Follows the number of records a bulk remove took out.");
+    /// <summary>What a bulk remove reports: <c>3 removed</c>.</summary>
+    public static TextDefinition BulkRemoved { get; } =
+        bulk.Text("Removed", "{Count} removed", "Reported after a bulk remove; {Count} is the number of records it took out.");
+
+    /// <summary>What a bulk run reports for the items a stop left unsent: <c>2 not sent</c>.</summary>
+    public static TextDefinition BulkNotSent { get; } =
+        bulk.Text("NotSent", "{Count} not sent", "Reported when a bulk run stopped early; {Count} is the number of records it never sent.");
+
+    /// <summary>The permission picker's heading over the platform's own permission.</summary>
+    public static TextDefinition PermissionGroupPlatform { get; } =
+        permissionGroups.Text("Platform", "Platform", "Heads the platform's own permission in the permission pickers.");
+
+    /// <summary>The permission picker's heading over the permissions of an aggregate that declares no name.</summary>
+    public static TextDefinition PermissionGroupOther { get; } =
+        permissionGroups.Text("Other", "Other", "Heads, in the permission pickers, the permissions of an aggregate that declares no name.");
 
     public static TextDefinition Save { get; } = actions.Text("Save", "Save");
 

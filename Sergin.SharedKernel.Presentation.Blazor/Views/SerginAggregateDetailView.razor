@@ -1,8 +1,8 @@
 @* An aggregate's record: its fields, then the entity collections inside it. *@
-<SerginAggregateView Title="@Title" TitleText="TitleText" Trail="Trail" HeaderActions="HeaderActions" Problem="Problem" Ready="Ready"
+<SerginAggregateView TitleText="TitleText" Trail="Trail" HeaderActions="HeaderActions" Problem="Problem" Ready="Ready"
                      Overview="Overview" OverviewSummary="OverviewSummary" OverviewCollapsed="OverviewCollapsed"
                      Actions="Actions" Count="Count" Collapsed="Collapsed">
-    <SerginDetailFields Title="@FieldsTitle" TitleText="FieldsTitleText">
+    <SerginDetailFields TitleData="@FieldsTitleData" TitleText="FieldsTitleText">
         @Fields
     </SerginDetailFields>
     @Entities

@@ -9,7 +9,7 @@ namespace Sergin.SharedKernel.Presentation.Blazor.Trees;
 
 /// <summary>
 /// A tree on the left and the page at the current route on the right, rendered by a module's tree layout:
-/// <c>&lt;SerginTree Title="Scopes" Href="/ua/scopes"&gt;&lt;Groups&gt;…&lt;/Groups&gt;&lt;Content&gt;@Body&lt;/Content&gt;&lt;/SerginTree&gt;</c>.
+/// <c>&lt;SerginTree TitleText="ScopeTexts.Title" Href="/ua/scopes"&gt;&lt;Groups&gt;…&lt;/Groups&gt;&lt;Content&gt;@Body&lt;/Content&gt;&lt;/SerginTree&gt;</c>.
 /// </summary>
 /// <remarks>
 /// <para>
@@ -54,13 +54,10 @@ public sealed partial class SerginTree : IDisposable
     private int dragStartWidth;
     private bool paneHasActions;
 
-    /// <summary>Transitional: the page title and the panel's accessible name as a plain string, shown as written.</summary>
+    /// <summary>The page title and the panel's accessible name, a declared text.</summary>
     [Parameter]
-    public string Title { get; set; } = string.Empty;
-
-    /// <summary>The title, a declared text; wins over <see cref="Title"/>.</summary>
-    [Parameter]
-    public TextDefinition? TitleText { get; set; }
+    [EditorRequired]
+    public TextDefinition TitleText { get; set; } = default!;
 
     /// <summary>The tree's own route, where nothing is selected: the close button, Esc and a deleted node go there.</summary>
     [Parameter]
@@ -103,11 +100,7 @@ public sealed partial class SerginTree : IDisposable
     [Parameter]
     public bool Collapsible { get; set; } = true;
 
-    /// <summary>Transitional: the filter box's placeholder as a plain string, shown as written.</summary>
-    [Parameter]
-    public string? FilterPlaceholder { get; set; }
-
-    /// <summary>The filter box's placeholder; the shell's <c>Filter tree…</c> when neither this nor <see cref="FilterPlaceholder"/> is set.</summary>
+    /// <summary>The filter box's placeholder; the shell's <c>Filter tree…</c> when not set.</summary>
     [Parameter]
     public TextDefinition? FilterPlaceholderText { get; set; }
 
@@ -120,9 +113,9 @@ public sealed partial class SerginTree : IDisposable
     [Inject]
     private IStringLocalizer Localizer { get; set; } = default!;
 
-    private string TitleShown => Localizer.Show(TitleText, Title);
+    private string TitleShown => Localizer.Text(TitleText);
 
-    private string FilterPlaceholderShown => Localizer.Show(FilterPlaceholderText, FilterPlaceholder, ShellTexts.Trees.FilterPlaceholder);
+    private string FilterPlaceholderShown => Localizer.Text(FilterPlaceholderText ?? ShellTexts.Trees.FilterPlaceholder);
 
     internal bool ShowGroupHeaders => groups.Count > 1;
 
@@ -158,7 +151,7 @@ public sealed partial class SerginTree : IDisposable
 
             if (ShowGroupHeaders && ActiveGroup is { } group)
             {
-                trail.Add(group.TitleText is { } title ? new SerginBreadcrumb(title, Href) : SerginBreadcrumb.Data(group.Title, Href));
+                trail.Add(new SerginBreadcrumb(group.TitleText, Href));
             }
 
             if (SelectedNode is { } node)

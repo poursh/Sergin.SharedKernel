@@ -7,7 +7,7 @@ namespace Sergin.SharedKernel.Presentation.Blazor.Views;
 
 /// <summary>
 /// The list view of a collection of entities inside one aggregate: overview, actions, then the table
-/// (<see cref="ChildContent"/> — a <see cref="SerginEntityList{TItem}"/>). Embedded in its root's detail view it is
+/// (<see cref="ChildContent"/> â€” a <see cref="SerginEntityList{TItem}"/>). Embedded in its root's detail view it is
 /// an outlined, titled section with the count.
 /// </summary>
 /// <remarks>
@@ -17,13 +17,11 @@ namespace Sergin.SharedKernel.Presentation.Blazor.Views;
 /// </remarks>
 public sealed partial class SerginEntityListView
 {
-    /// <summary>Transitional: the title as a plain string, shown as written. <see cref="TitleText"/> wins when both are set.</summary>
-    [Parameter]
-    public string Title { get; set; } = string.Empty;
 
     /// <summary>The title, a declared text.</summary>
     [Parameter]
-    public TextDefinition? TitleText { get; set; }
+    [EditorRequired]
+    public TextDefinition TitleText { get; set; } = default!;
 
     [Parameter]
     public IReadOnlyList<SerginBreadcrumb> Trail { get; set; } = [];

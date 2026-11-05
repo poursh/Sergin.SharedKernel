@@ -56,7 +56,7 @@
             {
                 <MudChip T="string" Size="Size.Small" Color="Color.Primary" Variant="Variant.Outlined"
                          OnClose="@(_ => RemoveFilterAsync(filter))">
-                    @filter.Label
+                    @filter.LabelData
                 </MudChip>
             }
             <MudButton Variant="Variant.Text" Size="Size.Small" OnClick="ClearAllAsync">@Localizer.Text(CommonTexts.ClearAll)</MudButton>

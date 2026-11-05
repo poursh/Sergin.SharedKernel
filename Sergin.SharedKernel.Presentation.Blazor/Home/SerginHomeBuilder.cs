@@ -50,13 +50,6 @@ public sealed class SerginHomeBuilder
     }
 
     /// <summary>
-    /// Transitional: <see cref="UseNavItem(TextDefinition, string, int)"/> with a label written as a plain string,
-    /// shown as written. Goes once every host declares its texts.
-    /// </summary>
-    public SerginHomeBuilder UseNavItem(string label, string icon, int order = 0) =>
-        UseNavItem(TransitionalText.Of(label), icon, order);
-
-    /// <summary>
     /// Drops the shell's nav entry for the root, leaving the home page reachable only by URL.
     /// </summary>
     public SerginHomeBuilder WithoutNavItem()

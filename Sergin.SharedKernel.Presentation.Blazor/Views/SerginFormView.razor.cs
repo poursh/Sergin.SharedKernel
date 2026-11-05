@@ -21,13 +21,10 @@ public sealed partial class SerginFormView
     private MudForm form = default!;
     private bool isValid;
 
-    /// <summary>Transitional: the title as a plain string, shown as written. <see cref="TitleText"/> wins when both are set.</summary>
-    [Parameter]
-    public string Title { get; set; } = string.Empty;
-
     /// <summary>The page title on a page, and the form's heading.</summary>
     [Parameter]
-    public TextDefinition? TitleText { get; set; }
+    [EditorRequired]
+    public TextDefinition TitleText { get; set; } = default!;
 
     /// <summary>The view's steps below home, first to last; shown only on a page.</summary>
     [Parameter]
@@ -59,20 +56,16 @@ public sealed partial class SerginFormView
     [Parameter]
     public bool Submitting { get; set; }
 
-    /// <summary>Transitional: the submit button's text as a plain string, shown as written.</summary>
-    [Parameter]
-    public string? SubmitLabel { get; set; }
-
-    /// <summary>The submit button's text; <see cref="CommonTexts.Save"/> when neither this nor <see cref="SubmitLabel"/> is set.</summary>
+    /// <summary>The submit button's text; <see cref="CommonTexts.Save"/> when not set.</summary>
     [Parameter]
     public TextDefinition? SubmitLabelText { get; set; }
 
     [Inject]
     private IStringLocalizer Localizer { get; set; } = default!;
 
-    private string TitleShown => Localizer.Show(TitleText, Title);
+    private string TitleShown => Localizer.Text(TitleText);
 
-    private string SubmitLabelShown => Localizer.Show(SubmitLabelText, SubmitLabel, CommonTexts.Save);
+    private string SubmitLabelShown => Localizer.Text(SubmitLabelText ?? CommonTexts.Save);
 
     /// <summary>Where cancel leaves for.</summary>
     [Parameter]

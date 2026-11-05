@@ -9,14 +9,17 @@ namespace Sergin.SharedKernel.Presentation.Blazor.Pages;
 public sealed record SerginListRequest(Paggination Paggination, Term? Term, Filtering? Filtering, Sorting? Sorting);
 
 /// <summary>
-/// One filter applied to a list, as the list shows it — a chip reading <see cref="Label"/> — and sends it — a
+/// One filter applied to a list, as the list shows it — a chip reading <see cref="LabelData"/> — and sends it — a
 /// <see cref="FilterData"/> with the field <see cref="Id"/>, <see cref="Mode"/> and <see cref="Value"/>.
 /// </summary>
 /// <param name="Id">The field id of the feature's <c>ListFieldSet</c>.</param>
 /// <param name="Mode">How the value is compared.</param>
 /// <param name="Value">A string, or for a range mode a two-element array of strings or nulls (an open end).</param>
-/// <param name="Label">The chip text, e.g. <c>Manufacturer: Aster</c>.</param>
-public sealed record SerginAppliedFilter(string Id, FilteringType Mode, object Value, string Label);
+/// <param name="LabelData">
+/// Data, not a label: the chip text, already rendered from a declared text and the value the user chose, e.g.
+/// <c>Manufacturer: Aster</c>; shown as is.
+/// </param>
+public sealed record SerginAppliedFilter(string Id, FilteringType Mode, object Value, string LabelData);
 
 /// <summary>Builds the wire shapes a list query carries from what a list page holds.</summary>
 public static class SerginListQueryParts

@@ -24,13 +24,10 @@ public sealed partial class SerginView
     private SerginViewHost bodyHost = default!;
     private bool collapsed;
 
-    /// <summary>Transitional: the title as a plain string, shown as written. <see cref="TitleText"/> wins when both are set.</summary>
-    [Parameter]
-    public string Title { get; set; } = string.Empty;
-
     /// <summary>The page title on a page; the section title when embedded.</summary>
     [Parameter]
-    public TextDefinition? TitleText { get; set; }
+    [EditorRequired]
+    public TextDefinition TitleText { get; set; } = default!;
 
     /// <summary>The view's steps below home, first to last; shown only on a page.</summary>
     [Parameter]
@@ -83,7 +80,7 @@ public sealed partial class SerginView
     [Inject]
     private ICultureFormatter Formatter { get; set; } = default!;
 
-    private string TitleShown => Localizer.Show(TitleText, Title);
+    private string TitleShown => Localizer.Text(TitleText);
 
     protected override void OnInitialized()
     {

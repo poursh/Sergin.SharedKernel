@@ -44,11 +44,7 @@ public sealed partial class SerginEntityList<TItem>
     [Parameter]
     public EventCallback<int> TotalChanged { get; set; }
 
-    /// <summary>Transitional: the text shown when the collection is empty, as a plain string shown as written.</summary>
-    [Parameter]
-    public string? EmptyText { get; set; }
-
-    /// <summary>The text shown when the collection is empty; the shell's <c>Nothing here yet.</c> when neither this nor <see cref="EmptyText"/> is set.</summary>
+    /// <summary>The text shown when the collection is empty; the shell's <c>Nothing here yet.</c> when not set.</summary>
     [Parameter]
     public TextDefinition? EmptyMessage { get; set; }
 
@@ -56,11 +52,7 @@ public sealed partial class SerginEntityList<TItem>
     [Parameter]
     public bool Searchable { get; set; } = true;
 
-    /// <summary>Transitional: the search box's placeholder as a plain string, shown as written.</summary>
-    [Parameter]
-    public string? SearchPlaceholder { get; set; }
-
-    /// <summary>The search box's placeholder; the shell's <c>Quick search…</c> when neither this nor <see cref="SearchPlaceholder"/> is set.</summary>
+    /// <summary>The search box's placeholder; the shell's <c>Quick search…</c> when not set.</summary>
     [Parameter]
     public TextDefinition? SearchPlaceholderText { get; set; }
 
@@ -80,10 +72,10 @@ public sealed partial class SerginEntityList<TItem>
     [Inject]
     private IStringLocalizer Localizer { get; set; } = default!;
 
-    private string SearchPlaceholderShown => Localizer.Show(SearchPlaceholderText, SearchPlaceholder, ShellTexts.Lists.QuickSearchPlaceholder);
+    private string SearchPlaceholderShown => Localizer.Text(SearchPlaceholderText ?? ShellTexts.Lists.QuickSearchPlaceholder);
 
     private string EmptyShown => string.IsNullOrWhiteSpace(term)
-        ? Localizer.Show(EmptyMessage, EmptyText, ShellTexts.Lists.NothingHereYet)
+        ? Localizer.Text(EmptyMessage ?? ShellTexts.Lists.NothingHereYet)
         : Localizer.Text(ShellTexts.Lists.NothingMatchesSearch);
 
     [Inject]

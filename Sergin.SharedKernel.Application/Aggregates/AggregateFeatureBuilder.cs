@@ -22,6 +22,9 @@ public abstract class AggregateFeatureBuilder
 
     /// <summary>The text category the aggregate's fields are declared in, or null.</summary>
     internal TextCategory? TextCategory { get; private protected set; }
+
+    /// <summary>The aggregate's name as people read it, or null.</summary>
+    internal TextDefinition? Name { get; private protected set; }
 }
 
 public sealed class AggregateFeatureBuilder<TAggregateRoot> : AggregateFeatureBuilder
@@ -108,6 +111,18 @@ public sealed class AggregateFeatureBuilder<TAggregateRoot> : AggregateFeatureBu
         ArgumentNullException.ThrowIfNull(category);
 
         TextCategory = category;
+        return this;
+    }
+
+    /// <summary>
+    /// Names the aggregate as people read it — usually its <c>Singular</c> text: the heading the permission pickers
+    /// show over the permissions it registered. Not an EF feature. Calling it again replaces the name.
+    /// </summary>
+    public AggregateFeatureBuilder<TAggregateRoot> Named(TextDefinition name)
+    {
+        ArgumentNullException.ThrowIfNull(name);
+
+        Name = name;
         return this;
     }
 

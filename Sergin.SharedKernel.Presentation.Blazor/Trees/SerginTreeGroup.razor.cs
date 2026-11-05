@@ -9,7 +9,7 @@ namespace Sergin.SharedKernel.Presentation.Blazor.Trees;
 
 /// <summary>
 /// One data source of a <see cref="SerginTree"/>, with its own node type, loaders and menus:
-/// <c>&lt;SerginTreeGroup TNode="ScopeTreeItem" Key="scope" Title="Scopes" Roots="…" Children="…" … /&gt;</c>.
+/// <c>&lt;SerginTreeGroup TNode="ScopeTreeItem" Key="scope" TitleText="ScopeTexts.Title" Roots="…" Children="…" … /&gt;</c>.
 /// </summary>
 /// <remarks>
 /// <para>
@@ -40,16 +40,10 @@ public sealed partial class SerginTreeGroup<TNode> : ISerginTreeGroup, IDisposab
     [EditorRequired]
     public string Key { get; set; } = string.Empty;
 
-    /// <summary>
-    /// Transitional: the group header's title and, with several groups, the page header's step before the selected
-    /// node's path, as a plain string shown as written.
-    /// </summary>
+    /// <summary>The group header's title and, with several groups, the page header's step before the selected node's path.</summary>
     [Parameter]
-    public string Title { get; set; } = string.Empty;
-
-    /// <summary>The title, a declared text; wins over <see cref="Title"/>.</summary>
-    [Parameter]
-    public TextDefinition? TitleText { get; set; }
+    [EditorRequired]
+    public TextDefinition TitleText { get; set; } = default!;
 
     [Parameter]
     public string? Icon { get; set; }
@@ -119,11 +113,7 @@ public sealed partial class SerginTreeGroup<TNode> : ISerginTreeGroup, IDisposab
     [Parameter]
     public RenderFragment? EmptyContent { get; set; }
 
-    /// <summary>Transitional: the empty state's text as a plain string, shown as written.</summary>
-    [Parameter]
-    public string? EmptyText { get; set; }
-
-    /// <summary>The empty state's text; the shell's <c>Nothing here yet.</c> when neither this nor <see cref="EmptyText"/> is set.</summary>
+    /// <summary>The empty state's text; the shell's <c>Nothing here yet.</c> when not set.</summary>
     [Parameter]
     public TextDefinition? EmptyMessage { get; set; }
 
@@ -133,9 +123,9 @@ public sealed partial class SerginTreeGroup<TNode> : ISerginTreeGroup, IDisposab
     [Inject]
     private IStringLocalizer Localizer { get; set; } = default!;
 
-    private string TitleShown => Localizer.Show(TitleText, Title);
+    private string TitleShown => Localizer.Text(TitleText);
 
-    private string EmptyShown => Localizer.Show(EmptyMessage, EmptyText, ShellTexts.Lists.NothingHereYet);
+    private string EmptyShown => Localizer.Text(EmptyMessage ?? ShellTexts.Lists.NothingHereYet);
 
     [Inject]
     private ICultureFormatter Formatter { get; set; } = default!;

@@ -18,14 +18,4 @@ namespace Sergin.SharedKernel.Modules;
 /// the entry stays reachable whichever scope the user works in now; the page answers for the current scope.
 /// </param>
 public sealed record SerginNavItem(
-    TextDefinition Label, string Href, string Icon, int Order = 0, PermissionDefinition? RequiredPermission = null)
-{
-    /// <summary>
-    /// Transitional: a label written as a plain string, shown as written (<see cref="TransitionalText"/>). Goes once
-    /// every module declares its nav texts.
-    /// </summary>
-    public SerginNavItem(string Label, string Href, string Icon, int Order = 0, PermissionDefinition? RequiredPermission = null)
-        : this(TransitionalText.Of(Label), Href, Icon, Order, RequiredPermission)
-    {
-    }
-}
+    TextDefinition Label, string Href, string Icon, int Order = 0, PermissionDefinition? RequiredPermission = null);

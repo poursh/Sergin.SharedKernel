@@ -15,7 +15,7 @@ public static class SerginProblemFactory
     /// The key of the one title every validation problem shares (<see cref="ErrorTexts.ValidationTitle"/>), because a
     /// validation error's <see cref="Error.Code"/> is the offending property name, not a text key.
     /// </summary>
-    public const string ValidationTitleKey = "common.errors.validation.title";
+    public static string ValidationTitleKey => ErrorTexts.ValidationTitle.Key.Value;
 
     private static readonly IReadOnlyDictionary<string, object?> noArguments = new Dictionary<string, object?>(StringComparer.Ordinal);
 

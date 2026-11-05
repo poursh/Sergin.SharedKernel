@@ -25,20 +25,4 @@ public sealed record SerginBulkAction<TItem>(
     SerginActionKind Kind,
     Func<IReadOnlyList<TItem>, Task> OnRun,
     PermissionDefinition? Permission = null,
-    bool AnyScope = false)
-{
-    /// <summary>
-    /// Transitional: a label written as a plain string, shown as written (<see cref="TransitionalText"/>). Goes once
-    /// every module declares its texts.
-    /// </summary>
-    public SerginBulkAction(
-        string Label,
-        string? Icon,
-        SerginActionKind Kind,
-        Func<IReadOnlyList<TItem>, Task> OnRun,
-        PermissionDefinition? Permission = null,
-        bool AnyScope = false)
-        : this(TransitionalText.Of(Label), Icon, Kind, OnRun, Permission, AnyScope)
-    {
-    }
-}
+    bool AnyScope = false);

@@ -8,22 +8,22 @@ namespace Sergin.SharedKernel.Presentation.Blazor.Pages;
 /// </summary>
 public sealed partial class SerginOverviewCard
 {
-    /// <summary>Transitional: the label as a plain string, shown as written. <see cref="LabelText"/> wins when both are set.</summary>
-    [Parameter]
-    public string Label { get; set; } = string.Empty;
 
     /// <summary>The label, a declared text.</summary>
     [Parameter]
-    public TextDefinition? LabelText { get; set; }
+    [EditorRequired]
+    public TextDefinition LabelText { get; set; } = default!;
 
+    /// <summary>Data, not a label: the figure, already formatted through <c>ICultureFormatter</c>, shown as is.</summary>
     [Parameter]
-    public string? Value { get; set; }
+    public string? ValueData { get; set; }
 
+    /// <summary>Data, not a label: the line under the figure, already rendered from a declared text, shown as is.</summary>
     [Parameter]
-    public string? Caption { get; set; }
+    public string? CaptionData { get; set; }
 
     [Inject]
     private IStringLocalizer Localizer { get; set; } = default!;
 
-    private string LabelShown => Localizer.Show(LabelText, Label);
+    private string LabelShown => Localizer.Text(LabelText);
 }

@@ -1,4 +1,5 @@
 ﻿using FluentValidation;
+using Sergin.SharedKernel.Application.Localizations;
 using Sergin.SharedKernel.Application.Localizations.Common;
 using Sergin.SharedKernel.Application.Localizations.Validation;
 
@@ -35,6 +36,47 @@ public static class RepositoryRuleBuilderExtensions
             {
                 context.MessageFormatter.AppendArgument(AggregateTypeNamePlaceholder, typeof(TAggregateRoot).Name);
                 return repository.ExistsAsync(id, cancellationToken);
+            })
+            .WithMessage(_ => ValidationTexts.Template(CommonValidationTexts.MustExistIn));
+    }
+
+    /// <summary>
+    /// The value must be the id of an existing <typeparamref name="TAggregateRoot"/>, named in the message by
+    /// <paramref name="aggregateName"/> — a declared text (usually the root's <c>Singular</c>) in the caller's culture,
+    /// rather than the type name.
+    /// </summary>
+    public static IRuleBuilderOptions<T, TId> MustExistIn<T, TAggregateRoot, TId>(
+        this IRuleBuilder<T, TId> ruleBuilder,
+        IRepository<TAggregateRoot, TId> repository,
+        TextDefinition aggregateName)
+        where TAggregateRoot : class, IAggregateRoot<TId>
+        where TId : notnull
+    {
+        ArgumentNullException.ThrowIfNull(repository);
+
+        return ruleBuilder.MustExistIn(repository.ExistsAsync, aggregateName);
+    }
+
+    /// <summary>
+    /// The value must refer to something <paramref name="exists"/> finds — for a reference with no repository of its
+    /// own, such as an entity inside another aggregate, or an id the command carries untyped. The message is
+    /// <see cref="CommonValidationTexts.MustExistIn"/>, naming the target by <paramref name="aggregateName"/> in the
+    /// caller's culture.
+    /// </summary>
+    public static IRuleBuilderOptions<T, TValue> MustExistIn<T, TValue>(
+        this IRuleBuilder<T, TValue> ruleBuilder,
+        Func<TValue, CancellationToken, Task<bool>> exists,
+        TextDefinition aggregateName)
+    {
+        ArgumentNullException.ThrowIfNull(ruleBuilder);
+        ArgumentNullException.ThrowIfNull(exists);
+        ArgumentNullException.ThrowIfNull(aggregateName);
+
+        return ruleBuilder
+            .MustAsync((_, value, context, cancellationToken) =>
+            {
+                context.MessageFormatter.AppendArgument(AggregateTypeNamePlaceholder, ValidationTexts.Template(aggregateName));
+                return exists(value, cancellationToken);
             })
             .WithMessage(_ => ValidationTexts.Template(CommonValidationTexts.MustExistIn));
     }

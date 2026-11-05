@@ -35,20 +35,6 @@ public static class SerginDialogExtensions
     }
 
     /// <summary>
-    /// Transitional: the confirmation with its texts written as plain strings, shown as written, and the buttons'
-    /// English defaults. Goes once every module declares its texts.
-    /// </summary>
-    public static async Task<bool> ConfirmDeleteAsync(this IDialogService dialogs, string title, string message, string? confirmText = null)
-    {
-        ArgumentNullException.ThrowIfNull(dialogs);
-
-        bool? confirmed = await dialogs.ShowMessageBoxAsync(
-            title, message, yesText: confirmText ?? CommonTexts.Delete.Default, cancelText: CommonTexts.Cancel.Default);
-
-        return confirmed == true;
-    }
-
-    /// <summary>
     /// Opens <see cref="SerginInfoDialog"/>: the record's scope, the row version the caller holds and its audit
     /// stamps, loaded through <paramref name="load"/> when the dialog opens.
     /// </summary>

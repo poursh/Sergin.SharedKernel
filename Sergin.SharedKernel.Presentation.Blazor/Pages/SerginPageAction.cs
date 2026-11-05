@@ -42,22 +42,4 @@ public sealed record SerginPageAction(
     EventCallback OnClick = default,
     PermissionDefinition? Permission = null,
     bool AnyScope = false,
-    bool Disabled = false)
-{
-    /// <summary>
-    /// Transitional: a label written as a plain string, shown as written (<see cref="TransitionalText"/>). Goes once
-    /// every module declares its texts.
-    /// </summary>
-    public SerginPageAction(
-        string Label,
-        string? Icon,
-        SerginActionKind Kind,
-        string? Href = null,
-        EventCallback OnClick = default,
-        PermissionDefinition? Permission = null,
-        bool AnyScope = false,
-        bool Disabled = false)
-        : this(TransitionalText.Of(Label), Icon, Kind, Href, OnClick, Permission, AnyScope, Disabled)
-    {
-    }
-}
+    bool Disabled = false);

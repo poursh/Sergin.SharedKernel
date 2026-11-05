@@ -21,15 +21,6 @@ public sealed record SerginBreadcrumb
     {
     }
 
-    /// <summary>
-    /// Transitional: a step written as a plain string, shown as written — what <see cref="Data"/> does. Goes once every
-    /// module declares its texts.
-    /// </summary>
-    public SerginBreadcrumb(string label, string? href = null)
-        : this(text: null, label ?? throw new ArgumentNullException(nameof(label)), href)
-    {
-    }
-
     private SerginBreadcrumb(TextDefinition? text, string? value, string? href)
     {
         Label = text;

@@ -2,6 +2,7 @@ using System.Diagnostics.CodeAnalysis;
 using Sergin.SharedKernel.Application.Aggregates;
 using Sergin.SharedKernel.Application.Commands.Configuration;
 using Sergin.SharedKernel.Application.Localizations;
+using Sergin.SharedKernel.Application.Localizations.Common;
 using Sergin.SharedKernel.Domain.Localizations;
 
 namespace Sergin.SharedKernel.Application.Securities.Authorization;
@@ -59,7 +60,10 @@ public sealed class PermissionCatalog
                 foreach (PermissionDefinition definition in registry.PermissionsOf(root))
                 {
                     CheckSchema(source.Schema, root, definition);
-                    collected.Add(EntryOf(definition, root, registry.TextsOf(root), source.ModuleName));
+                    collected.Add(EntryOf(definition, root, registry.TextsOf(root), source.ModuleName) with
+                    {
+                        GroupTitle = registry.NameOf(root) ?? CommonTexts.PermissionGroupOther,
+                    });
                 }
             }
         }
@@ -117,6 +121,7 @@ public sealed class PermissionCatalog
                         .OrderBy(group => group.Key, StringComparer.Ordinal)
                         .Select(group => new PermissionCatalogGroup(
                             group.Key,
+                            group.First().GroupTitle,
                             [
                                 .. group
                                     .Select(entry => entry.Definition)
@@ -129,7 +134,8 @@ public sealed class PermissionCatalog
         new(
             PermissionDefinition.AllPlatform,
             AggregateRoot: null,
-            TextCategory.Create("Common", PermissionsSegment).Text(ActionOf(PermissionDefinition.AllPlatform), PermissionDefinition.AllPlatform.Label));
+            TextCategory.Create("Common", PermissionsSegment).Text(ActionOf(PermissionDefinition.AllPlatform), PermissionDefinition.AllPlatform.Label),
+            CommonTexts.PermissionGroupPlatform);
 
     private static PermissionCatalogEntry EntryOf(PermissionDefinition definition, Type root, TextCategory? category, string? moduleName)
     {
@@ -137,17 +143,17 @@ public sealed class PermissionCatalog
 
         if (category is not null)
         {
-            return new(definition, root, category.Child(PermissionsSegment).Text(action, definition.Label));
+            return new(definition, root, category.Child(PermissionsSegment).Text(action, definition.Label), CommonTexts.PermissionGroupOther);
         }
 
         if (moduleName is not null)
         {
             string[] resource = [.. definition.Permission.Segments.Skip(2).SkipLast(1), PermissionsSegment];
 
-            return new(definition, root, TextCategory.Create(moduleName, resource).Text(action, definition.Label));
+            return new(definition, root, TextCategory.Create(moduleName, resource).Text(action, definition.Label), CommonTexts.PermissionGroupOther);
         }
 
-        return new(definition, root, new TextDefinition(TextKey.Create(definition.Permission.Value), definition.Label))
+        return new(definition, root, new TextDefinition(TextKey.Create(definition.Permission.Value), definition.Label), CommonTexts.PermissionGroupOther)
         {
             InTextCatalog = false,
         };

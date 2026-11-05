@@ -19,11 +19,6 @@ public static class LocalizerTextExtensions
         ArgumentNullException.ThrowIfNull(localizer);
         ArgumentNullException.ThrowIfNull(text);
 
-        if (TransitionalText.Is(text))
-        {
-            return text.Default;
-        }
-
         LocalizedString found = localizer[text.Key.Value];
         string template = found.ResourceNotFound ? text.Default : found.Value;
 
