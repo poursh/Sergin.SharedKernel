@@ -28,6 +28,7 @@ using Sergin.SharedKernel.Infrastructure.Localizations;
 using Sergin.SharedKernel.Infrastructure.Times;
 using Sergin.SharedKernel.Modules;
 using Sergin.SharedKernel.Presentation;
+using Sergin.SharedKernel.Presentation.Localizations;
 
 namespace Microsoft.Extensions.Hosting;
 
@@ -253,6 +254,16 @@ public static class SerginCoreExtensions
         // supplies the store; a host without one shows the English defaults.
         builder.Services.TryAddSingleton<ITranslationStore, EmptyTranslationStore>();
         builder.Services.AddSingleton<ITranslationCache, TranslationCache>();
+
+        // The culture every request renders in unless its caller chose another offered language. Bound here rather
+        // than per presentation: both the Blazor and the Web API bootstraps select cultures against it.
+        builder.Services.AddOptions<SerginLocalizationOptions>()
+            .Bind(serginSection.GetSection(SerginLocalizationOptions.SectionName))
+            .ValidateOnStart();
+        builder.Services.AddSingleton<IValidateOptions<SerginLocalizationOptions>, SerginLocalizationOptionsValidator>();
+
+        // Nobody previews a draft language unless the module owning translations says otherwise.
+        builder.Services.TryAddScoped<IDraftLanguagePreviewPolicy, DenyDraftPreview>();
         builder.Services.AddSingleton<IStringLocalizerFactory, SerginStringLocalizerFactory>();
         builder.Services.AddTransient(typeof(IStringLocalizer<>), typeof(StringLocalizer<>));
         builder.Services.AddSingleton<IStringLocalizer>(sp => sp.GetRequiredService<IStringLocalizerFactory>().Create(typeof(TextCatalog)));

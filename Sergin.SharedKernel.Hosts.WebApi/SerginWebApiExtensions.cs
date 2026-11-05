@@ -1,5 +1,7 @@
+using System.Globalization;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Localization;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
@@ -9,10 +11,13 @@ using Sergin.SharedKernel.Application.Localizations;
 using Sergin.SharedKernel.Application.Securities.Authorization;
 using Sergin.SharedKernel.Application.Securities.Users;
 using Sergin.SharedKernel.Hosts.Authentication;
+using Sergin.SharedKernel.Hosts.Localizations;
+using Sergin.SharedKernel.Hosts.WebApi.Localizations;
 using Sergin.SharedKernel.Infrastracture.WebApi.Users;
 using Sergin.SharedKernel.Infrastructure.Data.EFCore.Aggregates;
 using Sergin.SharedKernel.Modules;
 using Sergin.SharedKernel.Presentation.WebApi.Authorization;
+using Sergin.SharedKernel.Presentation.Localizations;
 using Sergin.SharedKernel.Presentation.WebApi.Concurrency;
 
 namespace Microsoft.Extensions.Hosting;
@@ -72,6 +77,8 @@ public static class SerginWebApiExtensions
             app.UseAuthorization();
         }
 
+        app.UseSerginApiRequestLocalization();
+
         foreach (ISerginWebApiModule webModule in modules.OfType<ISerginWebApiModule>())
         {
             webModule.MapEndpoints(app.MapGroup(webModule.Schema)
@@ -87,5 +94,32 @@ public static class SerginWebApiExtensions
         }
 
         return app;
+    }
+
+    /// <summary>
+    /// The built-in request localization over the <c>Accept-Language</c> header, restricted to the default culture and
+    /// the published languages: a draft is never served to an API caller. The language list is read live from the
+    /// translation cache, and the chosen culture is loaded into it before the endpoint runs.
+    /// </summary>
+    public static IApplicationBuilder UseSerginApiRequestLocalization(this IApplicationBuilder app)
+    {
+        ArgumentNullException.ThrowIfNull(app);
+
+        ITranslationCache cache = app.ApplicationServices.GetRequiredService<ITranslationCache>();
+        var defaultCulture = CultureInfo.GetCultureInfo(
+            app.ApplicationServices.GetRequiredService<IOptions<SerginLocalizationOptions>>().Value.DefaultCulture);
+        LanguageCultureList published = new(cache, defaultCulture, publishedOnly: true);
+
+        RequestLocalizationOptions options = new()
+        {
+            DefaultRequestCulture = new RequestCulture(defaultCulture),
+            SupportedCultures = published,
+            SupportedUICultures = published,
+            FallBackToParentCultures = false,
+            FallBackToParentUICultures = false,
+            RequestCultureProviders = [new PublishedAcceptLanguageProvider(cache, published)],
+        };
+
+        return app.UseRequestLocalization(options);
     }
 }

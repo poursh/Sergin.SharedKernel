@@ -1,6 +1,8 @@
+using System.Globalization;
 using System.Reflection;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Components;
+using Microsoft.AspNetCore.Localization;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
@@ -10,7 +12,9 @@ using Sergin.SharedKernel.Application.Localizations;
 using Sergin.SharedKernel.Application.Securities.Authorization;
 using Sergin.SharedKernel.Application.Securities.Users;
 using Sergin.SharedKernel.Hosts.Authentication;
+using Sergin.SharedKernel.Hosts.Localizations;
 using Sergin.SharedKernel.Hosts.WebUi;
+using Sergin.SharedKernel.Hosts.WebUi.Localizations;
 using Sergin.SharedKernel.Hosts.WebUi.Users;
 using Sergin.SharedKernel.Infrastructure.Data.EFCore.Aggregates;
 using Sergin.SharedKernel.Modules;
@@ -18,6 +22,7 @@ using Sergin.SharedKernel.Presentation;
 using Sergin.SharedKernel.Presentation.Blazor.Home;
 using Sergin.SharedKernel.Presentation.Blazor.Modules;
 using Sergin.SharedKernel.Presentation.Blazor.Security;
+using Sergin.SharedKernel.Presentation.Localizations;
 
 namespace Microsoft.Extensions.Hosting;
 
@@ -97,6 +102,8 @@ public static class SerginWebUiExtensions
 
         builder.AddSerginCore(modules, remoteModules);
 
+        AddSerginRequestLocalization(builder.Services);
+
         builder.Services.AddSingleton(CreateUiModuleCatalog(modules));
 
         SerginHomeBuilder homeBuilder = new();
@@ -107,6 +114,26 @@ public static class SerginWebUiExtensions
 
         return builder;
     }
+
+    /// <summary>
+    /// The built-in request localization with <see cref="SerginCultureProvider"/> as its only provider: no query string,
+    /// no Accept-Language, so a culture is only ever the default or the caller's own choice through the switch. The
+    /// supported lists follow the stored languages live; the provider has already applied the per-caller rules.
+    /// </summary>
+    private static void AddSerginRequestLocalization(IServiceCollection services) =>
+        services.AddOptions<RequestLocalizationOptions>()
+            .Configure<ITranslationCache, IOptions<SerginLocalizationOptions>>((options, cache, localization) =>
+            {
+                var defaultCulture = CultureInfo.GetCultureInfo(localization.Value.DefaultCulture);
+                LanguageCultureList cultures = new(cache, defaultCulture, publishedOnly: false);
+
+                options.DefaultRequestCulture = new RequestCulture(defaultCulture);
+                options.SupportedCultures = cultures;
+                options.SupportedUICultures = cultures;
+                options.FallBackToParentCultures = false;
+                options.FallBackToParentUICultures = false;
+                options.RequestCultureProviders = [new SerginCultureProvider(cache, defaultCulture.Name)];
+            });
 
     // The catalogue reads every module's NavItems eagerly, and a module's nav entries reference its permission
     // definitions: a malformed definition surfaces here, as a nested TypeInitializationException that names only
@@ -167,9 +194,14 @@ public static class SerginWebUiExtensions
             app.UseAuthorization();
         }
 
+        // After authentication, so the preview policy sees the signed-in caller; before the components render.
+        app.UseRequestLocalization();
+
         app.UseAntiforgery();
 
         app.MapStaticAssets();
+
+        app.MapSerginCultureSwitch();
 
         RazorComponentsEndpointConventionBuilder components = app.MapRazorComponents<TRootComponent>()
             .AddAdditionalAssemblies([.. catalog.RoutableAssemblies])
