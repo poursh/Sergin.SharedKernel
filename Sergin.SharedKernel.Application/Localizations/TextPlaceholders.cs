@@ -1,4 +1,5 @@
 using System.Globalization;
+using System.Reflection;
 using System.Text;
 
 namespace Sergin.SharedKernel.Application.Localizations;
@@ -33,6 +34,25 @@ public static class TextPlaceholders
         Scan(template, result, null, culture, arguments);
 
         return result.ToString();
+    }
+
+    /// <summary>
+    /// Named arguments from <paramref name="arguments"/>: an <see cref="IReadOnlyDictionary{TKey, TValue}"/> as it is,
+    /// or the public instance properties of any other object (an anonymous <c>new { DeviceId = id }</c>).
+    /// </summary>
+    public static IReadOnlyDictionary<string, object?> ArgumentsOf(object arguments)
+    {
+        ArgumentNullException.ThrowIfNull(arguments);
+
+        if (arguments is IReadOnlyDictionary<string, object?> named)
+        {
+            return named;
+        }
+
+        return arguments.GetType()
+            .GetProperties(BindingFlags.Public | BindingFlags.Instance)
+            .Where(property => property.GetIndexParameters().Length == 0)
+            .ToDictionary(property => property.Name, property => property.GetValue(arguments), StringComparer.Ordinal);
     }
 
     private static void Scan(

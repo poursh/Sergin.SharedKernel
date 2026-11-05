@@ -3,6 +3,7 @@ using FluentValidation;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
+using Microsoft.Extensions.Localization;
 using Microsoft.Extensions.Options;
 using Sergin.SharedKernel.Application.Aggregates;
 using Sergin.SharedKernel.Application.Commands;
@@ -247,6 +248,14 @@ public static class SerginCoreExtensions
             ?? p.GetRequiredService<IUserContextFactory>().CreateUserContext());
 
         builder.Services.AddSingleton<ILocalizer, DefaultLocalizer>();
+
+        // Texts: one localizer over the catalog and the translation cache. The module owning translations (Platform)
+        // supplies the store; a host without one shows the English defaults.
+        builder.Services.TryAddSingleton<ITranslationStore, EmptyTranslationStore>();
+        builder.Services.AddSingleton<ITranslationCache, TranslationCache>();
+        builder.Services.AddSingleton<IStringLocalizerFactory, SerginStringLocalizerFactory>();
+        builder.Services.AddTransient(typeof(IStringLocalizer<>), typeof(StringLocalizer<>));
+        builder.Services.AddSingleton<IStringLocalizer>(sp => sp.GetRequiredService<IStringLocalizerFactory>().Create(typeof(TextCatalog)));
 
         foreach (ISerginModule module in localModules)
         {
