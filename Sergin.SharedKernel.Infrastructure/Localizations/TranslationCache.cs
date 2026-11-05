@@ -9,7 +9,7 @@ namespace Sergin.SharedKernel.Infrastructure.Localizations;
 /// <summary>
 /// One frozen dictionary per loaded culture, replaced whole on refresh, so a lookup never sees a half-loaded culture
 /// and never waits for the store. Loads of one culture run one at a time, so a slow earlier read can never replace
-/// the data a later refresh wrote. Loading a culture loads its parents too (<c>fa-IR</c> loads <c>fa</c>), since the
+/// the data a later refresh wrote; the language list is gated the same way. Loading a culture loads its parents too (<c>fa-IR</c> loads <c>fa</c>), since the
 /// synchronous lookup falls back to them. Every culture the store answers for is cached, drafts included: which
 /// cultures a user may select is the culture provider's decision, not the cache's.
 /// </summary>
@@ -19,6 +19,8 @@ internal sealed class TranslationCache(ITranslationStore store) : ITranslationCa
         new(StringComparer.OrdinalIgnoreCase);
 
     private readonly ConcurrentDictionary<string, SemaphoreSlim> gates = new(StringComparer.OrdinalIgnoreCase);
+
+    private readonly SemaphoreSlim languagesGate = new(1, 1);
 
     private volatile IReadOnlyList<LanguageInfo>? languages;
 
@@ -30,7 +32,7 @@ internal sealed class TranslationCache(ITranslationStore store) : ITranslationCa
 
         if (languages is null)
         {
-            await RefreshLanguagesAsync(cancellationToken).ConfigureAwait(false);
+            await LoadLanguagesAsync(onlyIfMissing: true, cancellationToken).ConfigureAwait(false);
         }
 
         foreach (string name in ChainOf(culture))
@@ -51,10 +53,10 @@ internal sealed class TranslationCache(ITranslationStore store) : ITranslationCa
         }
     }
 
-    public async Task RefreshLanguagesAsync(CancellationToken cancellationToken)
-    {
-        languages = await store.GetLanguagesAsync(cancellationToken).ConfigureAwait(false);
-    }
+    public Task RefreshLanguagesAsync(CancellationToken cancellationToken) =>
+        LoadLanguagesAsync(onlyIfMissing: false, cancellationToken);
+
+    public void InvalidateLanguages() => languages = null;
 
     public bool TryGet(string culture, string key, [NotNullWhen(true)] out StoredTranslation? translation)
     {
@@ -76,6 +78,8 @@ internal sealed class TranslationCache(ITranslationStore store) : ITranslationCa
         {
             gate.Dispose();
         }
+
+        languagesGate.Dispose();
     }
 
     /// <summary><paramref name="culture"/> and each parent up to, not including, the invariant culture.</summary>
@@ -100,6 +104,27 @@ internal sealed class TranslationCache(ITranslationStore store) : ITranslationCa
         }
 
         return chain.Count == 0 ? [culture] : chain;
+    }
+
+    // One read at a time, so a refresh requested after a save reads after any earlier read has written its list.
+    private async Task LoadLanguagesAsync(bool onlyIfMissing, CancellationToken cancellationToken)
+    {
+        await languagesGate.WaitAsync(cancellationToken).ConfigureAwait(false);
+
+        try
+        {
+            // Re-checked under the gate: the load this one waited behind may have filled it.
+            if (onlyIfMissing && languages is not null)
+            {
+                return;
+            }
+
+            languages = await store.GetLanguagesAsync(cancellationToken).ConfigureAwait(false);
+        }
+        finally
+        {
+            languagesGate.Release();
+        }
     }
 
     private async Task LoadAsync(string culture, bool onlyIfMissing, CancellationToken cancellationToken)

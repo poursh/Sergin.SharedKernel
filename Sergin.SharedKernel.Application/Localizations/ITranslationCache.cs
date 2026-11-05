@@ -17,8 +17,17 @@ public interface ITranslationCache
     /// <summary>Reloads <paramref name="culture"/>'s translations from the store.</summary>
     Task RefreshAsync(string culture, CancellationToken cancellationToken);
 
-    /// <summary>Reloads the language list from the store.</summary>
+    /// <summary>
+    /// Reloads the language list from the store. Refreshes run one at a time, so a refresh requested after a save reads
+    /// after any earlier read has written.
+    /// </summary>
     Task RefreshLanguagesAsync(CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Forgets the language list, so the next <see cref="EnsureLoadedAsync"/> reloads it; <see cref="Languages"/> is empty
+    /// until then. For a writer whose refresh after commit failed: a stale list must not outlive the failure.
+    /// </summary>
+    void InvalidateLanguages();
 
     /// <summary>The translation of <paramref name="key"/> in <paramref name="culture"/>; false when none, or when the culture is not loaded.</summary>
     bool TryGet(string culture, string key, [NotNullWhen(true)] out StoredTranslation? translation);
