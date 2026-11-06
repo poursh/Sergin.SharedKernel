@@ -110,6 +110,18 @@ public sealed partial class SerginAggregateList<TItem>
     /// <summary>Loads the current page again with the current criteria — the header's reload icon, or after a row command.</summary>
     public Task ReloadAsync() => table.ReloadServerData();
 
+    /// <summary>
+    /// Replaces the applied filters' chips, for a page whose filters depend on each other: removing one chip that
+    /// another needs (a module, under which a category was chosen) calls this from <see cref="OnFilterRemoved"/> with the
+    /// chips that are left. The load that follows the removal sends them; nothing reloads here.
+    /// </summary>
+    public void SetFilters(IReadOnlyList<SerginAppliedFilter> applied)
+    {
+        ArgumentNullException.ThrowIfNull(applied);
+
+        filters = applied;
+    }
+
     private bool Selectable => BulkActions.Count > 0;
 
     // Rebuilt on each render, so a running action disables every button of the bar.
