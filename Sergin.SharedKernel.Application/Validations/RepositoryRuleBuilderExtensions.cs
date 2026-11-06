@@ -10,8 +10,8 @@ namespace Sergin.SharedKernel.Application.Validations;
 /// declared as an alternate key must not be in use. Both run inside <c>ValidationPipelineBehavior</c>, in the
 /// request's scope, before the handler; both are advisory — the foreign key / unique index behind them is the
 /// guarantee. Guard them with <c>.When(...)</c> so no query runs for a value whose shape rule already failed. Their
-/// messages are the declared texts <see cref="CommonValidationTexts.MustExistIn"/> and
-/// <see cref="CommonValidationTexts.MustBeUniqueIn"/>, in the caller's culture.
+/// messages are the declared texts <see cref="CommonValidationTexts.MustExistIn"/> (naming the target by a declared
+/// text the caller passes) and <see cref="CommonValidationTexts.MustBeUniqueIn"/>, in the caller's culture.
 /// </summary>
 public static class RepositoryRuleBuilderExtensions
 {
@@ -20,30 +20,9 @@ public static class RepositoryRuleBuilderExtensions
 
     /// <summary>
     /// The value must be the id of an existing <typeparamref name="TAggregateRoot"/> — a
-    /// <see cref="IRepository{TAggregateRoot, TId}.ExistsAsync"/>, so nothing is loaded.
-    /// </summary>
-    public static IRuleBuilderOptions<T, TId> MustExistIn<T, TAggregateRoot, TId>(
-        this IRuleBuilder<T, TId> ruleBuilder,
-        IRepository<TAggregateRoot, TId> repository)
-        where TAggregateRoot : class, IAggregateRoot<TId>
-        where TId : notnull
-    {
-        ArgumentNullException.ThrowIfNull(ruleBuilder);
-        ArgumentNullException.ThrowIfNull(repository);
-
-        return ruleBuilder
-            .MustAsync((_, id, context, cancellationToken) =>
-            {
-                context.MessageFormatter.AppendArgument(AggregateTypeNamePlaceholder, typeof(TAggregateRoot).Name);
-                return repository.ExistsAsync(id, cancellationToken);
-            })
-            .WithMessage(_ => ValidationTexts.Template(CommonValidationTexts.MustExistIn));
-    }
-
-    /// <summary>
-    /// The value must be the id of an existing <typeparamref name="TAggregateRoot"/>, named in the message by
-    /// <paramref name="aggregateName"/> — a declared text (usually the root's <c>Singular</c>) in the caller's culture,
-    /// rather than the type name.
+    /// <see cref="IRepository{TAggregateRoot, TId}.ExistsAsync"/>, so nothing is loaded — named in the message by
+    /// <paramref name="aggregateName"/>, a declared text (usually the root's <c>Singular</c>) in the caller's culture.
+    /// There is deliberately no overload without one: a type name would be English inside a translated sentence.
     /// </summary>
     public static IRuleBuilderOptions<T, TId> MustExistIn<T, TAggregateRoot, TId>(
         this IRuleBuilder<T, TId> ruleBuilder,

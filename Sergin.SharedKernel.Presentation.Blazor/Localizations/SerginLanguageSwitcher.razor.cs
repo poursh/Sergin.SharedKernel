@@ -1,5 +1,6 @@
 using System.Globalization;
 using Microsoft.AspNetCore.Components;
+using Microsoft.AspNetCore.Components.Routing;
 using Microsoft.Extensions.Options;
 using Sergin.SharedKernel.Application.Localizations;
 using Sergin.SharedKernel.Application.Localizations.Common;
@@ -9,13 +10,18 @@ namespace Sergin.SharedKernel.Presentation.Blazor.Localizations;
 
 /// <summary>
 /// Lists the default language and every published one, plus the draft languages the caller may preview (marked as
-/// drafts). Choosing one goes through <c>/culture/set</c>, a full navigation, because the culture belongs to the request
-/// that opens the circuit.
+/// drafts). Choosing one submits a GET form to <c>/culture/set</c> carrying the current page as <c>redirectUri</c>, a full
+/// navigation, because the culture belongs to the request that opens the circuit; being a plain form, it works in the
+/// prerendered page before the circuit connects. The return address follows in-app navigation once it has.
 /// </summary>
-public sealed partial class SerginLanguageSwitcher
+public sealed partial class SerginLanguageSwitcher : IDisposable
 {
+    /// <summary>The switch endpoint (the WebUi host's <c>CultureEndpoints.SetPath</c>).</summary>
+    private const string SetPath = "/culture/set";
+
     private IReadOnlyList<LanguageChoice> languages = [];
     private string current = string.Empty;
+    private string returnUri = "/";
 
     [Inject]
     private ITranslationCache Cache { get; set; } = default!;
@@ -34,8 +40,13 @@ public sealed partial class SerginLanguageSwitcher
 
     private string Label => Localizer.Text(CommonTexts.Language);
 
+    public void Dispose() => Navigation.LocationChanged -= OnLocationChanged;
+
     protected override async Task OnInitializedAsync()
     {
+        returnUri = CurrentRelativeUri();
+        Navigation.LocationChanged += OnLocationChanged;
+
         string defaultCulture = Options.Value.DefaultCulture;
         bool canPreview = Cache.Languages.Any(language => !language.IsPublished)
             && await PreviewPolicy.CanPreviewAsync(CancellationToken.None);
@@ -65,15 +76,12 @@ public sealed partial class SerginLanguageSwitcher
             ?? defaultCulture;
     }
 
-    private void OnChanged(ChangeEventArgs args)
+    private string CurrentRelativeUri() => "/" + Navigation.ToBaseRelativePath(Navigation.Uri);
+
+    private void OnLocationChanged(object? sender, LocationChangedEventArgs args)
     {
-        string culture = args.Value?.ToString() ?? current;
-
-        string returnUri = "/" + Navigation.ToBaseRelativePath(Navigation.Uri);
-
-        Navigation.NavigateTo(
-            $"/culture/set?culture={Uri.EscapeDataString(culture)}&redirectUri={Uri.EscapeDataString(returnUri)}",
-            forceLoad: true);
+        returnUri = CurrentRelativeUri();
+        _ = InvokeAsync(StateHasChanged);
     }
 
     private sealed record LanguageChoice(string Culture, string Label);

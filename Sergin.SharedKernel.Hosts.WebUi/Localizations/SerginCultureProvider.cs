@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Localization;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Primitives;
 using Sergin.SharedKernel.Application.Localizations;
 
@@ -12,7 +13,9 @@ namespace Sergin.SharedKernel.Hosts.WebUi.Localizations;
 /// a published language, or a draft language the caller's <see cref="IDraftLanguagePreviewPolicy"/> allows; anything
 /// else (a deleted or unpublished language, a revoked preview, a malformed cookie) answers nothing, so the request
 /// quietly gets the default culture. The chosen culture, the default included, is loaded into the cache before the
-/// request renders, because lookups are synchronous.
+/// request renders, because lookups are synchronous. A store that cannot be read is logged as a warning and the
+/// request gets the default culture (lookups then answer the code defaults), rather than failing every request, static
+/// assets included.
 /// </summary>
 /// <remarks>
 /// A Blazor circuit takes its culture from the request that opens it, which passes through this provider too, so the
@@ -24,8 +27,20 @@ internal sealed class SerginCultureProvider(ITranslationCache cache, string defa
     {
         ArgumentNullException.ThrowIfNull(httpContext);
 
-        CancellationToken cancellationToken = httpContext.RequestAborted;
+        try
+        {
+            return await DetermineAsync(httpContext, httpContext.RequestAborted).ConfigureAwait(false);
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException)
+        {
+            httpContext.RequestServices.GetService<ILogger<SerginCultureProvider>>()?.LogWarning(
+                exception, "The translation store could not be read; the request gets the default culture {Culture}.", defaultCulture);
+            return null;
+        }
+    }
 
+    private async Task<ProviderCultureResult?> DetermineAsync(HttpContext httpContext, CancellationToken cancellationToken)
+    {
         // Also loads the language list the first time, which the decision below reads.
         await cache.EnsureLoadedAsync(defaultCulture, cancellationToken).ConfigureAwait(false);
 

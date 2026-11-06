@@ -7,8 +7,8 @@ namespace Sergin.SharedKernel.Infrastructure.Localizations;
 
 /// <summary>
 /// Looks a key up under <see cref="CultureInfo.CurrentUICulture"/>, read per call: the culture's translation, then
-/// each parent culture's (<c>fa-IR</c> to <c>fa</c>), skipping any translation whose placeholders no longer match the
-/// default's; then the catalog's default; and, for a key the catalog does not know, the key itself, marked not found.
+/// each published parent culture's (<c>fa-IR</c> to <c>fa</c>; a draft parent is skipped), skipping any translation
+/// whose placeholders no longer match the default's; then the catalog's default; and, for a key the catalog does not know, the key itself, marked not found.
 /// </summary>
 internal sealed class SerginStringLocalizer(TextCatalog catalog, ITranslationCache cache, Action<string> unknownKey) : IStringLocalizer
 {
@@ -86,6 +86,13 @@ internal sealed class SerginStringLocalizer(TextCatalog catalog, ITranslationCac
 
         for (CultureInfo current = culture; !string.IsNullOrEmpty(current.Name); current = current.Parent)
         {
+            // The requested culture already passed the culture provider's gate (a translator may preview a draft), but
+            // a parent has not: a draft or unknown parent's text is unreviewed, so a published child never falls back to it.
+            if (!ReferenceEquals(current, culture) && !IsPublished(current.Name))
+            {
+                continue;
+            }
+
             if (cache.TryGet(current.Name, definition.Key.Value, out StoredTranslation? translation)
                 && placeholders.SetEquals(translation.Placeholders))
             {
@@ -100,4 +107,7 @@ internal sealed class SerginStringLocalizer(TextCatalog catalog, ITranslationCac
 
         return null;
     }
+
+    private bool IsPublished(string culture) =>
+        cache.Languages.Any(language => language.IsPublished && string.Equals(language.Culture, culture, StringComparison.OrdinalIgnoreCase));
 }

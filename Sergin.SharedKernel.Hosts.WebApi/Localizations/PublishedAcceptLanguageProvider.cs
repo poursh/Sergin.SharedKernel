@@ -1,6 +1,8 @@
 using System.Globalization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Localization;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Primitives;
 using Sergin.SharedKernel.Application.Localizations;
 
@@ -9,7 +11,8 @@ namespace Sergin.SharedKernel.Hosts.WebApi.Localizations;
 /// <summary>
 /// The built-in <see cref="AcceptLanguageHeaderRequestCultureProvider"/>, narrowed to the first header culture (in
 /// quality order) that <paramref name="accepted"/> holds (the default culture or a published language), with that
-/// culture loaded into the cache before the request runs, since lookups are synchronous.
+/// culture loaded into the cache before the request runs, since lookups are synchronous. A store that cannot be read
+/// is logged as a warning and the request gets the default culture rather than failing.
 /// </summary>
 internal sealed class PublishedAcceptLanguageProvider(ITranslationCache cache, IList<CultureInfo> accepted) : RequestCultureProvider
 {
@@ -19,8 +22,20 @@ internal sealed class PublishedAcceptLanguageProvider(ITranslationCache cache, I
     {
         ArgumentNullException.ThrowIfNull(httpContext);
 
-        CancellationToken cancellationToken = httpContext.RequestAborted;
+        try
+        {
+            return await DetermineAsync(httpContext, httpContext.RequestAborted).ConfigureAwait(false);
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException)
+        {
+            httpContext.RequestServices.GetService<ILogger<PublishedAcceptLanguageProvider>>()?.LogWarning(
+                exception, "The translation store could not be read; the request gets the default culture.");
+            return null;
+        }
+    }
 
+    private async Task<ProviderCultureResult?> DetermineAsync(HttpContext httpContext, CancellationToken cancellationToken)
+    {
         // The accepted list starts with the default culture. Loading it also loads the language list the first time.
         await cache.EnsureLoadedAsync(accepted[0].Name, cancellationToken).ConfigureAwait(false);
 
