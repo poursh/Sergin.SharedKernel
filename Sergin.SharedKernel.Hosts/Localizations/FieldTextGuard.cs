@@ -24,6 +24,9 @@ public sealed class FieldTextGuard(IEnumerable<Assembly> contractsAssemblies)
 
     private readonly Assembly[] assemblies = [.. contractsAssemblies.Distinct()];
 
+    /// <summary>The Contracts assemblies whose configured requests and list field sets <see cref="EnsureLabelled"/> checks.</summary>
+    public IReadOnlyCollection<Assembly> Assemblies => assemblies;
+
     public void EnsureLabelled(CommandConfigurationRegistry registry, TextCatalog catalog) =>
         Check(assemblies.SelectMany(assembly => assembly.GetTypes()), registry, catalog);
 
