@@ -167,7 +167,10 @@ public static class SerginWebUiExtensions
         AggregateFeatureGuard.EnsureApplied(app.Services);
 
         // Builds the registry now, so a bad ICommandConfiguration fails start rather than the first send.
-        app.Services.GetRequiredService<CommandConfigurationRegistry>();
+        CommandConfigurationRegistry registry = app.Services.GetRequiredService<CommandConfigurationRegistry>();
+
+        // Every field a person sees has its label declared.
+        app.Services.GetRequiredService<FieldTextGuard>().EnsureLabelled(registry, app.Services.GetRequiredService<TextCatalog>());
 
         if (app.Environment.IsDevelopment())
         {

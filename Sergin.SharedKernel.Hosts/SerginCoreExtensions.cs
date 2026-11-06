@@ -17,6 +17,7 @@ using Sergin.SharedKernel.Application.Securities.Authorization;
 using Sergin.SharedKernel.Application.Securities.Users;
 using Sergin.SharedKernel.Application.Times;
 using Sergin.SharedKernel.Hosts;
+using Sergin.SharedKernel.Hosts.Localizations;
 using Sergin.SharedKernel.Hosts.Outbox;
 using Sergin.SharedKernel.Infrastracture.Data;
 using Sergin.SharedKernel.Infrastructure.Data.EFCore;
@@ -185,6 +186,11 @@ public static class SerginCoreExtensions
         // English default), so the role pages show them translated.
         builder.Services.AddSingleton(provider => TextCatalog.FromSources(
             provider.GetServices<TextSource>().Concat(TextSource.FromPermissions(provider.GetRequiredService<PermissionCatalog>()))));
+
+        // The field-text guard reads every Contracts assembly, local and remote: each configured request's shown
+        // properties need a FieldText. The Use…Async bootstraps run it at start, after the catalog and the registry.
+        builder.Services.AddSingleton(new FieldTextGuard(
+            localModules.Select(module => module.ContractsAssembly).Concat(remoteModules.Select(module => module.ContractsAssembly))));
 
         builder.Services.AddSingleton<IIntegrationEventTypeRegistry, IntegrationEventTypeRegistry>();
         builder.Services.AddSingleton<IIntegrationEventSerializer, JsonIntegrationEventSerializer>();
