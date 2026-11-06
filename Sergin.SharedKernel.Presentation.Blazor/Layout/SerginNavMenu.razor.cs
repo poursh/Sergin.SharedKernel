@@ -1,6 +1,5 @@
 ﻿using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Routing;
-using Sergin.SharedKernel.Application.Localizations;
 using Sergin.SharedKernel.Application.Securities.Authorization;
 using Sergin.SharedKernel.Modules;
 using Sergin.SharedKernel.Presentation.Blazor.Home;
@@ -23,7 +22,7 @@ public sealed partial class SerginNavMenu : IDisposable
     private SerginHome Home { get; set; } = default!;
 
     [Inject]
-    private ILocalizer Localizer { get; set; } = default!;
+    private IStringLocalizer Localizer { get; set; } = default!;
 
     [Inject]
     private IScopeAuthorization ScopeAuthorization { get; set; } = default!;
@@ -143,8 +142,8 @@ public sealed partial class SerginNavMenu : IDisposable
     private sealed record NavEntry(int Order, string Name, SerginNavSection? Section, SerginNavItem? Link)
     {
         public static NavEntry For(SerginNavSection section)
-            => new(section.Group.Order, section.Group.Title, section, null);
+            => new(section.Group.Order, section.Group.Title.Default, section, null);
 
-        public static NavEntry For(SerginNavItem link) => new(link.Order, link.Label, null, link);
+        public static NavEntry For(SerginNavItem link) => new(link.Order, link.Label.Default, null, link);
     }
 }

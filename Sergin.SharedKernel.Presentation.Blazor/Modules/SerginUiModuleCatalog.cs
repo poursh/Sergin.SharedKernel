@@ -13,7 +13,7 @@ public sealed class SerginUiModuleCatalog
         [
             .. modules
                 .OrderBy(module => module.NavGroup.Order)
-                .ThenBy(module => module.NavGroup.Title, StringComparer.Ordinal)
+                .ThenBy(module => module.NavGroup.Title.Default, StringComparer.Ordinal)
                 .Select(module => new SerginNavSection(module.NavGroup, [.. InDrawerOrder(module.NavItems)]))
         ];
         NavItems = [.. NavSections.SelectMany(section => section.Items)];
@@ -56,5 +56,5 @@ public sealed class SerginUiModuleCatalog
         => NavSections.FirstOrDefault(section => section.Items.Any(item => item.Href == href))?.Group;
 
     private static IEnumerable<SerginNavItem> InDrawerOrder(IEnumerable<SerginNavItem> items)
-        => items.OrderBy(item => item.Order).ThenBy(item => item.Label, StringComparer.Ordinal);
+        => items.OrderBy(item => item.Order).ThenBy(item => item.Label.Default, StringComparer.Ordinal);
 }

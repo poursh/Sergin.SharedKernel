@@ -47,7 +47,7 @@ public abstract partial record SerginStringKey
         ArgumentNullException.ThrowIfNull(rules);
         Guard.Against.NullOrEmpty(value);
 
-        string normalized = WordBoundary().Replace(value, "$1-$2").ToLowerInvariant();
+        string normalized = ToKebab(value);
 
         Guard.Against.InvalidFormat(normalized, keyName, Format);
         Guard.Against.StringTooLong(normalized, rules.MaxLength);
@@ -67,6 +67,24 @@ public abstract partial record SerginStringKey
 
         return normalized;
     }
+
+    /// <summary>
+    /// Converts one PascalCase or kebab-case word group to kebab case (<c>DeviceManagement</c> becomes
+    /// <c>device-management</c>) and checks it is a single valid segment. For code that builds a key from parts and
+    /// is not itself a key type.
+    /// </summary>
+    public static string ToSegment(string value)
+    {
+        Guard.Against.NullOrEmpty(value);
+
+        string segment = ToKebab(value);
+
+        Guard.Against.InvalidFormat(segment, nameof(value), $"^{SegmentPattern}$");
+
+        return segment;
+    }
+
+    private static string ToKebab(string value) => WordBoundary().Replace(value, "$1-$2").ToLowerInvariant();
 
     /// <summary>
     /// The non-throwing form of a derived key's <c>Create</c>, for values that arrive from outside the code base — a

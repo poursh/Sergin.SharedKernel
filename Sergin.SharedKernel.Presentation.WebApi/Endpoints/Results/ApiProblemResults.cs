@@ -1,13 +1,13 @@
+using Microsoft.Extensions.Localization;
 ﻿using ErrorOr;
 using Microsoft.AspNetCore.Http;
-using Sergin.SharedKernel.Application.Localizations;
 using Sergin.SharedKernel.Presentation.Errors;
 
 namespace Sergin.SharedKernel.Presentation.WebApi.Endpoints.Results;
 
 public static class ApiProblemResults
 {
-    public static IResult Problem(Error error, ILocalizer l)
+    public static IResult Problem(Error error, IStringLocalizer l)
     {
         SerginProblem problem = SerginProblemFactory.Create(error, l);
 
@@ -23,7 +23,7 @@ public static class ApiProblemResults
     /// <see cref="HttpValidationProblemDetails"/> shape — one entry per property, every message under it —
     /// rather than the first message alone. Any other mix falls back to the first error, as before.
     /// </summary>
-    public static IResult Problem(IReadOnlyList<Error> errors, ILocalizer l)
+    public static IResult Problem(IReadOnlyList<Error> errors, IStringLocalizer l)
     {
         if (errors.Any(error => error.Type != ErrorType.Validation))
         {

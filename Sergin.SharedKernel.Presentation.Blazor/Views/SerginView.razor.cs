@@ -1,8 +1,8 @@
 using Microsoft.AspNetCore.Components;
-using Sergin.SharedKernel.Application.Localizations;
 using Sergin.SharedKernel.Presentation.Blazor.Navigation;
 using Sergin.SharedKernel.Presentation.Blazor.Pages;
 using Sergin.SharedKernel.Presentation.Errors;
+using Sergin.SharedKernel.Presentation.Localizations;
 
 namespace Sergin.SharedKernel.Presentation.Blazor.Views;
 
@@ -24,10 +24,10 @@ public sealed partial class SerginView
     private SerginViewHost bodyHost = default!;
     private bool collapsed;
 
-    /// <summary>The page title on a page; the section title (localised) when embedded.</summary>
+    /// <summary>The page title on a page; the section title when embedded.</summary>
     [Parameter]
     [EditorRequired]
-    public string Title { get; set; } = string.Empty;
+    public TextDefinition TitleText { get; set; } = default!;
 
     /// <summary>The view's steps below home, first to last; shown only on a page.</summary>
     [Parameter]
@@ -75,7 +75,12 @@ public sealed partial class SerginView
     private SerginViewHost Host { get; set; } = SerginViewHost.Unhosted;
 
     [Inject]
-    private ILocalizer Localizer { get; set; } = default!;
+    private IStringLocalizer Localizer { get; set; } = default!;
+
+    [Inject]
+    private ICultureFormatter Formatter { get; set; } = default!;
+
+    private string TitleShown => Localizer.Text(TitleText);
 
     protected override void OnInitialized()
     {

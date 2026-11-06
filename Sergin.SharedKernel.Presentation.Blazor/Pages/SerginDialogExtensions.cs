@@ -12,11 +12,24 @@ public static class SerginDialogExtensions
     /// (<c>Delete device</c>), <paramref name="message"/> what happens (<c>Delete MTR-000142? It disappears from
     /// every list and page.</c>).
     /// </summary>
-    public static async Task<bool> ConfirmDeleteAsync(this IDialogService dialogs, string title, string message, string confirmText = "Delete")
+    public static async Task<bool> ConfirmDeleteAsync(
+        this IDialogService dialogs,
+        IStringLocalizer localizer,
+        TextDefinition title,
+        TextDefinition message,
+        object? arguments = null,
+        TextDefinition? confirmText = null)
     {
         ArgumentNullException.ThrowIfNull(dialogs);
+        ArgumentNullException.ThrowIfNull(localizer);
+        ArgumentNullException.ThrowIfNull(title);
+        ArgumentNullException.ThrowIfNull(message);
 
-        bool? confirmed = await dialogs.ShowMessageBoxAsync(title, message, yesText: confirmText, cancelText: "Cancel");
+        bool? confirmed = await dialogs.ShowMessageBoxAsync(
+            localizer.Text(title, arguments),
+            localizer.Text(message, arguments),
+            yesText: localizer.Text(confirmText ?? CommonTexts.Delete),
+            cancelText: localizer.Text(CommonTexts.Cancel));
 
         return confirmed == true;
     }

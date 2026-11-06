@@ -1,5 +1,4 @@
 using Microsoft.AspNetCore.Components;
-using Sergin.SharedKernel.Application.Localizations;
 
 namespace Sergin.SharedKernel.Presentation.Blazor.Pages;
 
@@ -9,9 +8,11 @@ namespace Sergin.SharedKernel.Presentation.Blazor.Pages;
 /// </summary>
 public sealed partial class SerginDetailField
 {
+
+    /// <summary>The label, a declared text.</summary>
     [Parameter]
     [EditorRequired]
-    public string Label { get; set; } = string.Empty;
+    public TextDefinition LabelText { get; set; } = default!;
 
     [Parameter]
     public string? Value { get; set; }
@@ -20,5 +21,7 @@ public sealed partial class SerginDetailField
     public RenderFragment? ChildContent { get; set; }
 
     [Inject]
-    private ILocalizer Localizer { get; set; } = default!;
+    private IStringLocalizer Localizer { get; set; } = default!;
+
+    private string LabelShown => Localizer.Text(LabelText);
 }

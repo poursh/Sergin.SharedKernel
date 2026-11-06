@@ -20,7 +20,7 @@ public enum SerginActionKind
 /// One button of a <see cref="SerginAggregatePage"/>'s actions bar. Either <see cref="Href"/> or
 /// <see cref="OnClick"/> says what it does.
 /// </summary>
-/// <param name="Label">The button text, localised by the bar.</param>
+/// <param name="Label">The button text, a declared text rendered in the current UI culture.</param>
 /// <param name="Icon">A MudBlazor icon constant; null for none.</param>
 /// <param name="Kind">Its look and place.</param>
 /// <param name="Href">A page to navigate to.</param>
@@ -35,7 +35,7 @@ public enum SerginActionKind
 /// </param>
 /// <param name="Disabled">Shown but not clickable, e.g. while a delete is running.</param>
 public sealed record SerginPageAction(
-    string Label,
+    TextDefinition Label,
     string? Icon,
     SerginActionKind Kind,
     string? Href = null,

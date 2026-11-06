@@ -1,5 +1,5 @@
 using Microsoft.AspNetCore.Components;
-using Sergin.SharedKernel.Application.Localizations;
+using Sergin.SharedKernel.Presentation.Localizations;
 
 namespace Sergin.SharedKernel.Presentation.Blazor.Pages;
 
@@ -20,5 +20,8 @@ public sealed partial class SerginSelectionBar
     public EventCallback OnClear { get; set; }
 
     [Inject]
-    private ILocalizer Localizer { get; set; } = default!;
+    private IStringLocalizer Localizer { get; set; } = default!;
+
+    [Inject]
+    private ICultureFormatter Formatter { get; set; } = default!;
 }

@@ -1,6 +1,5 @@
 ﻿using Microsoft.AspNetCore.Components;
 using MudBlazor;
-using Sergin.SharedKernel.Application.Localizations;
 using Sergin.SharedKernel.Presentation.Blazor.Home;
 using Sergin.SharedKernel.Presentation.Blazor.Modules;
 
@@ -48,7 +47,7 @@ public sealed partial class SerginPageHeader
     private SerginUiModuleCatalog Catalog { get; set; } = default!;
 
     [Inject]
-    private ILocalizer Localizer { get; set; } = default!;
+    private IStringLocalizer Localizer { get; set; } = default!;
 
     protected override void OnParametersSet()
     {
@@ -56,7 +55,7 @@ public sealed partial class SerginPageHeader
 
         if (Home.NavItem is { } home)
         {
-            built.Add(new BreadcrumbItem(Localizer[home.Label], home.Href, icon: home.Icon));
+            built.Add(new BreadcrumbItem(Localizer.Text(home.Label), home.Href, icon: home.Icon));
         }
 
         // The module step: a page's first step is its section, taken from a module's nav entry, so the module
@@ -64,7 +63,7 @@ public sealed partial class SerginPageHeader
         if (Trail.Count > 0 && Trail[0].Href is { } sectionHref && Catalog.GroupOf(sectionHref) is { } group)
         {
             // Icon alone, like home: the template renders the group's icon with the title as aria-label and tooltip.
-            built.Add(new BreadcrumbItem(Localizer[group.Title], href: null, disabled: true, icon: group.Icon));
+            built.Add(new BreadcrumbItem(Localizer.Text(group.Title), href: null, disabled: true, icon: group.Icon));
         }
 
         for (int index = 0; index < Trail.Count; index++)
@@ -75,7 +74,7 @@ public sealed partial class SerginPageHeader
             // and the current page should not be a link to itself in any reading of the markup.
             string? href = index == Trail.Count - 1 && !LinkLast ? null : crumb.Href;
 
-            built.Add(new BreadcrumbItem(Localizer[crumb.Label], href, disabled: href is null));
+            built.Add(new BreadcrumbItem(crumb.Display(Localizer), href, disabled: href is null));
         }
 
         items = built;

@@ -5,7 +5,7 @@
    route. It fills the shell's page body: the panel scrolls its groups under the fixed action rows and filter, and the
    content scrolls on its own. Styles ship as a style element, like SerginPageHeader's, since no host links the
    scoped-CSS bundle. *@
-<PageTitle>@Localizer[Title]</PageTitle>
+<PageTitle>@TitleShown</PageTitle>
 @if (HasHeaderActions)
 {
     <SerginPageHeader Trail="PageTrail" LinkLast="LinkLast">@HeaderActions<SerginHeaderSlotOutlet Slot="headerSlot" /></SerginPageHeader>
@@ -57,36 +57,36 @@ else
     <div class="sergin-tree-page" style="@WidthStyle">
         @if (hidden)
         {
-            <aside class="sergin-tree-rail border border-solid mud-border-lines-default rounded" aria-label="@Localizer[Title]">
-                <MudTooltip Text="@Localizer["Show tree"]">
-                    <MudIconButton Icon="@Icons.Material.Filled.MenuOpen" Size="Size.Small" OnClick="ToggleHiddenAsync" aria-label="@Localizer["Show tree"]" />
+            <aside class="sergin-tree-rail border border-solid mud-border-lines-default rounded" aria-label="@TitleShown">
+                <MudTooltip Text="@Localizer.Text(ShellTexts.Trees.ShowTree)">
+                    <MudIconButton Icon="@Icons.Material.Filled.MenuOpen" Size="Size.Small" OnClick="ToggleHiddenAsync" aria-label="@Localizer.Text(ShellTexts.Trees.ShowTree)" />
                 </MudTooltip>
                 @foreach (SerginPageAction action in StaticRowActions)
                 {
                     <SerginActionIconButton Action="action" />
                 }
-                <MudTooltip Text="@Localizer["Refresh"]">
-                    <MudIconButton Icon="@Icons.Material.Filled.Refresh" Size="Size.Small" OnClick="RefreshAsync" aria-label="@Localizer["Refresh"]" />
+                <MudTooltip Text="@Localizer.Text(CommonTexts.Refresh)">
+                    <MudIconButton Icon="@Icons.Material.Filled.Refresh" Size="Size.Small" OnClick="RefreshAsync" aria-label="@Localizer.Text(CommonTexts.Refresh)" />
                 </MudTooltip>
             </aside>
             <div class="sergin-tree-gap"></div>
         }
         <aside class="@($"sergin-tree-panel border border-solid mud-border-lines-default rounded pa-2 {(hidden ? "d-none" : string.Empty)}")"
-               aria-label="@Localizer[Title]">
+               aria-label="@TitleShown">
             <div class="sergin-tree-static d-flex align-center" style="gap: 2px;">
                 <div class="flex-grow-1" style="min-width: 0;">
                     <SerginActionBar Actions="StaticRowActions" />
                 </div>
-                <MudTooltip Text="@Localizer["Refresh"]">
-                    <MudIconButton Icon="@Icons.Material.Filled.Refresh" Size="Size.Small" OnClick="RefreshAsync" aria-label="@Localizer["Refresh"]" />
+                <MudTooltip Text="@Localizer.Text(CommonTexts.Refresh)">
+                    <MudIconButton Icon="@Icons.Material.Filled.Refresh" Size="Size.Small" OnClick="RefreshAsync" aria-label="@Localizer.Text(CommonTexts.Refresh)" />
                 </MudTooltip>
-                <MudTooltip Text="@Localizer["Collapse all"]">
-                    <MudIconButton Icon="@Icons.Material.Filled.UnfoldLess" Size="Size.Small" OnClick="CollapseAll" aria-label="@Localizer["Collapse all"]" />
+                <MudTooltip Text="@Localizer.Text(CommonTexts.CollapseAll)">
+                    <MudIconButton Icon="@Icons.Material.Filled.UnfoldLess" Size="Size.Small" OnClick="CollapseAll" aria-label="@Localizer.Text(CommonTexts.CollapseAll)" />
                 </MudTooltip>
                 @if (Collapsible)
                 {
-                    <MudTooltip Text="@Localizer["Hide tree"]">
-                        <MudIconButton Icon="@Icons.Material.Filled.MenuOpen" Size="Size.Small" Style="transform: scaleX(-1);" OnClick="ToggleHiddenAsync" aria-label="@Localizer["Hide tree"]" />
+                    <MudTooltip Text="@Localizer.Text(ShellTexts.Trees.HideTree)">
+                        <MudIconButton Icon="@Icons.Material.Filled.MenuOpen" Size="Size.Small" Style="transform: scaleX(-1);" OnClick="ToggleHiddenAsync" aria-label="@Localizer.Text(ShellTexts.Trees.HideTree)" />
                     </MudTooltip>
                 }
             </div>
@@ -97,8 +97,8 @@ else
                 </div>
             }
             <MudTextField T="string" Value="@filter" ValueChanged="FilterChangedAsync" DebounceInterval="300" Immediate="true"
-                          Placeholder="@Localizer[FilterPlaceholder]" Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Filled.FilterList"
-                          Clearable="true" Variant="Variant.Outlined" Margin="Margin.Dense" Class="mt-2 mb-2" aria-label="@Localizer[FilterPlaceholder]" />
+                          Placeholder="@FilterPlaceholderShown" Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Filled.FilterList"
+                          Clearable="true" Variant="Variant.Outlined" Margin="Margin.Dense" Class="mt-2 mb-2" aria-label="@FilterPlaceholderShown" />
             <div class="sergin-tree-groups">
                 @Groups
             </div>
@@ -107,7 +107,7 @@ else
         {
             @if (Resizable)
             {
-                <div class="sergin-tree-resize" role="separator" aria-orientation="vertical" aria-label="@Localizer["Resize tree"]"
+                <div class="sergin-tree-resize" role="separator" aria-orientation="vertical" aria-label="@Localizer.Text(ShellTexts.Trees.ResizeTree)"
                      @onpointerdown="StartResize"></div>
             }
             else

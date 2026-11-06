@@ -1,7 +1,6 @@
 using System.Globalization;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Web;
-using Sergin.SharedKernel.Application.Localizations;
 using Sergin.SharedKernel.Presentation.Blazor.Navigation;
 using Sergin.SharedKernel.Presentation.Blazor.Pages;
 using Sergin.SharedKernel.Presentation.Blazor.Views;
@@ -10,7 +9,7 @@ namespace Sergin.SharedKernel.Presentation.Blazor.Trees;
 
 /// <summary>
 /// A tree on the left and the page at the current route on the right, rendered by a module's tree layout:
-/// <c>&lt;SerginTree Title="Scopes" Href="/ua/scopes"&gt;&lt;Groups&gt;…&lt;/Groups&gt;&lt;Content&gt;@Body&lt;/Content&gt;&lt;/SerginTree&gt;</c>.
+/// <c>&lt;SerginTree TitleText="ScopeTexts.Title" Href="/ua/scopes"&gt;&lt;Groups&gt;…&lt;/Groups&gt;&lt;Content&gt;@Body&lt;/Content&gt;&lt;/SerginTree&gt;</c>.
 /// </summary>
 /// <remarks>
 /// <para>
@@ -44,7 +43,7 @@ public sealed partial class SerginTree : IDisposable
     private object? owner;
     private string? requestedGroup;
     private string? requestedNode;
-    private string? tail;
+    private SerginBreadcrumb? tail;
     private bool leaving;
     private string? activeKey;
     private string? filter;
@@ -55,10 +54,10 @@ public sealed partial class SerginTree : IDisposable
     private int dragStartWidth;
     private bool paneHasActions;
 
-    /// <summary>The page title and the panel's accessible name (localised).</summary>
+    /// <summary>The page title and the panel's accessible name, a declared text.</summary>
     [Parameter]
     [EditorRequired]
-    public string Title { get; set; } = string.Empty;
+    public TextDefinition TitleText { get; set; } = default!;
 
     /// <summary>The tree's own route, where nothing is selected: the close button, Esc and a deleted node go there.</summary>
     [Parameter]
@@ -101,8 +100,9 @@ public sealed partial class SerginTree : IDisposable
     [Parameter]
     public bool Collapsible { get; set; } = true;
 
+    /// <summary>The filter box's placeholder; the shell's <c>Filter tree…</c> when not set.</summary>
     [Parameter]
-    public string FilterPlaceholder { get; set; } = "Filter tree…";
+    public TextDefinition? FilterPlaceholderText { get; set; }
 
     [Inject]
     private NavigationManager Navigation { get; set; } = default!;
@@ -111,7 +111,11 @@ public sealed partial class SerginTree : IDisposable
     private IUiTreeLayoutStore LayoutStore { get; set; } = default!;
 
     [Inject]
-    private ILocalizer Localizer { get; set; } = default!;
+    private IStringLocalizer Localizer { get; set; } = default!;
+
+    private string TitleShown => Localizer.Text(TitleText);
+
+    private string FilterPlaceholderShown => Localizer.Text(FilterPlaceholderText ?? ShellTexts.Trees.FilterPlaceholder);
 
     internal bool ShowGroupHeaders => groups.Count > 1;
 
@@ -147,18 +151,18 @@ public sealed partial class SerginTree : IDisposable
 
             if (ShowGroupHeaders && ActiveGroup is { } group)
             {
-                trail.Add(new SerginBreadcrumb(group.Title, Href));
+                trail.Add(new SerginBreadcrumb(group.TitleText, Href));
             }
 
             if (SelectedNode is { } node)
             {
-                trail.AddRange(node.Ancestors.Select(step => new SerginBreadcrumb(step.Label, ActiveGroup?.HrefFor(step.Id))));
-                trail.Add(new SerginBreadcrumb(node.Label, tail is null ? null : ActiveGroup?.HrefFor(node.Id)));
+                trail.AddRange(node.Ancestors.Select(step => SerginBreadcrumb.Data(step.Label, ActiveGroup?.HrefFor(step.Id))));
+                trail.Add(SerginBreadcrumb.Data(node.Label, tail is null ? null : ActiveGroup?.HrefFor(node.Id)));
             }
 
             if (tail is not null)
             {
-                trail.Add(new SerginBreadcrumb(tail));
+                trail.Add(tail);
             }
 
             return trail;
@@ -211,7 +215,7 @@ public sealed partial class SerginTree : IDisposable
     /// A page's <see cref="SerginTreeSelect"/> names its node; a null <paramref name="group"/> means the active group.
     /// The marker becomes the owner of the selection.
     /// </summary>
-    internal void Select(object marker, string? group, string nodeId, string? label)
+    internal void Select(object marker, string? group, string nodeId, SerginBreadcrumb? label)
     {
         owner = marker;
         tail = label;
@@ -237,7 +241,7 @@ public sealed partial class SerginTree : IDisposable
     /// A marker names no node, or went away: the selection clears, unless another marker owns it by now. A marker that
     /// names no node can still give the page header its <paramref name="label"/>.
     /// </summary>
-    internal void Release(object marker, string? label = null)
+    internal void Release(object marker, SerginBreadcrumb? label = null)
     {
         if (owner is not null && !ReferenceEquals(owner, marker))
         {

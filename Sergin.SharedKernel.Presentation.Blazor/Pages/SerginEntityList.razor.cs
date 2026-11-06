@@ -1,6 +1,5 @@
 using Microsoft.AspNetCore.Components;
 using MudBlazor;
-using Sergin.SharedKernel.Application.Localizations;
 using Sergin.SharedKernel.Presentation.Blazor.Errors;
 
 namespace Sergin.SharedKernel.Presentation.Blazor.Pages;
@@ -45,17 +44,17 @@ public sealed partial class SerginEntityList<TItem>
     [Parameter]
     public EventCallback<int> TotalChanged { get; set; }
 
-    /// <summary>The text shown when the collection is empty, localised by the list.</summary>
+    /// <summary>The text shown when the collection is empty; the shell's <c>Nothing here yet.</c> when not set.</summary>
     [Parameter]
-    public string EmptyText { get; set; } = "Nothing here yet.";
+    public TextDefinition? EmptyMessage { get; set; }
 
     /// <summary>Whether to show the quick search; false for a list whose query repository does not read <c>Term</c>.</summary>
     [Parameter]
     public bool Searchable { get; set; } = true;
 
-    /// <summary>The search box's placeholder, localised by the list.</summary>
+    /// <summary>The search box's placeholder; the shell's <c>Quick search…</c> when not set.</summary>
     [Parameter]
-    public string SearchPlaceholder { get; set; } = "Quick search…";
+    public TextDefinition? SearchPlaceholderText { get; set; }
 
     [Parameter]
     public int RowsPerPage { get; set; } = 10;
@@ -71,7 +70,19 @@ public sealed partial class SerginEntityList<TItem>
     private IUiErrorPresenter ErrorPresenter { get; set; } = default!;
 
     [Inject]
-    private ILocalizer Localizer { get; set; } = default!;
+    private IStringLocalizer Localizer { get; set; } = default!;
+
+    private string SearchPlaceholderShown => Localizer.Text(SearchPlaceholderText ?? ShellTexts.Lists.QuickSearchPlaceholder);
+
+    private string EmptyShown => string.IsNullOrWhiteSpace(term)
+        ? Localizer.Text(EmptyMessage ?? ShellTexts.Lists.NothingHereYet)
+        : Localizer.Text(ShellTexts.Lists.NothingMatchesSearch);
+
+    [Inject]
+    private MudLocalizer MudTexts { get; set; } = default!;
+
+    // MudTablePager has no localized default for this caption; it takes MudBlazor's own data-grid text.
+    private string RowsPerPageText => MudTexts["MudDataGridPager_RowsPerPage"].Value;
 
     /// <summary>Loads the current page again — after a row command, or when the owning page reloads.</summary>
     public Task ReloadAsync() => table.ReloadServerData();

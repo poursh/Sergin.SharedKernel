@@ -1,5 +1,4 @@
 using Microsoft.AspNetCore.Components;
-using Sergin.SharedKernel.Application.Localizations;
 
 namespace Sergin.SharedKernel.Presentation.Blazor.Pages;
 
@@ -9,16 +8,22 @@ namespace Sergin.SharedKernel.Presentation.Blazor.Pages;
 /// </summary>
 public sealed partial class SerginOverviewCard
 {
+
+    /// <summary>The label, a declared text.</summary>
     [Parameter]
     [EditorRequired]
-    public string Label { get; set; } = string.Empty;
+    public TextDefinition LabelText { get; set; } = default!;
 
+    /// <summary>Data, not a label: the figure, already formatted through <c>ICultureFormatter</c>, shown as is.</summary>
     [Parameter]
-    public string? Value { get; set; }
+    public string? ValueData { get; set; }
 
+    /// <summary>Data, not a label: the line under the figure, already rendered from a declared text, shown as is.</summary>
     [Parameter]
-    public string? Caption { get; set; }
+    public string? CaptionData { get; set; }
 
     [Inject]
-    private ILocalizer Localizer { get; set; } = default!;
+    private IStringLocalizer Localizer { get; set; } = default!;
+
+    private string LabelShown => Localizer.Text(LabelText);
 }

@@ -7,7 +7,7 @@ namespace Sergin.SharedKernel.Presentation.Blazor.Pages;
 /// <see cref="SerginAggregateList{TItem}"/> or <see cref="SerginEntityList{TItem}"/> at least one turns on its
 /// checkbox column.
 /// </summary>
-/// <param name="Label">The button text, localised by the bar.</param>
+/// <param name="Label">The button text, a declared text rendered in the current UI culture.</param>
 /// <param name="Icon">A MudBlazor icon constant; null for none.</param>
 /// <param name="Kind">Its look and place, as in the actions bar.</param>
 /// <param name="OnRun">
@@ -20,7 +20,7 @@ namespace Sergin.SharedKernel.Presentation.Blazor.Pages;
 /// </param>
 /// <param name="AnyScope">Whether the permission is checked on any scope rather than the current one.</param>
 public sealed record SerginBulkAction<TItem>(
-    string Label,
+    TextDefinition Label,
     string? Icon,
     SerginActionKind Kind,
     Func<IReadOnlyList<TItem>, Task> OnRun,

@@ -12,9 +12,11 @@ namespace Sergin.SharedKernel.Application.Commands.Configuration;
 /// </summary>
 public sealed class ModuleConfigurationSource
 {
-    private ModuleConfigurationSource(IReadOnlyCollection<Type> configurationTypes, IReadOnlyCollection<Type> aggregateConfigurationTypes, string? schema)
+    private ModuleConfigurationSource(
+        IReadOnlyCollection<Type> configurationTypes, IReadOnlyCollection<Type> aggregateConfigurationTypes, string? schema, string? moduleName = null)
     {
         Schema = schema;
+        ModuleName = moduleName;
         ConfigurationTypes = configurationTypes;
         AggregateConfigurationTypes = aggregateConfigurationTypes;
     }
@@ -24,6 +26,12 @@ public sealed class ModuleConfigurationSource
     /// source that is not a module's (a test's <see cref="FromTypes"/>), which skips that check.
     /// </summary>
     public string? Schema { get; }
+
+    /// <summary>
+    /// The module's name (<c>DeviceManagement</c>), the first segment of the text keys its permission labels get when
+    /// the aggregate names no text category; null for a source that is not a module's.
+    /// </summary>
+    public string? ModuleName { get; }
 
     /// <summary>The command configuration types.</summary>
     public IReadOnlyCollection<Type> ConfigurationTypes { get; }
@@ -35,7 +43,7 @@ public sealed class ModuleConfigurationSource
     /// The configurations in a module's configurations assembly. The schema is required: it is what lets the
     /// catalogue refuse a permission registered outside its module.
     /// </summary>
-    public static ModuleConfigurationSource FromAssembly(Assembly assembly, string schema)
+    public static ModuleConfigurationSource FromAssembly(Assembly assembly, string schema, string? moduleName = null)
     {
         ArgumentNullException.ThrowIfNull(assembly);
         ArgumentException.ThrowIfNullOrWhiteSpace(schema);
@@ -43,7 +51,8 @@ public sealed class ModuleConfigurationSource
         return new(
             [.. assembly.GetTypes().Where(CommandConfigurationRegistry.IsConfigurationType)],
             AggregateFeatureRegistry.ConfigurationTypesIn(assembly),
-            schema);
+            schema,
+            moduleName);
     }
 
     /// <summary>Command and aggregate feature configuration types, in any mix.</summary>

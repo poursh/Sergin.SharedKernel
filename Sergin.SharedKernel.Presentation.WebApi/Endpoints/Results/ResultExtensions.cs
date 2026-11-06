@@ -1,6 +1,6 @@
+using Microsoft.Extensions.Localization;
 ﻿using ErrorOr;
 using Microsoft.AspNetCore.Http;
-using Sergin.SharedKernel.Application.Localizations;
 
 using HttpResults = Microsoft.AspNetCore.Http.Results;
 
@@ -14,7 +14,7 @@ public static class ResultExtensions
     }
 
     internal static IResult ToApiResult<TIn>(
-        this ErrorOr<TIn> result, ILocalizer localizer)
+        this ErrorOr<TIn> result, IStringLocalizer localizer)
     {
         return result.Match(HttpResults.Ok, errors => ApiProblemResults.Problem(errors, localizer));
     }

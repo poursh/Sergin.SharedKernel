@@ -6,9 +6,9 @@
     {
         <div class="mb-2">
             <MudTextField T="string" Value="term" ValueChanged="OnTermChangedAsync" DebounceInterval="300" Immediate="true"
-                          Placeholder="@Localizer[SearchPlaceholder]" Adornment="Adornment.Start"
+                          Placeholder="@SearchPlaceholderShown" Adornment="Adornment.Start"
                           AdornmentIcon="@Icons.Material.Filled.Search" Variant="Variant.Outlined" Margin="Margin.Dense"
-                          Clearable="true" Class="sergin-search" aria-label="@Localizer["Quick search"]" />
+                          Clearable="true" Class="sergin-search" aria-label="@Localizer.Text(ShellTexts.Lists.QuickSearch)" />
         </div>
     }    
     @if (selected.Count > 0)
@@ -33,10 +33,10 @@
             }
         </RowTemplate>
         <NoRecordsContent>
-            <MudText Typo="Typo.body2">@Localizer[string.IsNullOrWhiteSpace(term) ? EmptyText : "Nothing matches this search."]</MudText>
+            <MudText Typo="Typo.body2">@EmptyShown</MudText>
         </NoRecordsContent>
         <PagerContent>
-            <MudTablePager />
+            <MudTablePager RowsPerPageString="@RowsPerPageText" />
         </PagerContent>
     </MudTable>
 </div>

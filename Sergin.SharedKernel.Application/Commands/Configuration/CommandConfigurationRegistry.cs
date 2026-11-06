@@ -1,5 +1,6 @@
 ﻿using System.Reflection;
 using Sergin.SharedKernel.Application.Aggregates;
+using Sergin.SharedKernel.Application.Localizations;
 
 namespace Sergin.SharedKernel.Application.Commands.Configuration;
 
@@ -15,14 +16,19 @@ namespace Sergin.SharedKernel.Application.Commands.Configuration;
 /// </summary>
 public sealed class CommandConfigurationRegistry
 {
-    private readonly IReadOnlyDictionary<Type, CommandSettings> settings;
+    private static readonly IReadOnlySet<string> noProperties = new HashSet<string>(StringComparer.Ordinal);
 
-    private CommandConfigurationRegistry(IReadOnlyDictionary<Type, CommandSettings> settings)
+    private readonly IReadOnlyDictionary<Type, CommandSettings> settings;
+    private readonly IReadOnlyDictionary<Type, Texts> texts;
+
+    private CommandConfigurationRegistry(IReadOnlyDictionary<Type, CommandSettings> settings, IReadOnlyDictionary<Type, Texts> texts)
     {
         this.settings = settings;
+        this.texts = texts;
     }
 
-    public static CommandConfigurationRegistry Empty { get; } = new(new Dictionary<Type, CommandSettings>());
+    public static CommandConfigurationRegistry Empty { get; } =
+        new(new Dictionary<Type, CommandSettings>(), new Dictionary<Type, Texts>());
 
     /// <summary>The configured request types.</summary>
     public IReadOnlyCollection<Type> ConfiguredTypes => [.. settings.Keys];
@@ -33,6 +39,25 @@ public sealed class CommandConfigurationRegistry
         ArgumentNullException.ThrowIfNull(requestType);
 
         return settings.TryGetValue(requestType, out CommandSettings? declared) ? declared : CommandSettings.None;
+    }
+
+    /// <summary>
+    /// The text category <paramref name="requestType"/>'s fields are declared in: the one its configuration names with
+    /// <c>Texts(...)</c>, else its bound root's; null for a request with neither, or with no configuration.
+    /// </summary>
+    public TextCategory? CategoryOf(Type requestType)
+    {
+        ArgumentNullException.ThrowIfNull(requestType);
+
+        return texts.TryGetValue(requestType, out Texts? declared) ? declared.Category : null;
+    }
+
+    /// <summary>The property names <paramref name="requestType"/>'s configuration marks <c>NotShown(...)</c>; empty when none.</summary>
+    public IReadOnlySet<string> HiddenProperties(Type requestType)
+    {
+        ArgumentNullException.ThrowIfNull(requestType);
+
+        return texts.TryGetValue(requestType, out Texts? declared) ? declared.HiddenProperties : noProperties;
     }
 
     public static CommandConfigurationRegistry FromSources(IEnumerable<ModuleConfigurationSource> sources)
@@ -56,7 +81,7 @@ public sealed class CommandConfigurationRegistry
 
     private static CommandConfigurationRegistry Build(IEnumerable<Type> configurationTypes, AggregateFeatureRegistry aggregates)
     {
-        List<(Type RequestType, Type ConfigurationType, CommandSettings Settings)> declared = [];
+        List<(Type RequestType, Type ConfigurationType, CommandSettings Settings, Texts Texts)> declared = [];
 
         foreach (Type configurationType in configurationTypes)
         {
@@ -65,7 +90,9 @@ public sealed class CommandConfigurationRegistry
                 Type[] arguments = closedInterface.GetGenericArguments();
                 Type requestType = arguments[0];
                 Type? aggregateRoot = arguments.Length > 1 ? arguments[1] : null;
-                declared.Add((requestType, configurationType, Run(configurationType, closedInterface, requestType, aggregateRoot, aggregates)));
+                (CommandSettings requestSettings, Texts requestTexts) =
+                    Run(configurationType, closedInterface, requestType, aggregateRoot, aggregates);
+                declared.Add((requestType, configurationType, requestSettings, requestTexts));
             }
         }
 
@@ -84,14 +111,16 @@ public sealed class CommandConfigurationRegistry
                 + "Declare each request's policy in exactly one ICommandConfiguration<T>.");
         }
 
-        return new CommandConfigurationRegistry(declared.ToDictionary(item => item.RequestType, item => item.Settings));
+        return new CommandConfigurationRegistry(
+            declared.ToDictionary(item => item.RequestType, item => item.Settings),
+            declared.ToDictionary(item => item.RequestType, item => item.Texts));
     }
 
     internal static bool IsConfigurationType(Type type) =>
         type is { IsClass: true, IsAbstract: false, IsGenericTypeDefinition: false }
         && type.GetInterfaces().Any(IsClosedConfigurationInterface);
 
-    private static CommandSettings Run(
+    private static (CommandSettings Settings, Texts Texts) Run(
         Type configurationType,
         Type closedInterface,
         Type requestType,
@@ -158,9 +187,13 @@ public sealed class CommandConfigurationRegistry
         // scopes; any scope for another, whose records belong to none.
         PermissionScope scope = aggregateRoot is not null && !features.Scoped ? PermissionScope.Any : PermissionScope.Current;
 
-        return builder.Permissions.Count == 0 && !builder.ExpectedVersionRequired && aggregateRoot is null
+        CommandSettings declared = builder.Permissions.Count == 0 && !builder.ExpectedVersionRequired && aggregateRoot is null
             ? CommandSettings.None
             : new CommandSettings([.. builder.Permissions.Distinct()], builder.ExpectedVersionRequired, scope, aggregateRoot);
+
+        TextCategory? category = builder.TextCategory ?? (aggregateRoot is null ? null : aggregates.TextsOf(aggregateRoot));
+
+        return (declared, new Texts(category, builder.HiddenProperties.ToHashSet(StringComparer.Ordinal)));
     }
 
     /// <summary>
@@ -204,4 +237,6 @@ public sealed class CommandConfigurationRegistry
         type.IsGenericType
         && (type.GetGenericTypeDefinition() == typeof(ICommandConfiguration<>)
             || type.GetGenericTypeDefinition() == typeof(ICommandConfiguration<,>));
+
+    private sealed record Texts(TextCategory? Category, IReadOnlySet<string> HiddenProperties);
 }

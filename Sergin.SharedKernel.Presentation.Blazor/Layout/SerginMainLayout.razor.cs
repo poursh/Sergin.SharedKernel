@@ -3,8 +3,8 @@ using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Options;
 using MudBlazor;
 using MudBlazor.ThemeManager;
-using Sergin.SharedKernel.Application.Localizations;
 using Sergin.SharedKernel.Application.Securities.Users;
+using Sergin.SharedKernel.Presentation.Blazor.Localizations;
 using Sergin.SharedKernel.Presentation.Blazor.Security;
 using Sergin.SharedKernel.Presentation.Blazor.Theming;
 
@@ -37,7 +37,10 @@ public sealed partial class SerginMainLayout
     private IHostEnvironment HostEnvironment { get; set; } = default!;
 
     [Inject]
-    private ILocalizer Localizer { get; set; } = default!;
+    private SerginDocumentCulture DocumentCulture { get; set; } = default!;
+
+    [Inject]
+    private IStringLocalizer Localizer { get; set; } = default!;
 
     [Inject]
     private IUiThemeStore ThemeStore { get; set; } = default!;
@@ -85,7 +88,7 @@ public sealed partial class SerginMainLayout
         ? Icons.Material.Outlined.LightMode
         : Icons.Material.Outlined.DarkMode;
 
-    private string DarkModeLabel => Localizer[isDarkMode ? "Switch to light mode" : "Switch to dark mode"];
+    private string DarkModeLabel => Localizer.Text(isDarkMode ? ShellTexts.Layout.SwitchToLightMode : ShellTexts.Layout.SwitchToDarkMode);
 
     /// <summary>
     /// Settles the scope the circuit works in before the page renders: the home scope when the current one is not

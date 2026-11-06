@@ -10,7 +10,7 @@ internal interface ISerginTreeGroup
 {
     string Key { get; }
 
-    string Title { get; }
+    TextDefinition TitleText { get; }
 
     /// <summary>The add action of the group: the group header's <c>+</c>, or the static row's on a one-group page.</summary>
     SerginPageAction? AddAction { get; }

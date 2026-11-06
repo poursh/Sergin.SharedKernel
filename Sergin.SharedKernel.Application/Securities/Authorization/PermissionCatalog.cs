@@ -1,6 +1,9 @@
 using System.Diagnostics.CodeAnalysis;
 using Sergin.SharedKernel.Application.Aggregates;
 using Sergin.SharedKernel.Application.Commands.Configuration;
+using Sergin.SharedKernel.Application.Localizations;
+using Sergin.SharedKernel.Application.Localizations.Common;
+using Sergin.SharedKernel.Domain.Localizations;
 
 namespace Sergin.SharedKernel.Application.Securities.Authorization;
 
@@ -11,22 +14,33 @@ namespace Sergin.SharedKernel.Application.Securities.Authorization;
 /// the same name from two aggregates, a permission outside its module's schema, a module registering the
 /// reserved <c>sys</c> schema, or a definition class whose initializer rejected its own name.
 /// </summary>
+/// <remarks>
+/// Each entry carries its label as a declared text (spec decision 19), the definition's own label being the English
+/// default: <c>&lt;root's category prefix&gt;.permissions.&lt;last name segment&gt;</c> when the root named a category
+/// with <c>Texts(...)</c>; otherwise, for a module's source, <c>&lt;module&gt;.&lt;the name's resource segments&gt;.permissions.&lt;last&gt;</c>
+/// (<c>permission.dm.devices.read</c> in DeviceManagement is <c>device-management.devices.permissions.read</c>, the same key
+/// the root's category would give); the platform permission's is <c>common.permissions.platform-all</c>. A test source,
+/// which names no module, keys the label by the permission name and leaves it out of the text catalog.
+/// </remarks>
 public sealed class PermissionCatalog
 {
     private const string ReservedSchema = "sys";
     private const string PlatformGroup = "Platform";
+    private const string PermissionsSegment = "Permissions";
 
     private readonly IReadOnlyList<PermissionCatalogEntry> entries;
     private readonly Dictionary<string, PermissionDefinition> byName;
+    private readonly Dictionary<string, TextDefinition> labels;
 
     private PermissionCatalog(IReadOnlyList<PermissionCatalogEntry> entries)
     {
         this.entries = entries;
         byName = entries.ToDictionary(entry => entry.Definition.Permission.Value, entry => entry.Definition, StringComparer.Ordinal);
+        labels = entries.ToDictionary(entry => entry.Definition.Permission.Value, entry => entry.Label, StringComparer.Ordinal);
     }
 
     public static PermissionCatalog Empty { get; } =
-        new([new PermissionCatalogEntry(PermissionDefinition.AllPlatform, AggregateRoot: null)]);
+        new([PlatformEntry()]);
 
     /// <summary>Every registered permission, <see cref="PermissionDefinition.AllPlatform"/> included.</summary>
     public IReadOnlyCollection<PermissionCatalogEntry> Entries => entries;
@@ -35,7 +49,7 @@ public sealed class PermissionCatalog
     {
         ArgumentNullException.ThrowIfNull(sources);
 
-        List<PermissionCatalogEntry> collected = [new(PermissionDefinition.AllPlatform, AggregateRoot: null)];
+        List<PermissionCatalogEntry> collected = [PlatformEntry()];
 
         foreach (ModuleConfigurationSource source in sources)
         {
@@ -46,15 +60,24 @@ public sealed class PermissionCatalog
                 foreach (PermissionDefinition definition in registry.PermissionsOf(root))
                 {
                     CheckSchema(source.Schema, root, definition);
-                    collected.Add(new PermissionCatalogEntry(definition, root));
+                    collected.Add(EntryOf(definition, root, registry.TextsOf(root), source.ModuleName) with
+                    {
+                        GroupTitle = registry.NameOf(root) ?? CommonTexts.PermissionGroupOther,
+                    });
                 }
             }
         }
 
         CheckNames(collected);
 
-        // The same definition from the same root twice (two sources) is one entry; CheckNames has refused the rest.
-        return new PermissionCatalog([.. collected.DistinctBy(entry => entry.Definition.Permission.Value, StringComparer.Ordinal)]);
+        // The same definition from the same root twice (two sources) is one entry, preferring the one whose label is a
+        // module's text; CheckNames has refused the rest.
+        return new PermissionCatalog(
+        [
+            .. collected
+                .OrderBy(entry => entry.InTextCatalog ? 0 : 1)
+                .DistinctBy(entry => entry.Definition.Permission.Value, StringComparer.Ordinal),
+        ]);
     }
 
     public bool Contains(PermissionDefinition permission)
@@ -62,6 +85,16 @@ public sealed class PermissionCatalog
         ArgumentNullException.ThrowIfNull(permission);
 
         return byName.ContainsKey(permission.Permission.Value);
+    }
+
+    /// <summary>The declared text <paramref name="permission"/>'s label is shown with.</summary>
+    public TextDefinition LabelOf(PermissionDefinition permission)
+    {
+        ArgumentNullException.ThrowIfNull(permission);
+
+        return labels.TryGetValue(permission.Permission.Value, out TextDefinition? label)
+            ? label
+            : throw new ArgumentException($"{permission.Permission.Value} is not in the permission catalogue.", nameof(permission));
     }
 
     public bool TryGet(Permission permission, [NotNullWhen(true)] out PermissionDefinition? definition)
@@ -88,6 +121,7 @@ public sealed class PermissionCatalog
                         .OrderBy(group => group.Key, StringComparer.Ordinal)
                         .Select(group => new PermissionCatalogGroup(
                             group.Key,
+                            group.First().GroupTitle,
                             [
                                 .. group
                                     .Select(entry => entry.Definition)
@@ -95,6 +129,37 @@ public sealed class PermissionCatalog
                             ]))
                 ]))
     ];
+
+    private static PermissionCatalogEntry PlatformEntry() =>
+        new(
+            PermissionDefinition.AllPlatform,
+            AggregateRoot: null,
+            TextCategory.Create("Common", PermissionsSegment).Text(ActionOf(PermissionDefinition.AllPlatform), PermissionDefinition.AllPlatform.Label),
+            CommonTexts.PermissionGroupPlatform);
+
+    private static PermissionCatalogEntry EntryOf(PermissionDefinition definition, Type root, TextCategory? category, string? moduleName)
+    {
+        string action = ActionOf(definition);
+
+        if (category is not null)
+        {
+            return new(definition, root, category.Child(PermissionsSegment).Text(action, definition.Label), CommonTexts.PermissionGroupOther);
+        }
+
+        if (moduleName is not null)
+        {
+            string[] resource = [.. definition.Permission.Segments.Skip(2).SkipLast(1), PermissionsSegment];
+
+            return new(definition, root, TextCategory.Create(moduleName, resource).Text(action, definition.Label), CommonTexts.PermissionGroupOther);
+        }
+
+        return new(definition, root, new TextDefinition(TextKey.Create(definition.Permission.Value), definition.Label), CommonTexts.PermissionGroupOther)
+        {
+            InTextCatalog = false,
+        };
+    }
+
+    private static string ActionOf(PermissionDefinition definition) => definition.Permission.Segments[^1];
 
     private static void CheckSchema(string? schema, Type root, PermissionDefinition definition)
     {

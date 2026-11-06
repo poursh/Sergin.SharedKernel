@@ -2,14 +2,14 @@
    Renders nothing while no action is visible. *@
 @if (visibleActions.Count > 0)
 {
-    <MudMenu Icon="@Icon" Size="Size.Small" Dense="true" AriaLabel="@Localizer[AriaLabel]" Class="@Class"
+    <MudMenu Icon="@Icon" Size="Size.Small" Dense="true" AriaLabel="@AriaLabelShown" Class="@Class"
              AnchorOrigin="Origin.BottomRight" TransformOrigin="Origin.TopRight">
         @foreach (SerginPageAction action in visibleActions)
         {
             <MudMenuItem Icon="@action.Icon" IconColor="@(action.Kind == SerginActionKind.Danger ? Color.Error : Color.Default)"
                          Class="@(action.Kind == SerginActionKind.Danger ? "mud-error-text" : null)"
                          Href="@action.Href" OnClick="action.OnClick" Disabled="action.Disabled">
-                @Localizer[action.Label]
+                @Localizer.Text(action.Label)
             </MudMenuItem>
         }
     </MudMenu>

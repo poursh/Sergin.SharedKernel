@@ -6,14 +6,16 @@ using Sergin.SharedKernel.Presentation.Errors;
 namespace Sergin.SharedKernel.Presentation.Blazor.Views;
 
 /// <summary>
-/// A view of one aggregate root — today exactly a <see cref="SerginView"/>. It exists as the seam where behaviour only
+/// A view of one aggregate root â€” today exactly a <see cref="SerginView"/>. It exists as the seam where behaviour only
 /// roots have (the information dialog's audit, row version and scope) lands later without touching the module views.
 /// </summary>
 public sealed partial class SerginAggregateView
 {
+
+    /// <summary>The title, a declared text.</summary>
     [Parameter]
     [EditorRequired]
-    public string Title { get; set; } = string.Empty;
+    public TextDefinition TitleText { get; set; } = default!;
 
     [Parameter]
     public IReadOnlyList<SerginBreadcrumb> Trail { get; set; } = [];

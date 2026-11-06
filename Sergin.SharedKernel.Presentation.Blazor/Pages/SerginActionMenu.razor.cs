@@ -1,6 +1,5 @@
 using Microsoft.AspNetCore.Components;
 using MudBlazor;
-using Sergin.SharedKernel.Application.Localizations;
 using Sergin.SharedKernel.Application.Securities.Authorization;
 
 namespace Sergin.SharedKernel.Presentation.Blazor.Pages;
@@ -20,9 +19,9 @@ public sealed partial class SerginActionMenu
     [Parameter]
     public string Icon { get; set; } = Icons.Material.Filled.MoreVert;
 
-    /// <summary>The button's accessible name (localised).</summary>
+    /// <summary>The button's accessible name; the shell's <c>Actions</c> when not set.</summary>
     [Parameter]
-    public string AriaLabel { get; set; } = "Actions";
+    public TextDefinition? AriaLabelText { get; set; }
 
     [Parameter]
     public string? Class { get; set; }
@@ -31,7 +30,9 @@ public sealed partial class SerginActionMenu
     private IScopeAuthorization ScopeAuthorization { get; set; } = default!;
 
     [Inject]
-    private ILocalizer Localizer { get; set; } = default!;
+    private IStringLocalizer Localizer { get; set; } = default!;
+
+    private string AriaLabelShown => Localizer.Text(AriaLabelText ?? ShellTexts.Navigation.Actions);
 
     protected override void OnInitialized() => visibility = new SerginActionVisibility(ScopeAuthorization);
 

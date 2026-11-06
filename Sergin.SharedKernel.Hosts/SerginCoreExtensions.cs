@@ -3,6 +3,7 @@ using FluentValidation;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
+using Microsoft.Extensions.Localization;
 using Microsoft.Extensions.Options;
 using Sergin.SharedKernel.Application.Aggregates;
 using Sergin.SharedKernel.Application.Commands;
@@ -11,10 +12,12 @@ using Sergin.SharedKernel.Application.Concurrency;
 using Sergin.SharedKernel.Application.Events;
 using Sergin.SharedKernel.Application.Events.Integration;
 using Sergin.SharedKernel.Application.Localizations;
+using Sergin.SharedKernel.Application.Localizations.Validation;
 using Sergin.SharedKernel.Application.Securities.Authorization;
 using Sergin.SharedKernel.Application.Securities.Users;
 using Sergin.SharedKernel.Application.Times;
 using Sergin.SharedKernel.Hosts;
+using Sergin.SharedKernel.Hosts.Localizations;
 using Sergin.SharedKernel.Hosts.Outbox;
 using Sergin.SharedKernel.Infrastracture.Data;
 using Sergin.SharedKernel.Infrastructure.Data.EFCore;
@@ -26,6 +29,7 @@ using Sergin.SharedKernel.Infrastructure.Localizations;
 using Sergin.SharedKernel.Infrastructure.Times;
 using Sergin.SharedKernel.Modules;
 using Sergin.SharedKernel.Presentation;
+using Sergin.SharedKernel.Presentation.Localizations;
 
 namespace Microsoft.Extensions.Hosting;
 
@@ -62,6 +66,22 @@ public static class SerginCoreExtensions
                 $"Duplicate module schema(s) registered: {string.Join(", ", duplicateSchemas)}. Each schema must "
                 + "appear exactly once across localModules and remoteModules combined — a module cannot be both "
                 + "Local and Remote in the same host, and two classes for the same schema runs AddServices twice.");
+        }
+
+        string[] duplicateNames =
+        [
+            .. localModules.Select(m => m.Name)
+                .Concat(remoteModules.Select(m => m.Name))
+                .GroupBy(name => name, StringComparer.Ordinal)
+                .Where(group => group.Count() > 1)
+                .Select(group => group.Key)
+        ];
+
+        if (duplicateNames.Length > 0)
+        {
+            throw new InvalidOperationException(
+                $"Duplicate module name(s) registered: {string.Join(", ", duplicateNames)}. Each module name must "
+                + "appear exactly once across localModules and remoteModules combined; it is the first segment of its text keys.");
         }
 
         EnsureConfigurationsArePlaced(localModules, remoteModules);
@@ -110,6 +130,7 @@ public static class SerginCoreExtensions
             .ValidateOnStart();
         builder.Services.AddSingleton<IValidateOptions<SerginTimeZoneOptions>, SerginTimeZoneOptionsValidator>();
         builder.Services.TryAddSingleton<ILocalTimeConverter, SystemLocalTimeConverter>();
+        builder.Services.TryAddScoped<ICultureFormatter, CultureFormatter>();
 
         foreach (ISerginModule module in localModules)
         {
@@ -131,12 +152,12 @@ public static class SerginCoreExtensions
         // resolve it so a bad declaration fails host start, not the first send.
         foreach (ISerginModule module in localModules)
         {
-            builder.Services.AddSingleton(ModuleConfigurationSource.FromAssembly(module.ConfigurationsAssembly, module.Schema));
+            builder.Services.AddSingleton(ModuleConfigurationSource.FromAssembly(module.ConfigurationsAssembly, module.Schema, module.Name));
         }
 
         foreach (ISerginRemoteModule remoteModule in remoteModules)
         {
-            builder.Services.AddSingleton(ModuleConfigurationSource.FromAssembly(remoteModule.ConfigurationsAssembly, remoteModule.Schema));
+            builder.Services.AddSingleton(ModuleConfigurationSource.FromAssembly(remoteModule.ConfigurationsAssembly, remoteModule.Schema, remoteModule.Name));
         }
 
         builder.Services.AddSingleton(provider =>
@@ -146,6 +167,30 @@ public static class SerginCoreExtensions
         // the registry above so a duplicate or misplaced permission fails host start.
         builder.Services.AddSingleton(provider =>
             PermissionCatalog.FromSources(provider.GetServices<ModuleConfigurationSource>()));
+
+        // Every declared text: SharedKernel's own plus each module's ConfigurationsAssembly, scanned. Resolved at start
+        // beside the permission catalogue so a duplicate key or a key outside its module fails host start.
+        builder.Services.AddSingleton(TextSource.Common);
+
+        foreach (ISerginModule module in localModules)
+        {
+            builder.Services.AddSingleton(TextSource.FromAssembly(module.ConfigurationsAssembly, module.Name));
+        }
+
+        foreach (ISerginRemoteModule remoteModule in remoteModules)
+        {
+            builder.Services.AddSingleton(TextSource.FromAssembly(remoteModule.ConfigurationsAssembly, remoteModule.Name));
+        }
+
+        // Plus the permission labels, derived from the permission catalogue (one text per definition, its label the
+        // English default), so the role pages show them translated.
+        builder.Services.AddSingleton(provider => TextCatalog.FromSources(
+            provider.GetServices<TextSource>().Concat(TextSource.FromPermissions(provider.GetRequiredService<PermissionCatalog>()))));
+
+        // The field-text guard reads every Contracts assembly, local and remote: each configured request's shown
+        // properties need a FieldText. The Use…Async bootstraps run it at start, after the catalog and the registry.
+        builder.Services.AddSingleton(new FieldTextGuard(
+            localModules.Select(module => module.ContractsAssembly).Concat(remoteModules.Select(module => module.ContractsAssembly))));
 
         builder.Services.AddSingleton<IIntegrationEventTypeRegistry, IntegrationEventTypeRegistry>();
         builder.Services.AddSingleton<IIntegrationEventSerializer, JsonIntegrationEventSerializer>();
@@ -214,7 +259,32 @@ public static class SerginCoreExtensions
             p.GetRequiredService<UserContextAccessor>().Current
             ?? p.GetRequiredService<IUserContextFactory>().CreateUserContext());
 
-        builder.Services.AddSingleton<ILocalizer, DefaultLocalizer>();
+
+        // Texts: one localizer over the catalog and the translation cache. The module owning translations (Platform)
+        // supplies the store; a host without one shows the English defaults.
+        builder.Services.TryAddSingleton<ITranslationStore, EmptyTranslationStore>();
+        builder.Services.AddSingleton<ITranslationCache, TranslationCache>();
+
+        // The culture every request renders in unless its caller chose another offered language. Bound here rather
+        // than per presentation: both the Blazor and the Web API bootstraps select cultures against it.
+        builder.Services.AddOptions<SerginLocalizationOptions>()
+            .Bind(serginSection.GetSection(SerginLocalizationOptions.SectionName))
+            .ValidateOnStart();
+        builder.Services.AddSingleton<IValidateOptions<SerginLocalizationOptions>, SerginLocalizationOptionsValidator>();
+
+        // Nobody previews a draft language unless the module owning translations says otherwise.
+        builder.Services.TryAddScoped<IDraftLanguagePreviewPolicy, DenyDraftPreview>();
+        builder.Services.AddSingleton<IStringLocalizerFactory, SerginStringLocalizerFactory>();
+        builder.Services.AddTransient(typeof(IStringLocalizer<>), typeof(StringLocalizer<>));
+        builder.Services.AddSingleton<IStringLocalizer>(sp => sp.GetRequiredService<IStringLocalizerFactory>().Create(typeof(TextCatalog)));
+
+        // FluentValidation's messages and field names through the catalog. Its options are process-wide, so they point
+        // at stateless forwarders (once, whichever host starts first) and each validation makes this host's texts
+        // current for its own flow; see ValidationTexts.
+        ValidationTexts.Install();
+        builder.Services.AddSingleton<TextLanguageManager>();
+        builder.Services.AddSingleton<FieldDisplayNameResolver>();
+        builder.Services.AddSingleton<ValidationTexts>();
 
         foreach (ISerginModule module in localModules)
         {

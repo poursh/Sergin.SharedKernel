@@ -6,14 +6,16 @@ using Sergin.SharedKernel.Presentation.Errors;
 namespace Sergin.SharedKernel.Presentation.Blazor.Views;
 
 /// <summary>
-/// The list view of one aggregate: overview, actions, then the table (<see cref="ChildContent"/> — a
+/// The list view of one aggregate: overview, actions, then the table (<see cref="ChildContent"/> â€” a
 /// <see cref="SerginAggregateList{TItem}"/> carrying its quick search, filter panel and bulk actions).
 /// </summary>
 public sealed partial class SerginAggregateListView
 {
+
+    /// <summary>The title, a declared text.</summary>
     [Parameter]
     [EditorRequired]
-    public string Title { get; set; } = string.Empty;
+    public TextDefinition TitleText { get; set; } = default!;
 
     [Parameter]
     public IReadOnlyList<SerginBreadcrumb> Trail { get; set; } = [];

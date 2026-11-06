@@ -1,10 +1,11 @@
 using Microsoft.AspNetCore.Components;
+using Sergin.SharedKernel.Presentation.Blazor.Navigation;
 
 namespace Sergin.SharedKernel.Presentation.Blazor.Trees;
 
 /// <summary>
 /// Names the node a page inside a tree layout shows: <c>&lt;SerginTreeSelect Node="@Id.ToString()" /&gt;</c> on a
-/// detail page, <c>&lt;SerginTreeSelect Node="@ParentId?.ToString()" Tail="New scope" /&gt;</c> on a create page.
+/// detail page, <c>&lt;SerginTreeSelect Node="@ParentId?.ToString()" TailText="ScopeTexts.New" /&gt;</c> on a create page.
 /// </summary>
 /// <remarks>
 /// The tree highlights the node, opens its ancestors and adds its path to the page header's trail. Navigating to another page
@@ -22,9 +23,11 @@ public sealed partial class SerginTreeSelect : IDisposable
     [Parameter]
     public string? Group { get; set; }
 
-    /// <summary>What the page shows under the node, as the trail's last step (localised); null on the node's page.</summary>
+    /// <summary>What the page shows under the node, as the trail's last step; null on the node's page.</summary>
     [Parameter]
-    public string? Tail { get; set; }
+    public TextDefinition? TailText { get; set; }
+
+    private SerginBreadcrumb? TailStep => TailText is { } text ? new SerginBreadcrumb(text) : null;
 
     [CascadingParameter]
     private SerginTree? Tree { get; set; }
@@ -40,11 +43,11 @@ public sealed partial class SerginTreeSelect : IDisposable
 
         if (string.IsNullOrWhiteSpace(Node))
         {
-            Tree.Release(this, Tail);
+            Tree.Release(this, TailStep);
         }
         else
         {
-            Tree.Select(this, Group, Node, Tail);
+            Tree.Select(this, Group, Node, TailStep);
         }
     }
 }

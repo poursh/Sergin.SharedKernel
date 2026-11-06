@@ -1,4 +1,5 @@
 using System.Reflection;
+using Sergin.SharedKernel.Application.Localizations;
 
 namespace Sergin.SharedKernel.Application.Aggregates;
 
@@ -79,6 +80,22 @@ public sealed class AggregateFeatureRegistry
         return declarations.TryGetValue(aggregateRoot, out Declaration? declaration)
             ? declaration.Permissions
             : [];
+    }
+
+    /// <summary>The text category <paramref name="aggregateRoot"/> named with <c>Texts(...)</c>; null when none.</summary>
+    public TextCategory? TextsOf(Type aggregateRoot)
+    {
+        ArgumentNullException.ThrowIfNull(aggregateRoot);
+
+        return declarations.TryGetValue(aggregateRoot, out Declaration? declaration) ? declaration.Texts : null;
+    }
+
+    /// <summary>The name <paramref name="aggregateRoot"/> declared with <c>Named(...)</c>; null when none.</summary>
+    public TextDefinition? NameOf(Type aggregateRoot)
+    {
+        ArgumentNullException.ThrowIfNull(aggregateRoot);
+
+        return declarations.TryGetValue(aggregateRoot, out Declaration? declaration) ? declaration.Name : null;
     }
 
     public static AggregateFeatureRegistry FromAssemblies(IEnumerable<Assembly> assemblies)
@@ -167,7 +184,8 @@ public sealed class AggregateFeatureRegistry
             throw StaticInitializationFailure.Describe($"Aggregate feature configuration {configurationType.FullName}", exception);
         }
 
-        return new Declaration(builder.Features, builder.AuditExceptions.ToHashSet(), [.. builder.PermissionDefinitions]);
+        return new Declaration(
+            builder.Features, builder.AuditExceptions.ToHashSet(), [.. builder.PermissionDefinitions], builder.TextCategory, builder.Name);
     }
 
     internal static bool IsConfigurationType(Type type) =>
@@ -178,5 +196,5 @@ public sealed class AggregateFeatureRegistry
         type.IsGenericType && type.GetGenericTypeDefinition() == typeof(IAggregateFeatureConfiguration<>);
 
     private sealed record Declaration(AggregateFeatures Features, IReadOnlySet<Type> AuditExceptions,
-        IReadOnlyCollection<PermissionDefinition> Permissions);
+        IReadOnlyCollection<PermissionDefinition> Permissions, TextCategory? Texts, TextDefinition? Name);
 }

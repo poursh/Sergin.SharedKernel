@@ -6,7 +6,7 @@
    since an untouched form starts valid. *@
 @if (Host.IsPage)
 {
-    <PageTitle>@Title</PageTitle>
+    <PageTitle>@TitleShown</PageTitle>
     <SerginPageHeader Trail="Trail" />
 }
 
@@ -14,7 +14,7 @@
 
 @if (Ready)
 {
-    <MudText Typo="Typo.h5" Class="mb-4">@Title</MudText>
+    <MudText Typo="Typo.h5" Class="mb-4">@TitleShown</MudText>
 
     <MudForm @ref="form" Model="Model" Validation="@Validation" @bind-IsValid="isValid"
              SuppressImplicitSubmission="false" onsubmit="@OnFormSubmit">
@@ -24,14 +24,14 @@
             </MudCardContent>
             <MudCardActions>
                 <MudButton ButtonType="ButtonType.Submit" Variant="Variant.Filled"
-                           Color="Color.Primary" Disabled="@(Submitting || !isValid)">@SubmitLabel</MudButton>
+                           Color="Color.Primary" Disabled="@(Submitting || !isValid)">@SubmitLabelShown</MudButton>
                 @if (Host.IsPage)
                 {
-                    <MudButton Href="@CancelHref">Cancel</MudButton>
+                    <MudButton Href="@CancelHref">@Localizer.Text(CommonTexts.Cancel)</MudButton>
                 }
                 else
                 {
-                    <MudButton OnClick="CancelAsync">Cancel</MudButton>
+                    <MudButton OnClick="CancelAsync">@Localizer.Text(CommonTexts.Cancel)</MudButton>
                 }
             </MudCardActions>
         </MudCard>

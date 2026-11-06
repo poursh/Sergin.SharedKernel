@@ -1,5 +1,5 @@
 using Microsoft.AspNetCore.Components;
-using Sergin.SharedKernel.Application.Localizations;
+using Sergin.SharedKernel.Presentation.Localizations;
 
 namespace Sergin.SharedKernel.Presentation.Blazor.Pages;
 
@@ -20,9 +20,10 @@ public sealed partial class SerginEntityListSection
 {
     private bool collapsed;
 
+    /// <summary>The title, a declared text.</summary>
     [Parameter]
     [EditorRequired]
-    public string Title { get; set; } = string.Empty;
+    public TextDefinition TitleText { get; set; } = default!;
 
     /// <summary>The number of entities, shown after the title; null until known.</summary>
     [Parameter]
@@ -39,7 +40,12 @@ public sealed partial class SerginEntityListSection
     public RenderFragment? ChildContent { get; set; }
 
     [Inject]
-    private ILocalizer Localizer { get; set; } = default!;
+    private IStringLocalizer Localizer { get; set; } = default!;
+
+    private string TitleShown => Localizer.Text(TitleText);
+
+    [Inject]
+    private ICultureFormatter Formatter { get; set; } = default!;
 
     protected override void OnInitialized() => collapsed = Collapsed;
 

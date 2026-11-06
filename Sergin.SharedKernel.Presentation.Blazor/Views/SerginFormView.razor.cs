@@ -24,7 +24,7 @@ public sealed partial class SerginFormView
     /// <summary>The page title on a page, and the form's heading.</summary>
     [Parameter]
     [EditorRequired]
-    public string Title { get; set; } = string.Empty;
+    public TextDefinition TitleText { get; set; } = default!;
 
     /// <summary>The view's steps below home, first to last; shown only on a page.</summary>
     [Parameter]
@@ -56,8 +56,16 @@ public sealed partial class SerginFormView
     [Parameter]
     public bool Submitting { get; set; }
 
+    /// <summary>The submit button's text; <see cref="CommonTexts.Save"/> when not set.</summary>
     [Parameter]
-    public string SubmitLabel { get; set; } = "Save";
+    public TextDefinition? SubmitLabelText { get; set; }
+
+    [Inject]
+    private IStringLocalizer Localizer { get; set; } = default!;
+
+    private string TitleShown => Localizer.Text(TitleText);
+
+    private string SubmitLabelShown => Localizer.Text(SubmitLabelText ?? CommonTexts.Save);
 
     /// <summary>Where cancel leaves for.</summary>
     [Parameter]

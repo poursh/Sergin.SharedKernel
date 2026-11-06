@@ -2,9 +2,9 @@
    its permission. *@
 @if (visible)
 {
-    <MudTooltip Text="@Localizer[Action.Label]">
+    <MudTooltip Text="@Localizer.Text(Action.Label)">
         <MudIconButton Icon="@(Action.Icon ?? Icons.Material.Filled.Add)" Size="Size.Small" Href="@Action.Href"
-                       OnClick="Action.OnClick" Disabled="Action.Disabled" aria-label="@Localizer[Action.Label]"
+                       OnClick="Action.OnClick" Disabled="Action.Disabled" aria-label="@Localizer.Text(Action.Label)"
                        Color="@(Action.Kind == SerginActionKind.Danger ? Color.Error : Color.Default)" />
     </MudTooltip>
 }

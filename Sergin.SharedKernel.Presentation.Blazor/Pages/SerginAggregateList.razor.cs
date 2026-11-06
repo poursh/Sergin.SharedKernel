@@ -1,7 +1,7 @@
 using Microsoft.AspNetCore.Components;
 using MudBlazor;
-using Sergin.SharedKernel.Application.Localizations;
 using Sergin.SharedKernel.Presentation.Blazor.Errors;
+using Sergin.SharedKernel.Presentation.Localizations;
 
 namespace Sergin.SharedKernel.Presentation.Blazor.Pages;
 
@@ -72,8 +72,9 @@ public sealed partial class SerginAggregateList<TItem>
     [Parameter]
     public bool Searchable { get; set; } = true;
 
+    /// <summary>The search box's placeholder; the shell's <c>Quick search…</c> when not set.</summary>
     [Parameter]
-    public string SearchPlaceholder { get; set; } = "Quick search…";
+    public TextDefinition? SearchPlaceholderText { get; set; }
 
     [Parameter]
     public int RowsPerPage { get; set; } = 10;
@@ -89,7 +90,18 @@ public sealed partial class SerginAggregateList<TItem>
     private IUiErrorPresenter ErrorPresenter { get; set; } = default!;
 
     [Inject]
-    private ILocalizer Localizer { get; set; } = default!;
+    private IStringLocalizer Localizer { get; set; } = default!;
+
+    private string SearchPlaceholderShown => Localizer.Text(SearchPlaceholderText ?? ShellTexts.Lists.QuickSearchPlaceholder);
+
+    [Inject]
+    private MudLocalizer MudTexts { get; set; } = default!;
+
+    // MudTablePager has no localized default for this caption; it takes MudBlazor's own data-grid text.
+    private string RowsPerPageText => MudTexts["MudDataGridPager_RowsPerPage"].Value;
+
+    [Inject]
+    private ICultureFormatter Formatter { get; set; } = default!;
 
     private bool FilterActive => filters.Count > 0;
 
@@ -97,6 +109,18 @@ public sealed partial class SerginAggregateList<TItem>
 
     /// <summary>Loads the current page again with the current criteria — the header's reload icon, or after a row command.</summary>
     public Task ReloadAsync() => table.ReloadServerData();
+
+    /// <summary>
+    /// Replaces the applied filters' chips, for a page whose filters depend on each other: removing one chip that
+    /// another needs (a module, under which a category was chosen) calls this from <see cref="OnFilterRemoved"/> with the
+    /// chips that are left. The load that follows the removal sends them; nothing reloads here.
+    /// </summary>
+    public void SetFilters(IReadOnlyList<SerginAppliedFilter> applied)
+    {
+        ArgumentNullException.ThrowIfNull(applied);
+
+        filters = applied;
+    }
 
     private bool Selectable => BulkActions.Count > 0;
 

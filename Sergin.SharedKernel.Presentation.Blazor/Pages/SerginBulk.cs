@@ -1,5 +1,6 @@
 using MudBlazor;
 using Sergin.SharedKernel.Presentation.Blazor.Errors;
+using Sergin.SharedKernel.Presentation.Localizations;
 
 namespace Sergin.SharedKernel.Presentation.Blazor.Pages;
 
@@ -7,17 +8,28 @@ namespace Sergin.SharedKernel.Presentation.Blazor.Pages;
 public sealed record SerginBulkOutcome(int Succeeded, IReadOnlyList<Error> Errors, int Skipped)
 {
     /// <summary>
-    /// Reports the run: one success snackbar naming the count (<c>3 deleted</c>), each distinct error once — ten
-    /// identical "in use" refusals show as one — and the items a stop left unsent.
+    /// Reports the run: one success snackbar naming the count (<paramref name="doneText"/>, a declared text with a
+    /// <c>{Count}</c> placeholder such as <see cref="CommonTexts.BulkDeleted"/>), each distinct error once — ten
+    /// identical "in use" refusals show as one — and the items a stop left unsent
+    /// (<see cref="CommonTexts.BulkNotSent"/>). Counts go through <paramref name="formatter"/>, so a Persian page shows
+    /// Persian digits.
     /// </summary>
-    public void Report(IUiErrorPresenter errorPresenter, ISnackbar snackbar, string doneText)
+    public void Report(
+        IUiErrorPresenter errorPresenter,
+        ISnackbar snackbar,
+        IStringLocalizer localizer,
+        ICultureFormatter formatter,
+        TextDefinition doneText)
     {
         ArgumentNullException.ThrowIfNull(errorPresenter);
         ArgumentNullException.ThrowIfNull(snackbar);
+        ArgumentNullException.ThrowIfNull(localizer);
+        ArgumentNullException.ThrowIfNull(formatter);
+        ArgumentNullException.ThrowIfNull(doneText);
 
         if (Succeeded > 0)
         {
-            snackbar.Add($"{Succeeded} {doneText}", Severity.Success);
+            snackbar.Add(localizer.Text(doneText, new { Count = formatter.Number(Succeeded) }), Severity.Success);
         }
 
         if (Errors.Count > 0)
@@ -27,7 +39,7 @@ public sealed record SerginBulkOutcome(int Succeeded, IReadOnlyList<Error> Error
 
         if (Skipped > 0)
         {
-            snackbar.Add($"{Skipped} not sent", Severity.Info);
+            snackbar.Add(localizer.Text(CommonTexts.BulkNotSent, new { Count = formatter.Number(Skipped) }), Severity.Info);
         }
     }
 }

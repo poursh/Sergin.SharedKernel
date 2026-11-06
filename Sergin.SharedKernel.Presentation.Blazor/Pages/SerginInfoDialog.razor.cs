@@ -1,14 +1,13 @@
-using System.Globalization;
 using Microsoft.AspNetCore.Components;
 using MudBlazor;
 using Sergin.SharedKernel.Application.Aggregates;
-using Sergin.SharedKernel.Application.Localizations;
 using Sergin.SharedKernel.Application.Securities.Authorization;
 using Sergin.SharedKernel.Application.Securities.Users;
 using Sergin.SharedKernel.Domain;
 using Sergin.SharedKernel.Presentation.Blazor.Errors;
 using Sergin.SharedKernel.Presentation.Blazor.Security;
 using Sergin.SharedKernel.Presentation.Blazor.Times;
+using Sergin.SharedKernel.Presentation.Localizations;
 
 namespace Sergin.SharedKernel.Presentation.Blazor.Pages;
 
@@ -56,7 +55,10 @@ public sealed partial class SerginInfoDialog
     private IUiErrorPresenter ErrorPresenter { get; set; } = default!;
 
     [Inject]
-    private ILocalizer Localizer { get; set; } = default!;
+    private IStringLocalizer Localizer { get; set; } = default!;
+
+    [Inject]
+    private ICultureFormatter Formatter { get; set; } = default!;
 
     private string ShortVersion => Version is null ? string.Empty : Version.Value.ToString("N")[..12];
 
@@ -93,15 +95,14 @@ public sealed partial class SerginInfoDialog
     }
 
     private string FormatTime(DateTime utc) =>
-        TimeZoneInfo.ConvertTimeFromUtc(DateTime.SpecifyKind(utc, DateTimeKind.Utc), timeZone)
-            .ToString("dd MMM yyyy HH:mm", CultureInfo.CurrentCulture);
+        Formatter.DateTime(new DateTimeOffset(DateTime.SpecifyKind(utc, DateTimeKind.Utc)), timeZone);
 
     // The system actor has no user row, so the directory never names it; any other unknown id shows short.
     private string NameOf(Guid? userId) =>
         userId switch
         {
             null => string.Empty,
-            { } id when id == SystemActor.Id => Localizer[SystemActor.DisplayName],
+            { } id when id == SystemActor.Id => Localizer.Text(ShellTexts.Information.SystemActorName),
             { } id => names.GetValueOrDefault(id) ?? id.ToString("N")[..8],
         };
 

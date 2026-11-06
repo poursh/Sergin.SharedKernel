@@ -18,6 +18,9 @@
     .sergin-search .mud-input-adornment .mud-icon-root { font-size: 1.125rem; }
 </style>
 
+@* The providers sit inside the direction provider: dialogs, snackbars and popovers (menus, select lists) render
+   through them, outside the layout's own markup, and read the cascading direction where they are placed. *@
+<MudRTLProvider RightToLeft="DocumentCulture.IsRightToLeft">
 <MudThemeProvider Theme="themeManagerTheme.Theme" @bind-IsDarkMode="isDarkMode" />
 <MudPopoverProvider />
 <MudDialogProvider />
@@ -34,6 +37,7 @@
         {
             <SerginScopePicker @key="scopeVersion" ScopeChanged="OnScopeChanged" />
         }
+        <SerginLanguageSwitcher />
         <MudText Typo="Typo.body2" Class="mr-3">@DisplayName</MudText>
         @* A form rather than a link: a GET sign-out can be triggered by any third-party page that
            embeds the URL. The token satisfies the antiforgery middleware the host leaves enabled. *@
@@ -43,7 +47,7 @@
                 <AntiforgeryToken />
                 <MudButton ButtonType="ButtonType.Submit" Variant="Variant.Text" Color="Color.Inherit"
                            StartIcon="@Icons.Material.Filled.Logout">
-                    @Localizer["Sign out"]
+                    @Localizer.Text(ShellTexts.Layout.SignOut)
                 </MudButton>
             </form>
         }
@@ -90,3 +94,4 @@
                          IsDarkMode="isDarkMode" />
     }
 </MudLayout>
+</MudRTLProvider>

@@ -1,0 +1,18 @@
+@* The language the page shows in, in the app bar; hidden while only the default language is offered. A native select
+   rather than a MudMenu: the options are in the prerendered markup, and every assistive technology knows it. It is a
+   plain GET form to the switch, submitted on change by the browser itself, so it works from first paint, before the
+   circuit connects, and the same way once it has: the switch is a full navigation either way. *@
+@if (languages.Count > 1)
+{
+    <form class="sergin-language-switcher d-flex align-center mx-2" method="get" action="@SetPath">
+        <MudIcon Icon="@Icons.Material.Filled.Translate" Size="Size.Small" />
+        <input type="hidden" name="redirectUri" value="@returnUri" />
+        <select class="sergin-language-select" name="culture" aria-label="@Label" title="@Label" onchange="this.form.submit()">
+            @foreach (LanguageChoice language in languages)
+            {
+                <option value="@language.Culture" selected="@(language.Culture == current)">@language.Label</option>
+            }
+        </select>
+        <noscript><button type="submit" class="sergin-language-submit">@Label</button></noscript>
+    </form>
+}
