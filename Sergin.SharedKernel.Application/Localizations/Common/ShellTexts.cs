@@ -29,6 +29,8 @@ public static class ShellTexts
 
         public static TextDefinition Home { get; } = category.Text("Home", "Home");
 
+        public static TextDefinition AdministrationGroup { get; } = category.Text("AdministrationGroup", "Administration");
+
         public static TextDefinition PageActions { get; } = category.Text("PageActions", "Page actions");
 
         public static TextDefinition Actions { get; } = category.Text("Actions", "Actions");

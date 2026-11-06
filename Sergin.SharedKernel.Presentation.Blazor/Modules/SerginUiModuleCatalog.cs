@@ -12,9 +12,10 @@ public sealed class SerginUiModuleCatalog
         NavSections =
         [
             .. modules
-                .OrderBy(module => module.NavGroup.Order)
-                .ThenBy(module => module.NavGroup.Title.Default, StringComparer.Ordinal)
-                .Select(module => new SerginNavSection(module.NavGroup, [.. InDrawerOrder(module.NavItems)]))
+                .GroupBy(module => module.NavGroup)
+                .OrderBy(group => group.Key.Order)
+                .ThenBy(group => group.Key.Title.Default, StringComparer.Ordinal)
+                .Select(group => new SerginNavSection(group.Key, [.. InDrawerOrder(group.SelectMany(module => module.NavItems))]))
         ];
         NavItems = [.. NavSections.SelectMany(section => section.Items)];
     }
@@ -38,7 +39,7 @@ public sealed class SerginUiModuleCatalog
     public IReadOnlyCollection<Assembly> RoutableAssemblies { get; }
 
     /// <summary>
-    /// One section per module, groups ordered by <see cref="SerginNavGroup.Order"/> then title, each group's
+    /// One section per group (modules returning the same group share a section), groups ordered by <see cref="SerginNavGroup.Order"/> then title, each group's
     /// entries by <see cref="SerginNavItem.Order"/> then label (ordinal both times).
     /// </summary>
     public IReadOnlyCollection<SerginNavSection> NavSections { get; }
