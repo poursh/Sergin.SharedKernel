@@ -11,7 +11,7 @@ This is the leaf of the Sergin dependency graph. It depends on no other Sergin r
 | Consumer | Mounted at | Notes |
 |---|---|---|
 | [Sergin.MeterMinder](https://github.com/poursh/Sergin.MeterMinder) | `src/SharedKernel/` | The host repository. Its integration tests are where this library is exercised end to end. |
-| [Sergin.UserAccess](https://github.com/poursh/Sergin.UserAccess) | `../../../SharedKernel` from its project files | An embed-only module. It expects this repository mounted as a sibling submodule at that relative path inside whatever host embeds it. |
+| [Sergin.Administration.UserAccess](https://github.com/poursh/Sergin.Administration.UserAccess) and [Sergin.Administration.Settings](https://github.com/poursh/Sergin.Administration.Settings) | `../../../../SharedKernel` from their project files | Embed-only modules. They expect this repository mounted as a sibling submodule at that relative path inside whatever host embeds them. |
 
 Because every consumer pins a commit of this repository, a change to a public contract here (`ISerginModule`, `AggregateRoot`, `ICommand`/`IQuery`, `IEndpoint`, …) means bumping the submodule pointer — and re-running the tests — in each of them.
 

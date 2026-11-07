@@ -8,7 +8,7 @@ using Sergin.SharedKernel.Presentation.Blazor.Modules;
 namespace Sergin.SharedKernel.Presentation.Blazor.Layout;
 
 /// <summary>
-/// The drawer: the home entry, then one collapsible group per module, each holding that module's entries.
+/// The drawer: the home entry, then one collapsible group per nav group, each holding its modules' entries.
 /// </summary>
 public sealed partial class SerginNavMenu : IDisposable
 {
