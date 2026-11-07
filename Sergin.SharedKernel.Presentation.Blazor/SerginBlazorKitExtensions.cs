@@ -21,6 +21,10 @@ public static class SerginBlazorKitExtensions
         services.AddTransient<MudLocalizer, SerginMudLocalizer>();
         services.AddSingleton(MudBlazorTexts.Source);
 
+        // The shell's own words: only the Blazor kit shows them, so they are declared here, not in Application.
+        // FromTypes reads only the types it is given, so the nested parts (Layout, Navigation, …) are passed too.
+        services.AddSingleton(TextSource.FromTypes("common", [typeof(ShellTexts), .. typeof(ShellTexts).GetNestedTypes()]));
+
         services.AddScoped<IUiErrorPresenter, MudUiErrorPresenter>();
 
         // Scoped, not singleton: it depends on IJSRuntime, which in Blazor Server is per-circuit.

@@ -1,5 +1,4 @@
 using MudBlazor;
-using Sergin.SharedKernel.Application.Localizations.Common;
 using Sergin.SharedKernel.Modules;
 
 namespace Sergin.SharedKernel.Presentation.Blazor.Modules;
