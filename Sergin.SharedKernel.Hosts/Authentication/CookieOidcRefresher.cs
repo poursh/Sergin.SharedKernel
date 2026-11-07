@@ -51,8 +51,36 @@ internal sealed class CookieOidcRefresher(IOptionsMonitor<OpenIdConnectOptions> 
             return;
         }
 
+        CancellationToken requestAborted = validateContext.HttpContext.RequestAborted;
+
+        try
+        {
+            await RefreshAsync(validateContext, oidcOptions, now, requestAborted);
+        }
+        catch (OperationCanceledException) when (requestAborted.IsCancellationRequested)
+        {
+            // The browser dropped the request mid-refresh (tab closed, navigation, circuit reconnect).
+            // Nobody reads this response, and the cookie keeps its tokens, so the next request refreshes again.
+        }
+        catch (Exception exception) when (exception is HttpRequestException or TaskCanceledException)
+        {
+            // The identity provider is unreachable or timed out. Keep the session while the access token
+            // is still valid, so a short outage does not sign everyone out; once it expires, sign out.
+            if (now >= expiresAt)
+            {
+                validateContext.RejectPrincipal();
+            }
+        }
+    }
+
+    private async Task RefreshAsync(
+        CookieValidatePrincipalContext validateContext,
+        OpenIdConnectOptions oidcOptions,
+        DateTimeOffset now,
+        CancellationToken cancellationToken)
+    {
         OpenIdConnectConfiguration configuration =
-            await oidcOptions.ConfigurationManager.GetConfigurationAsync(validateContext.HttpContext.RequestAborted);
+            await oidcOptions.ConfigurationManager!.GetConfigurationAsync(cancellationToken);
 
         if (string.IsNullOrEmpty(configuration.TokenEndpoint))
         {
@@ -70,7 +98,7 @@ internal sealed class CookieOidcRefresher(IOptionsMonitor<OpenIdConnectOptions> 
         });
 
         using HttpResponseMessage response = await oidcOptions.Backchannel.PostAsync(
-            new Uri(configuration.TokenEndpoint), request, validateContext.HttpContext.RequestAborted);
+            new Uri(configuration.TokenEndpoint), request, cancellationToken);
 
         if (!response.IsSuccessStatusCode)
         {
@@ -79,7 +107,7 @@ internal sealed class CookieOidcRefresher(IOptionsMonitor<OpenIdConnectOptions> 
         }
 
         OpenIdConnectMessage message = new(
-            await response.Content.ReadAsStringAsync(validateContext.HttpContext.RequestAborted));
+            await response.Content.ReadAsStringAsync(cancellationToken));
 
         TokenValidationParameters validationParameters = oidcOptions.TokenValidationParameters.Clone();
 
