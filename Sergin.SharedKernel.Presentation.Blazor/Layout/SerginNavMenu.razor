@@ -7,11 +7,27 @@
                          Icon="@section.Group.Icon"
                          Expanded="@IsExpanded(section.Group)"
                          ExpandedChanged="@ExpandedChangedFor(section.Group)">
-                @foreach (SerginNavItem item in section.Items)
+                @foreach (SerginNavSubsection subsection in section.Subsections)
                 {
-                    <MudNavLink Href="@item.Href" Icon="@item.Icon" Match="@MatchFor(item)">
-                        @Localizer.Text(item.Label)
-                    </MudNavLink>
+                    @if (section.ShowsCaptions)
+                    {
+                        @if (!IsFirst(section, subsection))
+                        {
+                            <MudDivider Class="sergin-nav-divider ms-9 me-4 my-1" />
+                        }
+                        @if (subsection.Caption is { } caption)
+                        {
+                            <MudText Typo="Typo.overline" Class="sergin-nav-caption mud-text-secondary d-block ps-9 pe-4 pt-2" role="heading" aria-level="3">
+                                @Localizer.Text(caption)
+                            </MudText>
+                        }
+                    }
+                    @foreach (SerginNavItem item in subsection.Items)
+                    {
+                        <MudNavLink Href="@item.Href" Icon="@item.Icon" Match="@MatchFor(item)">
+                            @Localizer.Text(item.Label)
+                        </MudNavLink>
+                    }
                 }
             </MudNavGroup>
         }

@@ -15,7 +15,7 @@ public sealed class SerginUiModuleCatalog
                 .GroupBy(module => module.NavGroup)
                 .OrderBy(group => group.Key.Order)
                 .ThenBy(group => group.Key.Title.Default, StringComparer.Ordinal)
-                .Select(group => new SerginNavSection(group.Key, [.. InDrawerOrder(group.SelectMany(module => module.NavItems))]))
+                .Select(group => new SerginNavSection(group.Key, [.. InDrawerOrder(group)]))
         ];
         NavItems = [.. NavSections.SelectMany(section => section.Items)];
     }
@@ -39,8 +39,10 @@ public sealed class SerginUiModuleCatalog
     public IReadOnlyCollection<Assembly> RoutableAssemblies { get; }
 
     /// <summary>
-    /// One section per group (modules returning the same group share a section), groups ordered by <see cref="SerginNavGroup.Order"/> then title, each group's
-    /// entries by <see cref="SerginNavItem.Order"/> then label (ordinal both times).
+    /// One section per group (modules returning the same group share a section), groups ordered by <see cref="SerginNavGroup.Order"/> then title.
+    /// Inside a group, one subsection per module under its <see cref="ISerginWebUiModule.NavCaption"/>, ordered by the module's lowest
+    /// <see cref="SerginNavItem.Order"/> then caption, each subsection's entries by <see cref="SerginNavItem.Order"/> then label (ordinal throughout).
+    /// A module with no entries gets no subsection.
     /// </summary>
     public IReadOnlyCollection<SerginNavSection> NavSections { get; }
 
@@ -55,6 +57,13 @@ public sealed class SerginUiModuleCatalog
     /// </summary>
     public SerginNavGroup? GroupOf(string href)
         => NavSections.FirstOrDefault(section => section.Items.Any(item => item.Href == href))?.Group;
+
+    private static IEnumerable<SerginNavSubsection> InDrawerOrder(IEnumerable<ISerginWebUiModule> modules)
+        => modules
+            .Where(module => module.NavItems.Count > 0)
+            .Select(module => new SerginNavSubsection(module.NavCaption, [.. InDrawerOrder(module.NavItems)]))
+            .OrderBy(subsection => subsection.Items.First().Order)
+            .ThenBy(subsection => subsection.Caption?.Default, StringComparer.Ordinal);
 
     private static IEnumerable<SerginNavItem> InDrawerOrder(IEnumerable<SerginNavItem> items)
         => items.OrderBy(item => item.Order).ThenBy(item => item.Label.Default, StringComparer.Ordinal);

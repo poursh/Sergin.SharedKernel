@@ -38,7 +38,8 @@ public sealed partial class SerginNavMenu : IDisposable
     /// navigation while this list only changes when the host is composed. Home is ordered among the groups by
     /// its own <see cref="SerginNavItem.Order"/> against each <see cref="SerginNavGroup.Order"/>, label against
     /// title on a tie, so a module can still sort itself above home. A group the user may use none of is left
-    /// out entirely rather than shown empty.
+    /// out entirely rather than shown empty, and so is a module's subsection, caption included: the captions are counted
+    /// after filtering, so a user who may see one module's entries only gets them uncaptioned.
     /// </remarks>
     protected override async Task OnInitializedAsync()
     {
@@ -46,19 +47,29 @@ public sealed partial class SerginNavMenu : IDisposable
 
         foreach (SerginNavSection section in Catalog.NavSections)
         {
-            List<SerginNavItem> visible = [];
+            List<SerginNavSubsection> visible = [];
 
-            foreach (SerginNavItem item in section.Items)
+            foreach (SerginNavSubsection subsection in section.Subsections)
             {
-                if (await IsVisibleAsync(item))
+                List<SerginNavItem> items = [];
+
+                foreach (SerginNavItem item in subsection.Items)
                 {
-                    visible.Add(item);
+                    if (await IsVisibleAsync(item))
+                    {
+                        items.Add(item);
+                    }
+                }
+
+                if (items.Count > 0)
+                {
+                    visible.Add(subsection with { Items = items });
                 }
             }
 
             if (visible.Count > 0)
             {
-                built.Add(NavEntry.For(section with { Items = visible }));
+                built.Add(NavEntry.For(section with { Subsections = visible }));
             }
         }
 
@@ -100,6 +111,10 @@ public sealed partial class SerginNavMenu : IDisposable
     /// </summary>
     private static NavLinkMatch MatchFor(SerginNavItem item)
         => item.Href is SerginHome.RootPath ? NavLinkMatch.All : NavLinkMatch.Prefix;
+
+    /// <summary>Whether <paramref name="subsection"/> opens its group, so no divider goes above it.</summary>
+    private static bool IsFirst(SerginNavSection section, SerginNavSubsection subsection)
+        => ReferenceEquals(section.Subsections.First(), subsection);
 
     private bool IsExpanded(SerginNavGroup group) => expanded.GetValueOrDefault(group);
 
