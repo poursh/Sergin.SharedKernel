@@ -25,7 +25,7 @@ public static class MudBlazorTexts
     private static readonly ConcurrentDictionary<string, string> catalogKeys = new(StringComparer.Ordinal);
 
     /// <summary>The source the catalog reads; module segment <c>common</c>.</summary>
-    public static TextSource Source { get; } = TextSource.FromDefinitions("common", Build(), typeof(MudBlazorTexts));
+    public static TextSource Source { get; } = TextSource.FromDefinitions("common", Build(), typeof(MudBlazorTexts), TextOrigin.Ui);
 
     /// <summary>The catalog key of a MudBlazor resource key.</summary>
     public static string CatalogKeyOf(string mudKey)

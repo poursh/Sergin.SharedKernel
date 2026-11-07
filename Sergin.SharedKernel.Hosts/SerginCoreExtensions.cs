@@ -174,12 +174,12 @@ public static class SerginCoreExtensions
 
         foreach (ISerginModule module in localModules)
         {
-            builder.Services.AddSingleton(TextSource.FromAssembly(module.ConfigurationsAssembly, module.Name));
+            builder.Services.AddSingleton(TextSource.FromAssembly(module.ConfigurationsAssembly, module.Name, TextOrigin.Application));
         }
 
         foreach (ISerginRemoteModule remoteModule in remoteModules)
         {
-            builder.Services.AddSingleton(TextSource.FromAssembly(remoteModule.ConfigurationsAssembly, remoteModule.Name));
+            builder.Services.AddSingleton(TextSource.FromAssembly(remoteModule.ConfigurationsAssembly, remoteModule.Name, TextOrigin.Application));
         }
 
         // Plus the permission labels, derived from the permission catalogue (one text per definition, its label the

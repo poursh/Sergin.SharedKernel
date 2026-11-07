@@ -23,7 +23,7 @@ public static class SerginBlazorKitExtensions
 
         // The shell's own words: only the Blazor kit shows them, so they are declared here, not in Application.
         // FromTypes reads only the types it is given, so the nested parts (Layout, Navigation, …) are passed too.
-        services.AddSingleton(TextSource.FromTypes("common", [typeof(ShellTexts), .. typeof(ShellTexts).GetNestedTypes()]));
+        services.AddSingleton(TextSource.FromTypes("common", TextOrigin.Ui, [typeof(ShellTexts), .. typeof(ShellTexts).GetNestedTypes()]));
 
         services.AddScoped<IUiErrorPresenter, MudUiErrorPresenter>();
 
