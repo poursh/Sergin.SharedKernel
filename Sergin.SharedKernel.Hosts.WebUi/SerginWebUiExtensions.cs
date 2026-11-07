@@ -102,6 +102,13 @@ public static class SerginWebUiExtensions
 
         builder.AddSerginCore(modules, remoteModules);
 
+        // The texts only a module's pages show are declared in its RCL, beside the pages; AddSerginCore has already
+        // registered the ones its ConfigurationsAssembly declares. Same module name, so the same key checks apply.
+        foreach (ISerginWebUiModule module in modules.OfType<ISerginWebUiModule>())
+        {
+            builder.Services.AddSingleton(TextSource.FromAssembly(module.UiAssembly, module.Name));
+        }
+
         AddSerginRequestLocalization(builder.Services);
 
         builder.Services.AddSingleton(CreateUiModuleCatalog(modules));

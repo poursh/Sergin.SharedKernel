@@ -10,7 +10,7 @@ namespace Sergin.SharedKernel.Presentation.Blazor.Trees;
 
 /// <summary>
 /// A <see cref="SerginTree"/> for one self-referencing aggregate — nodes of one type, each naming its parent, like
-/// scopes, inside a module's tree layout: <c>&lt;SerginAggregateTree TNode="ScopeTreeItem" TitleText="ScopeTexts.Title" Href="/ua/scopes" Load="…" NodeHref="…" …&gt;@Body&lt;/SerginAggregateTree&gt;</c>.
+/// scopes, inside a module's tree layout: <c>&lt;SerginAggregateTree TNode="ScopeTreeItem" TitleText="ScopeUiTexts.Title" Href="/ua/scopes" Load="…" NodeHref="…" …&gt;@Body&lt;/SerginAggregateTree&gt;</c>.
 /// </summary>
 /// <remarks>
 /// <para>

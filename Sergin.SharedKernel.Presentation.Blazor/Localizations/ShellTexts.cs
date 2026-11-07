@@ -1,6 +1,6 @@
 using Sergin.SharedKernel.Application.Securities.Users;
 
-namespace Sergin.SharedKernel.Application.Localizations.Common;
+namespace Sergin.SharedKernel.Presentation.Blazor.Localizations;
 
 /// <summary>
 /// The Blazor shell's own words — layout, navigation, page types, lists, trees, dialogs and the welcome page — under
