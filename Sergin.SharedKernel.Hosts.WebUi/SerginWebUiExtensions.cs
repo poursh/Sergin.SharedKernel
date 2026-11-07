@@ -106,7 +106,7 @@ public static class SerginWebUiExtensions
         // registered the ones its ConfigurationsAssembly declares. Same module name, so the same key checks apply.
         foreach (ISerginWebUiModule module in modules.OfType<ISerginWebUiModule>())
         {
-            builder.Services.AddSingleton(TextSource.FromAssembly(module.UiAssembly, module.Name));
+            builder.Services.AddSingleton(TextSource.FromAssembly(module.UiAssembly, module.Name, TextOrigin.Ui));
         }
 
         AddSerginRequestLocalization(builder.Services);
