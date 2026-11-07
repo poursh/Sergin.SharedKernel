@@ -5,7 +5,7 @@ namespace Sergin.SharedKernel.Presentation.Blazor.Trees;
 
 /// <summary>
 /// Names the node a page inside a tree layout shows: <c>&lt;SerginTreeSelect Node="@Id.ToString()" /&gt;</c> on a
-/// detail page, <c>&lt;SerginTreeSelect Node="@ParentId?.ToString()" TailText="ScopeTexts.New" /&gt;</c> on a create page.
+/// detail page, <c>&lt;SerginTreeSelect Node="@ParentId?.ToString()" TailText="ScopeUiTexts.New" /&gt;</c> on a create page.
 /// </summary>
 /// <remarks>
 /// The tree highlights the node, opens its ancestors and adds its path to the page header's trail. Navigating to another page

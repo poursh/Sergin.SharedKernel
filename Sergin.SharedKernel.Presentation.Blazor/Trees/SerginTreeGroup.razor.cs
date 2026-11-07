@@ -9,7 +9,7 @@ namespace Sergin.SharedKernel.Presentation.Blazor.Trees;
 
 /// <summary>
 /// One data source of a <see cref="SerginTree"/>, with its own node type, loaders and menus:
-/// <c>&lt;SerginTreeGroup TNode="ScopeTreeItem" Key="scope" TitleText="ScopeTexts.Title" Roots="…" Children="…" … /&gt;</c>.
+/// <c>&lt;SerginTreeGroup TNode="ScopeTreeItem" Key="scope" TitleText="ScopeUiTexts.Title" Roots="…" Children="…" … /&gt;</c>.
 /// </summary>
 /// <remarks>
 /// <para>

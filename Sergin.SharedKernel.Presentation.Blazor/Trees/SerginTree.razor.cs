@@ -9,7 +9,7 @@ namespace Sergin.SharedKernel.Presentation.Blazor.Trees;
 
 /// <summary>
 /// A tree on the left and the page at the current route on the right, rendered by a module's tree layout:
-/// <c>&lt;SerginTree TitleText="ScopeTexts.Title" Href="/ua/scopes"&gt;&lt;Groups&gt;…&lt;/Groups&gt;&lt;Content&gt;@Body&lt;/Content&gt;&lt;/SerginTree&gt;</c>.
+/// <c>&lt;SerginTree TitleText="ScopeUiTexts.Title" Href="/ua/scopes"&gt;&lt;Groups&gt;…&lt;/Groups&gt;&lt;Content&gt;@Body&lt;/Content&gt;&lt;/SerginTree&gt;</c>.
 /// </summary>
 /// <remarks>
 /// <para>
