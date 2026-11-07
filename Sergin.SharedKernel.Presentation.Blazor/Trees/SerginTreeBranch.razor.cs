@@ -41,5 +41,5 @@ public sealed partial class SerginTreeBranch<TNode>
     }
 
     private static string Indent(SerginTreeNodeState<TNode> state, int extra = 0) =>
-        string.Create(CultureInfo.InvariantCulture, $"padding-left: {(state.Level + extra) * IndentPerLevel}px");
+        string.Create(CultureInfo.InvariantCulture, $"padding-inline-start: {(state.Level + extra) * IndentPerLevel}px");
 }

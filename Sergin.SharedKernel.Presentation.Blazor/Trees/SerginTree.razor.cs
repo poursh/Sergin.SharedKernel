@@ -52,6 +52,7 @@ public sealed partial class SerginTree : IDisposable
     private bool dragging;
     private double dragStartX;
     private int dragStartWidth;
+    private bool rightToLeft;
     private bool paneHasActions;
 
     /// <summary>The page title and the panel's accessible name, a declared text.</summary>
@@ -112,6 +113,9 @@ public sealed partial class SerginTree : IDisposable
 
     [Inject]
     private IStringLocalizer Localizer { get; set; } = default!;
+
+    [Inject]
+    private SerginDocumentCulture DocumentCulture { get; set; } = default!;
 
     private string TitleShown => Localizer.Text(TitleText);
 
@@ -396,15 +400,22 @@ public sealed partial class SerginTree : IDisposable
         await SaveLayoutAsync();
     }
 
+    // The panel sits at the inline start: on the left in a left-to-right page, on the right in a right-to-left one, so
+    // moving the pointer away from it is a positive ClientX change in one and a negative one in the other.
     private void StartResize(PointerEventArgs args)
     {
         dragging = true;
         dragStartX = args.ClientX;
         dragStartWidth = width;
+        rightToLeft = DocumentCulture.IsRightToLeft;
     }
 
-    private void Resize(PointerEventArgs args) =>
-        width = Math.Clamp(dragStartWidth + (int)Math.Round(args.ClientX - dragStartX), MinWidth, MaxWidth);
+    private void Resize(PointerEventArgs args)
+    {
+        double moved = args.ClientX - dragStartX;
+
+        width = Math.Clamp(dragStartWidth + (int)Math.Round(rightToLeft ? -moved : moved), MinWidth, MaxWidth);
+    }
 
     private async Task EndResizeAsync(PointerEventArgs args)
     {

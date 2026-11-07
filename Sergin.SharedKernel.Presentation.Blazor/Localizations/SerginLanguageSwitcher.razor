@@ -1,18 +1,26 @@
-@* The language the page shows in, in the app bar; hidden while only the default language is offered. A native select
-   rather than a MudMenu: the options are in the prerendered markup, and every assistive technology knows it. It is a
-   plain GET form to the switch, submitted on change by the browser itself, so it works from first paint, before the
-   circuit connects, and the same way once it has: the switch is a full navigation either way. *@
+@* The language the page shows in, in the app bar; hidden while only the default language is offered. A menu of the
+   offered languages, the current one ticked: each item is a full navigation to the switch, because Blazor Server fixes
+   the culture per circuit. The menu opens once the circuit is live; before that the button shows the current language. *@
 @if (languages.Count > 1)
 {
-    <form class="sergin-language-switcher d-flex align-center mx-2" method="get" action="@SetPath">
-        <MudIcon Icon="@Icons.Material.Filled.Translate" Size="Size.Small" />
-        <input type="hidden" name="redirectUri" value="@returnUri" />
-        <select class="sergin-language-select" name="culture" aria-label="@Label" title="@Label" onchange="this.form.submit()">
+    <MudMenu Class="sergin-language-switcher" AriaLabel="@Label"
+             AnchorOrigin="Origin.BottomRight" TransformOrigin="Origin.TopRight">
+        @* MudBlazor 9 does not wire a custom activator: the button opens the menu through the MenuContext it is given. *@
+        <ActivatorContent>
+            <MudButton Variant="Variant.Text" Color="Color.Inherit" Class="sergin-appbar-item" title="@Label"
+                       StartIcon="@Icons.Material.Filled.Translate" EndIcon="@Icons.Material.Filled.ArrowDropDown"
+                       OnClick="@(args => context.ToggleAsync(args))">
+                @CurrentLabel
+            </MudButton>
+        </ActivatorContent>
+        <ChildContent>
             @foreach (LanguageChoice language in languages)
             {
-                <option value="@language.Culture" selected="@(language.Culture == current)">@language.Label</option>
+                <MudMenuItem Href="@HrefFor(language)" ForceLoad="true"
+                             Icon="@Icons.Material.Filled.Check" IconColor="@(IsCurrent(language) ? Color.Inherit : Color.Transparent)">
+                    @language.Label
+                </MudMenuItem>
             }
-        </select>
-        <noscript><button type="submit" class="sergin-language-submit">@Label</button></noscript>
-    </form>
+        </ChildContent>
+    </MudMenu>
 }

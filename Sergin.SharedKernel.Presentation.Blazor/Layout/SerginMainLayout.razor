@@ -14,6 +14,9 @@
     :is(.mud-main-content, .mud-dialog) .mud-icon-button:not(.mud-icon-button-size-small, .mud-icon-button-size-large) { padding: 3px; font-size: 1.125rem; }
     .mud-main-content .mud-card-actions { gap: 12px; padding: 8px 16px 16px; }
     html, body { overflow: hidden; }
+    /* One look for every app bar item: icon, label, optional caret; same height, type and spacing. */
+    .mud-appbar .sergin-appbar-item { display: inline-flex; align-items: center; gap: 6px; height: 36px; min-width: 0; padding: 0 8px; margin: 0; font-size: .875rem; font-weight: 500; line-height: 1.75; letter-spacing: .02857em; text-transform: none; color: inherit; }
+    .mud-appbar .sergin-appbar-item .mud-icon-root { font-size: 1.25rem; }
     .sergin-search .mud-input-root-outlined.mud-input-root-margin-dense { padding: 4px 8px; font-size: .8125rem; }
     .sergin-search .mud-input-adornment .mud-icon-root { font-size: 1.125rem; }
 </style>
@@ -38,22 +41,27 @@
             <SerginScopePicker @key="scopeVersion" ScopeChanged="OnScopeChanged" />
         }
         <SerginLanguageSwitcher />
-        <MudText Typo="Typo.body2" Class="mr-3">@DisplayName</MudText>
+        <span class="sergin-appbar-item">
+            <MudIcon Icon="@Icons.Material.Filled.Person" />
+            <span>@DisplayName</span>
+        </span>
         @* A form rather than a link: a GET sign-out can be triggered by any third-party page that
            embeds the URL. The token satisfies the antiforgery middleware the host leaves enabled. *@
         @if (Authentication.CanSignOut)
         {
-            <form method="post" action="@Authentication.LogoutPath" class="d-flex align-center mr-2">
+            <form method="post" action="@Authentication.LogoutPath" class="d-flex align-center">
                 <AntiforgeryToken />
-                <MudButton ButtonType="ButtonType.Submit" Variant="Variant.Text" Color="Color.Inherit"
+                <MudButton ButtonType="ButtonType.Submit" Variant="Variant.Text" Color="Color.Inherit" Class="sergin-appbar-item"
                            StartIcon="@Icons.Material.Filled.Logout">
                     @Localizer.Text(ShellTexts.Layout.SignOut)
                 </MudButton>
             </form>
         }
-        <MudIconButton Icon="@DarkModeIcon" Color="Color.Inherit" Edge="Edge.End"
-                       title="@DarkModeLabel" aria-label="@DarkModeLabel"
-                       OnClick="ToggleDarkMode" />
+        @* A toggle: the icon shows the mode being switched to, a moon while light and a sun while dark. *@
+        <MudToggleIconButton Toggled="isDarkMode" ToggledChanged="SetDarkModeAsync"
+                             Icon="@Icons.Material.Outlined.DarkMode" ToggledIcon="@Icons.Material.Outlined.LightMode"
+                             Color="Color.Inherit" ToggledColor="Color.Inherit" Edge="Edge.End"
+                             title="@DarkModeLabel" aria-label="@DarkModeLabel" aria-pressed="@(isDarkMode ? "true" : "false")" />
     </MudAppBar>
 
     <MudDrawer @bind-Open="drawerOpen" Elevation="themeManagerTheme.DrawerElevation"

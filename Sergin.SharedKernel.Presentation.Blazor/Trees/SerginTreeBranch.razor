@@ -11,7 +11,7 @@
                 @if (Group.CanExpand(state))
                 {
                     <MudIconButton Icon="@(Group.IsExpanded(state) ? Icons.Material.Filled.ExpandMore : Icons.Material.Filled.ChevronRight)"
-                                   Size="Size.Small" Class="sergin-tree-chevron" tabindex="-1"
+                                   Size="Size.Small" Class="@(Group.IsExpanded(state) ? "sergin-tree-chevron" : "sergin-tree-chevron collapsed")" tabindex="-1"
                                    aria-label="@(Group.IsExpanded(state) ? Localizer.Text(CommonTexts.Collapse) : Localizer.Text(CommonTexts.Expand))"
                                    OnClick="@(() => Group.ToggleAsync(state))" />
                 }

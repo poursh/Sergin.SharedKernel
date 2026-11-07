@@ -1,7 +1,7 @@
 @* The scope the circuit works in, in the app bar; opens a modal with a searchable tree of every scope the user can work in. *@
-<div class="d-flex align-center mr-2">
+<div class="d-flex align-center">
     <MudTooltip Text="@Trail">
-        <MudButton Variant="Variant.Text" Color="Color.Inherit" Disabled="@(Current is null)" Style="text-transform: none;"
+        <MudButton Variant="Variant.Text" Color="Color.Inherit" Disabled="@(Current is null)" Class="sergin-appbar-item"
                    StartIcon="@Icons.Material.Filled.AccountTree" EndIcon="@Icons.Material.Filled.ArrowDropDown"
                    aria-label="@AriaLabel" aria-haspopup="dialog"
                    OnClick="OpenAsync">

@@ -2,7 +2,6 @@ using System.Globalization;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Routing;
 using Microsoft.Extensions.Options;
-using Sergin.SharedKernel.Application.Localizations;
 using Sergin.SharedKernel.Application.Localizations.Common;
 using Sergin.SharedKernel.Presentation.Localizations;
 
@@ -10,9 +9,9 @@ namespace Sergin.SharedKernel.Presentation.Blazor.Localizations;
 
 /// <summary>
 /// Lists the default language and every published one, plus the draft languages the caller may preview (marked as
-/// drafts). Choosing one submits a GET form to <c>/culture/set</c> carrying the current page as <c>redirectUri</c>, a full
-/// navigation, because the culture belongs to the request that opens the circuit; being a plain form, it works in the
-/// prerendered page before the circuit connects. The return address follows in-app navigation once it has.
+/// drafts), in a menu. Each item navigates to <c>/culture/set</c> with the current page as <c>redirectUri</c>, a full
+/// navigation, because the culture belongs to the request that opens the circuit. The return address follows in-app
+/// navigation.
 /// </summary>
 public sealed partial class SerginLanguageSwitcher : IDisposable
 {
@@ -40,6 +39,8 @@ public sealed partial class SerginLanguageSwitcher : IDisposable
 
     private string Label => Localizer.Text(CommonTexts.Language);
 
+    private string CurrentLabel => languages.FirstOrDefault(IsCurrent)?.Label ?? current;
+
     public void Dispose() => Navigation.LocationChanged -= OnLocationChanged;
 
     protected override async Task OnInitializedAsync()
@@ -51,30 +52,15 @@ public sealed partial class SerginLanguageSwitcher : IDisposable
         bool canPreview = Cache.Languages.Any(language => !language.IsPublished)
             && await PreviewPolicy.CanPreviewAsync(CancellationToken.None);
 
-        List<LanguageChoice> choices =
-        [
-            new(defaultCulture, CultureInfo.GetCultureInfo(defaultCulture).NativeName),
-        ];
-
-        foreach (LanguageInfo language in Cache.Languages)
-        {
-            if (string.Equals(language.Culture, defaultCulture, StringComparison.OrdinalIgnoreCase)
-                || !language.IsPublished && !canPreview)
-            {
-                continue;
-            }
-
-            string name = language.IsPublished
-                ? language.DisplayName
-                : $"{language.DisplayName} ({Localizer.Text(CommonTexts.DraftSuffix)})";
-
-            choices.Add(new LanguageChoice(language.Culture, name));
-        }
-
-        languages = choices;
-        current = choices.FirstOrDefault(choice => string.Equals(choice.Culture, CultureInfo.CurrentUICulture.Name, StringComparison.OrdinalIgnoreCase))?.Culture
+        languages = LanguageChoices.Build(defaultCulture, Cache.Languages, canPreview, Localizer.Text(CommonTexts.DraftSuffix));
+        current = languages.FirstOrDefault(choice => string.Equals(choice.Culture, CultureInfo.CurrentUICulture.Name, StringComparison.OrdinalIgnoreCase))?.Culture
             ?? defaultCulture;
     }
+
+    private bool IsCurrent(LanguageChoice language) => string.Equals(language.Culture, current, StringComparison.OrdinalIgnoreCase);
+
+    private string HrefFor(LanguageChoice language) =>
+        $"{SetPath}?culture={Uri.EscapeDataString(language.Culture)}&redirectUri={Uri.EscapeDataString(returnUri)}";
 
     private string CurrentRelativeUri() => "/" + Navigation.ToBaseRelativePath(Navigation.Uri);
 
@@ -83,6 +69,4 @@ public sealed partial class SerginLanguageSwitcher : IDisposable
         returnUri = CurrentRelativeUri();
         _ = InvokeAsync(StateHasChanged);
     }
-
-    private sealed record LanguageChoice(string Culture, string Label);
 }

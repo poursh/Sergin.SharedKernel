@@ -1,7 +1,6 @@
 using Microsoft.AspNetCore.Components;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Options;
-using MudBlazor;
 using MudBlazor.ThemeManager;
 using Sergin.SharedKernel.Application.Securities.Users;
 using Sergin.SharedKernel.Presentation.Blazor.Localizations;
@@ -80,14 +79,6 @@ public sealed partial class SerginMainLayout
     /// </summary>
     private bool ShowThemeManager => HostEnvironment.IsDevelopment();
 
-    /// <summary>
-    /// Shows the mode being switched *to*, which is the convention users expect from a mode toggle —
-    /// a sun means "go light", not "you are light".
-    /// </summary>
-    private string DarkModeIcon => isDarkMode
-        ? Icons.Material.Outlined.LightMode
-        : Icons.Material.Outlined.DarkMode;
-
     private string DarkModeLabel => Localizer.Text(isDarkMode ? ShellTexts.Layout.SwitchToLightMode : ShellTexts.Layout.SwitchToDarkMode);
 
     /// <summary>
@@ -144,9 +135,9 @@ public sealed partial class SerginMainLayout
     /// user-facing control, so it is deliberately not gated on <see cref="ShowThemeManager"/> — but it is
     /// what makes the manager's dark palette reachable, since the manager itself exposes no mode switch.
     /// </summary>
-    private async Task ToggleDarkMode()
+    private async Task SetDarkModeAsync(bool dark)
     {
-        isDarkMode = !isDarkMode;
+        isDarkMode = dark;
 
         await PersistAsync();
     }
