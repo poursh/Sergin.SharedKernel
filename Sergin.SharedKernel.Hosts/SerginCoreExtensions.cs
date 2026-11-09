@@ -17,6 +17,7 @@ using Sergin.SharedKernel.Application.Securities.Authorization;
 using Sergin.SharedKernel.Application.Securities.Users;
 using Sergin.SharedKernel.Application.Times;
 using Sergin.SharedKernel.Hosts;
+using Sergin.SharedKernel.Hosts.Commands;
 using Sergin.SharedKernel.Hosts.Localizations;
 using Sergin.SharedKernel.Hosts.Outbox;
 using Sergin.SharedKernel.Infrastracture.Data;
@@ -194,6 +195,12 @@ public static class SerginCoreExtensions
         // properties need a FieldText. The Use…Async bootstraps run it at start, after the catalog and the registry.
         builder.Services.AddSingleton(new FieldTextGuard(
             localModules.Select(module => module.ContractsAssembly).Concat(remoteModules.Select(module => module.ContractsAssembly))));
+
+        // The command-type guards, run at start beside it. The shape guard reads the same assemblies; the mapping guard
+        // only the local ones, since a remote module's aggregates are mapped by a DbContext in another process.
+        builder.Services.AddSingleton(new CommandTypeGuard(
+            localModules.Select(module => module.ContractsAssembly).Concat(remoteModules.Select(module => module.ContractsAssembly))));
+        builder.Services.AddSingleton(new LocalContractsAssemblies([.. localModules.Select(module => module.ContractsAssembly).Distinct()]));
 
         builder.Services.AddSingleton<IIntegrationEventTypeRegistry, IntegrationEventTypeRegistry>();
         builder.Services.AddSingleton<IIntegrationEventSerializer, JsonIntegrationEventSerializer>();

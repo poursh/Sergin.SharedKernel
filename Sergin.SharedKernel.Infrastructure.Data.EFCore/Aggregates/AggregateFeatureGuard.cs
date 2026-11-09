@@ -20,17 +20,19 @@ public static class AggregateFeatureGuard
     {
         ArgumentNullException.ThrowIfNull(services);
 
-        AggregateFeatureRegistry registry = services.GetRequiredService<AggregateFeatureRegistry>();
+        EnsureApplied(services.GetRequiredService<AggregateFeatureRegistry>(), ModelsOf(services));
+    }
 
+    /// <summary>Every module DbContext's model, built in a scope of its own; no database connection is opened.</summary>
+    internal static IReadOnlyCollection<IModel> ModelsOf(IServiceProvider services)
+    {
         using IServiceScope scope = services.CreateScope();
 
-        IReadOnlyCollection<IModel> models =
+        return
         [
             .. services.GetServices<ModuleDbContextRegistration>()
                 .Select(registration => ((DbContext)scope.ServiceProvider.GetRequiredService(registration.ContextType)).Model)
         ];
-
-        EnsureApplied(registry, models);
     }
 
     public static void EnsureApplied(AggregateFeatureRegistry registry, IReadOnlyCollection<IModel> models)

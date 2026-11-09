@@ -82,6 +82,21 @@ public static class CommandTypes
             .Select(t => t.IsGenericType ? t.GetGenericTypeDefinition() : t)];
     }
 
+    /// <summary>
+    /// The names of the properties the request's interfaces from this namespace declare (<c>Id</c>, <c>RootId</c>,
+    /// <c>ParentId</c>, <c>NewParentId</c>, <c>ExpectedCount</c>, …): what its type makes it carry, as opposed to its own fields.
+    /// </summary>
+    public static IReadOnlySet<string> InterfaceMemberNames(Type requestType)
+    {
+        ArgumentNullException.ThrowIfNull(requestType);
+
+        return requestType.GetInterfaces()
+            .Where(contract => contract.Namespace == typeof(CommandTypes).Namespace)
+            .SelectMany(contract => contract.GetProperties())
+            .Select(property => property.Name)
+            .ToHashSet(StringComparer.Ordinal);
+    }
+
     public static bool IsSystem(Type requestType)
     {
         ArgumentNullException.ThrowIfNull(requestType);

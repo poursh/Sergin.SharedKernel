@@ -11,6 +11,7 @@ using Sergin.SharedKernel.Application.Localizations;
 using Sergin.SharedKernel.Application.Securities.Authorization;
 using Sergin.SharedKernel.Application.Securities.Users;
 using Sergin.SharedKernel.Hosts.Authentication;
+using Sergin.SharedKernel.Hosts.Commands;
 using Sergin.SharedKernel.Hosts.Localizations;
 using Sergin.SharedKernel.Hosts.WebApi.Localizations;
 using Sergin.SharedKernel.Infrastracture.WebApi.Users;
@@ -60,6 +61,8 @@ public static class SerginWebApiExtensions
         CommandConfigurationRegistry registry = app.Services.GetRequiredService<CommandConfigurationRegistry>();
         app.Services.GetRequiredService<PermissionCatalog>();
         TextCatalog catalog = app.Services.GetRequiredService<TextCatalog>();
+
+        EnsureCommandTypes(app.Services, registry);
 
         // Every field a person sees has its label declared.
         app.Services.GetRequiredService<FieldTextGuard>().EnsureLabelled(registry, catalog);
@@ -124,5 +127,12 @@ public static class SerginWebApiExtensions
         };
 
         return app.UseRequestLocalization(options);
+    }
+
+    // Every typed record fits the command model, and every local one names an aggregate its module's DbContext maps.
+    private static void EnsureCommandTypes(IServiceProvider services, CommandConfigurationRegistry registry)
+    {
+        services.GetRequiredService<CommandTypeGuard>().EnsureShaped(registry, services.GetServices<ModuleConfigurationSource>());
+        CommandTargetMappingGuard.EnsureMapped(services.GetRequiredService<LocalContractsAssemblies>().RequestTypes(), services);
     }
 }
