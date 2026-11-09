@@ -10,6 +10,9 @@ public abstract class CommandConfigurationBuilder
 
     internal bool ExpectedVersionRequired { get; private protected set; }
 
+    /// <summary>The configuration waived the expected version the request's type would otherwise require.</summary>
+    internal bool ExpectedVersionWaived { get; private protected set; }
+
     /// <summary>The text category the request's fields are declared in, or null to take its bound root's.</summary>
     internal TextCategory? TextCategory { get; private protected set; }
 
@@ -47,6 +50,17 @@ public sealed class CommandConfigurationBuilder<TCommand> : CommandConfiguration
     public CommandConfigurationBuilder<TCommand> RequireExpectedVersion()
     {
         ExpectedVersionRequired = true;
+        return this;
+    }
+
+    /// <summary>
+    /// Waives the expected version a typed command requires by default (an entity, child or child-collection target
+    /// on a <c>Versioned()</c> root). The registry refuses it where no version would be required anyway: a dead
+    /// opt-out hides that the rule changed.
+    /// </summary>
+    public CommandConfigurationBuilder<TCommand> WithoutExpectedVersion()
+    {
+        ExpectedVersionWaived = true;
         return this;
     }
 

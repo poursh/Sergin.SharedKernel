@@ -149,15 +149,18 @@ public static class SerginCoreExtensions
         // behaviors. ConfigurationsAssembly, for remote modules too: a gateway must refuse a forbidden remote call
         // before the gRPC hop, and a remote module ships its configurations alongside its contracts. Built from
         // sources rather than here, so a test host can add its own request types; the Use…Async bootstraps
-        // resolve it so a bad declaration fails host start, not the first send.
+        // resolve it so a bad declaration fails host start, not the first send. ContractsAssembly too: a typed
+        // record takes its aggregate root and version rule from its type, configured or not.
         foreach (ISerginModule module in localModules)
         {
-            builder.Services.AddSingleton(ModuleConfigurationSource.FromAssembly(module.ConfigurationsAssembly, module.Schema, module.Name));
+            builder.Services.AddSingleton(ModuleConfigurationSource.FromAssemblies(
+                module.ConfigurationsAssembly, module.ContractsAssembly, module.Schema, module.Name));
         }
 
         foreach (ISerginRemoteModule remoteModule in remoteModules)
         {
-            builder.Services.AddSingleton(ModuleConfigurationSource.FromAssembly(remoteModule.ConfigurationsAssembly, remoteModule.Schema, remoteModule.Name));
+            builder.Services.AddSingleton(ModuleConfigurationSource.FromAssemblies(
+                remoteModule.ConfigurationsAssembly, remoteModule.ContractsAssembly, remoteModule.Schema, remoteModule.Name));
         }
 
         builder.Services.AddSingleton(provider =>

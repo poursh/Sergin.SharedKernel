@@ -16,7 +16,9 @@ public sealed record CommandTarget(Type Root, CommandTargetKind Kind, Type? Chil
 public static class CommandTypes
 {
     /// <summary>The request's target, or null when it implements no target interface.</summary>
-    /// <exception cref="InvalidOperationException">The type implements target interfaces with different roots.</exception>
+    /// <exception cref="InvalidOperationException">
+    /// The type implements target interfaces with different roots, or of different kinds on one root.
+    /// </exception>
     public static CommandTarget? TargetOf(Type requestType)
     {
         ArgumentNullException.ThrowIfNull(requestType);
@@ -53,6 +55,15 @@ public static class CommandTypes
             {
                 throw new InvalidOperationException(
                     $"{requestType.FullName} implements target interfaces for different roots ({found.Root.Name} and {candidate.Root.Name}).");
+            }
+
+            // Same root, another shape (an entity and a collection target, or two children): the kind would depend on
+            // the unspecified order GetInterfaces() returns, and the version rule reads the kind.
+            if (found is not null && found != candidate)
+            {
+                throw new InvalidOperationException(
+                    $"{requestType.FullName} implements target interfaces of different kinds on {found.Root.Name} "
+                    + $"({found.Kind} and {candidate.Kind}). A request has one target.");
             }
 
             found ??= candidate;
