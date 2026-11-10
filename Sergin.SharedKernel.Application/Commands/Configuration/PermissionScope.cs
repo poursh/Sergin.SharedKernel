@@ -7,14 +7,14 @@ namespace Sergin.SharedKernel.Application.Commands.Configuration;
 public enum PermissionScope
 {
     /// <summary>
-    /// On the scope <c>IAuthorizationScopeContext</c> holds: an unbound request, or one bound to a <c>Scoped()</c>
+    /// On the scope <c>IAuthorizationScopeContext</c> holds: an untyped request, or one whose type names a <c>Scoped()</c>
     /// aggregate, whose records live in scopes.
     /// </summary>
     Current,
 
     /// <summary>
-    /// On any scope: the caller passes when they hold every permission somewhere. A request bound to an aggregate
-    /// that is not <c>Scoped()</c>, whose records belong to no scope.
+    /// On any scope: the caller passes when they hold every permission somewhere. A request whose type names an aggregate
+    /// that is not <c>Scoped()</c>: its records belong to no scope.
     /// </summary>
     Any,
 }

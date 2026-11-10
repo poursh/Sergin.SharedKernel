@@ -1,6 +1,7 @@
 using System.Reflection;
 using Sergin.SharedKernel.Application.Commands.Configuration;
 using Sergin.SharedKernel.Application.Commands.Queries;
+using Sergin.SharedKernel.Application.Commands.Types;
 using Sergin.SharedKernel.Application.Localizations;
 
 namespace Sergin.SharedKernel.Hosts.Localizations;
@@ -10,7 +11,9 @@ namespace Sergin.SharedKernel.Hosts.Localizations;
 /// Contracts assembly (local and remote), each public instance property a person may see — not marked
 /// <c>NotShown(...)</c> in its configuration, and not a paging or criteria record (<see cref="Paggination"/>,
 /// <see cref="Sorting"/>, <see cref="Filtering"/>, <see cref="Term"/>) — must have a <see cref="FieldText"/> in the
-/// request's category; a request with such a property and no category is refused itself. And the reverse of decision 7:
+/// request's category; a request with such a property and no category is refused itself. The target ids a typed
+/// record's target interface declares (<c>Id</c>, <c>RootId</c>, <c>ExpectedCount</c>) are never shown, so need no
+/// <c>NotShown(...)</c>; a parent id (<c>ParentId</c>, <c>NewParentId</c>) is a reference a person picks, and stays shown. And the reverse of decision 7:
 /// every field of a <see cref="ListFieldSet"/> declared beside a configured list query must have a field text in that
 /// query's category, so a list column or filter chip never lacks a label. One refusal lists everything missing.
 /// </summary>
@@ -21,6 +24,8 @@ namespace Sergin.SharedKernel.Hosts.Localizations;
 public sealed class FieldTextGuard(IEnumerable<Assembly> contractsAssemblies)
 {
     private static readonly HashSet<Type> criteriaTypes = [typeof(Paggination), typeof(Sorting), typeof(Filtering), typeof(Term)];
+
+    private static readonly HashSet<string> targetIds = new(["Id", "RootId", "ExpectedCount"], StringComparer.Ordinal);
 
     private readonly Assembly[] assemblies = [.. contractsAssemblies.Distinct()];
 
@@ -65,6 +70,7 @@ public sealed class FieldTextGuard(IEnumerable<Assembly> contractsAssemblies)
     private static IEnumerable<string> MissingFields(Type request, CommandConfigurationRegistry registry, TextCatalog catalog)
     {
         IReadOnlySet<string> hidden = registry.HiddenProperties(request);
+        IReadOnlySet<string> declaredByType = CommandTypes.InterfaceMemberNames(request);
 
         string[] shown =
         [
@@ -73,6 +79,7 @@ public sealed class FieldTextGuard(IEnumerable<Assembly> contractsAssemblies)
                 .Where(property => !criteriaTypes.Contains(Nullable.GetUnderlyingType(property.PropertyType) ?? property.PropertyType))
                 .Select(property => property.Name)
                 .Where(name => !hidden.Contains(name))
+                .Where(name => !(targetIds.Contains(name) && declaredByType.Contains(name)))
                 .Distinct(StringComparer.Ordinal),
         ];
 

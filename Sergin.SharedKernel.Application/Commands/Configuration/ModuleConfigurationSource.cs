@@ -13,12 +13,17 @@ namespace Sergin.SharedKernel.Application.Commands.Configuration;
 public sealed class ModuleConfigurationSource
 {
     private ModuleConfigurationSource(
-        IReadOnlyCollection<Type> configurationTypes, IReadOnlyCollection<Type> aggregateConfigurationTypes, string? schema, string? moduleName = null)
+        IReadOnlyCollection<Type> configurationTypes,
+        IReadOnlyCollection<Type> aggregateConfigurationTypes,
+        IReadOnlyCollection<Type> requestTypes,
+        string? schema,
+        string? moduleName = null)
     {
         Schema = schema;
         ModuleName = moduleName;
         ConfigurationTypes = configurationTypes;
         AggregateConfigurationTypes = aggregateConfigurationTypes;
+        RequestTypes = requestTypes;
     }
 
     /// <summary>
@@ -36,34 +41,46 @@ public sealed class ModuleConfigurationSource
     /// <summary>The command configuration types.</summary>
     public IReadOnlyCollection<Type> ConfigurationTypes { get; }
 
-    /// <summary>The aggregate feature configuration types, read for the requests bound to an aggregate.</summary>
+    /// <summary>The aggregate feature configuration types, read for the typed requests on an aggregate.</summary>
     public IReadOnlyCollection<Type> AggregateConfigurationTypes { get; }
 
     /// <summary>
-    /// The configurations in a module's configurations assembly. The schema is required: it is what lets the
-    /// catalogue refuse a permission registered outside its module.
+    /// The concrete requests (<see cref="IBaseCommand"/>) the source carries, configured or not: a typed record takes
+    /// its root and version rule from its type, so the registry reads it even without a configuration.
     /// </summary>
-    public static ModuleConfigurationSource FromAssembly(Assembly assembly, string schema, string? moduleName = null)
+    public IReadOnlyCollection<Type> RequestTypes { get; }
+
+    /// <summary>
+    /// The configurations in a module's configurations assembly and the requests in its contracts assembly, so a typed
+    /// record with no configuration still gets its derived rules. The schema is required: it is what lets the catalogue
+    /// refuse a permission registered outside its module.
+    /// </summary>
+    public static ModuleConfigurationSource FromAssemblies(
+        Assembly configurationsAssembly, Assembly contractsAssembly, string schema, string? moduleName = null)
     {
-        ArgumentNullException.ThrowIfNull(assembly);
+        ArgumentNullException.ThrowIfNull(configurationsAssembly);
+        ArgumentNullException.ThrowIfNull(contractsAssembly);
         ArgumentException.ThrowIfNullOrWhiteSpace(schema);
 
         return new(
-            [.. assembly.GetTypes().Where(CommandConfigurationRegistry.IsConfigurationType)],
-            AggregateFeatureRegistry.ConfigurationTypesIn(assembly),
+            [.. configurationsAssembly.GetTypes().Where(CommandConfigurationRegistry.IsConfigurationType)],
+            AggregateFeatureRegistry.ConfigurationTypesIn(configurationsAssembly),
+            [.. contractsAssembly.GetTypes().Where(IsRequestType)],
             schema,
             moduleName);
     }
 
-    /// <summary>Command and aggregate feature configuration types, in any mix.</summary>
+    /// <summary>Command and aggregate feature configuration types and request types, in any mix.</summary>
     public static ModuleConfigurationSource FromTypes(params Type[] configurationTypes)
     {
         ArgumentNullException.ThrowIfNull(configurationTypes);
 
         return new(
             [.. configurationTypes.Where(type =>
-                !AggregateFeatureRegistry.IsConfigurationType(type) || CommandConfigurationRegistry.IsConfigurationType(type))],
+                !typeof(IBaseCommand).IsAssignableFrom(type)
+                && (!AggregateFeatureRegistry.IsConfigurationType(type) || CommandConfigurationRegistry.IsConfigurationType(type)))],
             [.. configurationTypes.Where(AggregateFeatureRegistry.IsConfigurationType)],
+            [.. configurationTypes.Where(IsRequestType)],
             schema: null);
     }
 
@@ -73,6 +90,9 @@ public sealed class ModuleConfigurationSource
         ArgumentException.ThrowIfNullOrWhiteSpace(schema);
 
         ModuleConfigurationSource source = FromTypes(configurationTypes);
-        return new(source.ConfigurationTypes, source.AggregateConfigurationTypes, schema);
+        return new(source.ConfigurationTypes, source.AggregateConfigurationTypes, source.RequestTypes, schema);
     }
+
+    private static bool IsRequestType(Type type) =>
+        type is { IsClass: true, IsAbstract: false, IsGenericTypeDefinition: false } && typeof(IBaseCommand).IsAssignableFrom(type);
 }

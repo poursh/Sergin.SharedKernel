@@ -59,7 +59,8 @@ public sealed class AggregateFeatureBuilder<TAggregateRoot> : AggregateFeatureBu
     /// <summary>
     /// Adds a row_version concurrency token to the root's table and rewrites it on every save that changes the
     /// aggregate, a change to a child alone included. One version covers the whole aggregate: children get no
-    /// column. A command whose configuration calls RequireExpectedVersion() is then refused when its expected version is stale.
+    /// column. A command typed on an existing entity, child or child collection of the root then requires an expected
+    /// version, and is refused when it is stale.
     /// Calling it twice is harmless.
     /// </summary>
     public AggregateFeatureBuilder<TAggregateRoot> Versioned()
@@ -102,7 +103,7 @@ public sealed class AggregateFeatureBuilder<TAggregateRoot> : AggregateFeatureBu
     }
 
     /// <summary>
-    /// Names the text category the aggregate's <see cref="FieldText"/>s are declared in: a request bound to this root
+    /// Names the text category the aggregate's <see cref="FieldText"/>s are declared in: a request whose type names this root
     /// takes its field labels (validation messages, form captions) from it unless its own configuration names another.
     /// Not an EF feature. Calling it again replaces the category.
     /// </summary>

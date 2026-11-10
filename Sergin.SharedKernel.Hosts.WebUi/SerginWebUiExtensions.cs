@@ -12,6 +12,7 @@ using Sergin.SharedKernel.Application.Localizations;
 using Sergin.SharedKernel.Application.Securities.Authorization;
 using Sergin.SharedKernel.Application.Securities.Users;
 using Sergin.SharedKernel.Hosts.Authentication;
+using Sergin.SharedKernel.Hosts.Commands;
 using Sergin.SharedKernel.Hosts.Localizations;
 using Sergin.SharedKernel.Hosts.WebUi;
 using Sergin.SharedKernel.Hosts.WebUi.Localizations;
@@ -176,6 +177,8 @@ public static class SerginWebUiExtensions
         // Builds the registry now, so a bad ICommandConfiguration fails start rather than the first send.
         CommandConfigurationRegistry registry = app.Services.GetRequiredService<CommandConfigurationRegistry>();
 
+        EnsureCommandTypes(app.Services, registry);
+
         // Every field a person sees has its label declared.
         app.Services.GetRequiredService<FieldTextGuard>().EnsureLabelled(registry, app.Services.GetRequiredService<TextCatalog>());
 
@@ -309,5 +312,12 @@ public static class SerginWebUiExtensions
                 + Environment.NewLine
                 + string.Join(Environment.NewLine, violations));
         }
+    }
+
+    // Every typed record fits the command model, and every local one names an aggregate its module's DbContext maps.
+    private static void EnsureCommandTypes(IServiceProvider services, CommandConfigurationRegistry registry)
+    {
+        services.GetRequiredService<CommandTypeGuard>().EnsureShaped(registry, services.GetServices<ModuleConfigurationSource>());
+        CommandTargetMappingGuard.EnsureMapped(services.GetRequiredService<LocalContractsAssemblies>().RequestTypes(), services);
     }
 }
