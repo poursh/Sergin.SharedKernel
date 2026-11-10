@@ -1,6 +1,7 @@
 using System.Text.Json;
 using Sergin.SharedKernel.Application.ScheduledTasks;
 using Sergin.SharedKernel.Domain.ScheduledTasks;
+using NCrontab;
 using TickerQ.Utilities;
 using TickerQ.Utilities.Entities;
 using TickerQ.Utilities.Enums;
@@ -126,6 +127,48 @@ public sealed class TickerQScheduledTaskEngine(
         {
             return false;
         }
+    }
+
+    /// <summary>
+    /// The next fire times, from NCrontab, the parser TickerQ itself schedules with (six fields mean seconds first, as
+    /// there). Gated on <see cref="IsValidCron"/>, so the two agree. NCrontab walks local clock time: each candidate is
+    /// read in the zone, and a local time the zone skips is dropped.
+    /// </summary>
+    public IReadOnlyList<DateTimeOffset> NextOccurrences(string cron, string timeZoneId, DateTimeOffset after, int count)
+    {
+        if (count <= 0 || !IsValidCron(cron, timeZoneId))
+        {
+            return [];
+        }
+
+        var options = new CrontabSchedule.ParseOptions { IncludingSeconds = cron.Split(' ', StringSplitOptions.RemoveEmptyEntries).Length == 6 };
+
+        if (CrontabSchedule.TryParse(cron, options) is not { } schedule)
+        {
+            return [];
+        }
+
+        var zone = TimeZoneInfo.FindSystemTimeZoneById(timeZoneId);
+        DateTime local = TimeZoneInfo.ConvertTime(after, zone).DateTime;
+        List<DateTimeOffset> times = [];
+
+        // A bounded walk: a schedule that never lands on a real local time (all in a DST gap) must not spin.
+        for (int step = 0; step < count * 8 && times.Count < count; step++)
+        {
+            local = schedule.GetNextOccurrence(local);
+
+            if (!zone.IsInvalidTime(local))
+            {
+                var next = new DateTimeOffset(local, zone.GetUtcOffset(local));
+
+                if (next > after)
+                {
+                    times.Add(next);
+                }
+            }
+        }
+
+        return times;
     }
 
     /// <summary>A run item's job, due at <paramref name="executionTimeUtc"/> or, when null, now.</summary>

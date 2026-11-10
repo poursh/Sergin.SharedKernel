@@ -29,6 +29,8 @@ public static class SerginBlazorKitExtensions
         // The scheduled-task parts' words, in the same key space as the Application-side ScheduledTaskTexts.
         services.AddSingleton(TextSource.FromTypes("common", TextOrigin.Ui, [typeof(ScheduledTaskUiTexts), .. typeof(ScheduledTaskUiTexts).GetNestedTypes()]));
 
+        services.AddSingleton<ScheduledTaskNextRuns>();
+
         services.AddScoped<IUiErrorPresenter, MudUiErrorPresenter>();
 
         // Scoped, not singleton: it depends on IJSRuntime, which in Blazor Server is per-circuit.

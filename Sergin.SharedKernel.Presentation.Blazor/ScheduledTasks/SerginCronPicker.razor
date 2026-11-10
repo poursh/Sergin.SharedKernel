@@ -37,7 +37,7 @@
                       For="CronFor" Immediate="true" Variant="Variant.Outlined" Margin="Margin.Dense" />
     }
 
-    <MudText Typo="Typo.caption">@Localizer.Text(ScheduledTaskUiTexts.Cron.TimeZone): <span class="sergin-cron-zone">@Zone.DisplayName</span></MudText>
+    <MudText Typo="Typo.caption" Class="sergin-cron-zone">@ZoneCaption</MudText>
 
     <div>
         <MudText Typo="Typo.subtitle2">@Localizer.Text(ScheduledTaskUiTexts.Cron.NextRuns)</MudText>

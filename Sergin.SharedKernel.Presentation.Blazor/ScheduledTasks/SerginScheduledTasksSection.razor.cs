@@ -80,6 +80,9 @@ public sealed partial class SerginScheduledTasksSection
     private IOptions<SerginTimeZoneOptions> TimeZoneOptions { get; set; } = default!;
 
     [Inject]
+    private ScheduledTaskNextRuns NextRuns { get; set; } = default!;
+
+    [Inject]
     private IDateTimeProvider Clock { get; set; } = default!;
 
     [Inject]
@@ -131,7 +134,7 @@ public sealed partial class SerginScheduledTasksSection
         }
 
         // Interop is closed while prerendering: the app's zone until the first render, then the viewer's own.
-        timeZone = ZoneOf(TimeZoneOptions.Value.TimeZone);
+        timeZone = ScheduledTaskUiFormat.ZoneOf(TimeZoneOptions.Value.TimeZone);
         await ReloadAsync();
     }
 
@@ -158,12 +161,11 @@ public sealed partial class SerginScheduledTasksSection
             return Localizer.Text(ScheduledTaskUiTexts.NotScheduled);
         }
 
-        TimeZoneInfo zone = ZoneOf(task.TimeZoneId);
         var now = new DateTimeOffset(DateTime.SpecifyKind(Clock.UtcNow, DateTimeKind.Utc));
 
-        return CronSchedule.NextRuns(task.Cron, zone, now, 1) is [var next]
+        return NextRuns.Next(task.Cron, task.TimeZoneId, now, 1) is [var next]
             ? Formatter.DateTime(next, timeZone)
-            : string.Empty;
+            : Localizer.Text(ScheduledTaskUiTexts.NextRunUnavailable);
     }
 
     private string LastOutcomeText(ScheduledTaskListItem task)
@@ -173,43 +175,23 @@ public sealed partial class SerginScheduledTasksSection
             return Localizer.Text(ScheduledTaskUiTexts.Never);
         }
 
-        string text = Localizer.Text(StatusText(status));
-        string when = task.LastRunAtUtc is { } at ? Time(at) : string.Empty;
-
-        return task.LastRunFailed is > 0 and var failed
-            ? $"{text} · {Localizer.Text(ScheduledTaskUiTexts.Runs.FailedCount, new { Failed = Formatter.Number(failed) })} {when}".Trim()
-            : $"{text} {when}".Trim();
-    }
-
-    private static TextDefinition StatusText(ScheduledRunStatus status) =>
-        status switch
+        var arguments = new
         {
-            ScheduledRunStatus.Running => ScheduledTaskUiTexts.Runs.Running,
-            ScheduledRunStatus.Completed => ScheduledTaskUiTexts.Runs.Completed,
-            _ => ScheduledTaskUiTexts.Runs.Skipped,
+            Status = Localizer.Text(ScheduledTaskUiFormat.StatusText(status)),
+            When = task.LastRunAtUtc is { } at ? Time(at) : string.Empty,
+            Failed = Formatter.Number(task.LastRunFailed ?? 0),
         };
 
-    private static TimeZoneInfo ZoneOf(string id)
-    {
-        try
-        {
-            return TimeZoneInfo.FindSystemTimeZoneById(id);
-        }
-        catch (Exception exception) when (exception is TimeZoneNotFoundException or InvalidTimeZoneException or ArgumentException)
-        {
-            return TimeZoneInfo.Utc;
-        }
+        return Localizer.Text(
+            task.LastRunFailed is > 0 ? ScheduledTaskUiTexts.Runs.LastOutcomeWithFailures : ScheduledTaskUiTexts.Runs.LastOutcome,
+            arguments);
     }
 
-    private string Time(DateTime utc) =>
-        Formatter.DateTime(new DateTimeOffset(DateTime.SpecifyKind(utc, DateTimeKind.Utc)), timeZone);
+    private string Time(DateTime utc) => ScheduledTaskUiFormat.Time(Formatter, timeZone, utc);
 
-    private string NameOf(Guid userId) => names.GetValueOrDefault(userId) ?? userId.ToString("N")[..8];
+    private string NameOf(Guid userId) => ScheduledTaskUiFormat.NameOf(names, userId);
 
-    private string OneOffResultText(ScheduledRunListItem run) =>
-        Localizer.Text(
-            ScheduledTaskUiTexts.Runs.Result,
-            new { Succeeded = Formatter.Number(run.Succeeded), Total = Formatter.Number(run.Total), Failed = Formatter.Number(run.Failed) });
+    private string OneOffSummaryText(ScheduledRunListItem run) => ScheduledTaskUiFormat.RunSummary(Localizer, Formatter, run);
 
     private async Task ShowRunsAsync(TableRowClickEventArgs<ScheduledTaskListItem> click)
     {

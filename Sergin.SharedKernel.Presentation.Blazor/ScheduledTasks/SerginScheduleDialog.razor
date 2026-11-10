@@ -6,7 +6,7 @@
         <MudText Typo="Typo.h6">@Localizer.Text(CommandTitle)</MudText>
     </TitleContent>
     <DialogContent>
-        @if (EditingId is null || version is not null)
+        @if (EditingId is null || Version is not null)
         {
             <MudForm @ref="form" Model="model" Validation="@validation" @bind-IsValid="isValid">
                 <MudStack Spacing="3">

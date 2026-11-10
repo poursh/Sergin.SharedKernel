@@ -35,6 +35,13 @@ public interface IScheduledTaskEngine
 
     /// <summary>Whether the engine can fire <paramref name="cron"/> in <paramref name="timeZoneId"/>.</summary>
     bool IsValidCron(string cron, string timeZoneId);
+
+    /// <summary>
+    /// The first <paramref name="count"/> times after <paramref name="after"/> the engine would fire
+    /// <paramref name="cron"/> in <paramref name="timeZoneId"/>, earliest first. Synchronous and pure (nothing is
+    /// registered); empty exactly when <see cref="IsValidCron"/> refuses the pair. For previews in the UI.
+    /// </summary>
+    IReadOnlyList<DateTimeOffset> NextOccurrences(string cron, string timeZoneId, DateTimeOffset after, int count);
 }
 
 /// <summary>A task's trigger as the engine holds it: which module's task, and when it fires.</summary>

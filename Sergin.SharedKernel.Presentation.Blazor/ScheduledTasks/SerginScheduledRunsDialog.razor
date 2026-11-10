@@ -1,7 +1,7 @@
 @* A schedule's runs, and one run's items. The dialog is opened by a click on the schedule's row. *@
 <MudDialog>
     <TitleContent>
-        <MudText Typo="Typo.h6">@Localizer.Text(ScheduledTaskUiTexts.Runs.Heading) · @CommandName</MudText>
+        <MudText Typo="Typo.h6">@Heading</MudText>
     </TitleContent>
     <DialogContent>
         @if (loading)
@@ -31,7 +31,7 @@
                             <td>@Time(run.StartedAtUtc)</td>
                             <td>@TriggerText(run.Trigger)</td>
                             <td>@NameOf(run.ActingUserId)</td>
-                            <td>@StatusText(run.Status) · @ResultText(run)</td>
+                            <td>@SummaryText(run)</td>
                             <td>
                                 <MudButton Size="Size.Small" Variant="Variant.Text" OnClick="@(() => ShowItemsAsync(run))">@Localizer.Text(ScheduledTaskUiTexts.Runs.ShowItems)</MudButton>
                             </td>

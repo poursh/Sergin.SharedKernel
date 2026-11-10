@@ -30,7 +30,6 @@ public sealed partial class SerginScheduleDialog
 
     private MudForm form = default!;
     private Func<object, string, Task<IEnumerable<string>>> validation = default!;
-    private RowVersion? version;
     private bool isValid = true;
     private bool busy;
 
@@ -88,22 +87,31 @@ public sealed partial class SerginScheduleDialog
             ? FormValidator.RulesFor(ToCreate)
             : FormValidator.RulesFor(ToUpdate);
 
-        if (EditingId is not { } id)
+        if (EditingId is not null)
         {
-            return;
+            await ReloadAsync();
         }
+    }
 
-        ErrorOr<Versioned<ScheduledTaskResponse>> loaded = await Dispatcher.SendVersionedAsync(new GetScheduledTaskByIdQuery(Schema, id));
+    /// <summary>The row version the dialog will send an edit at; null for a new schedule or before the saved one is read.</summary>
+    internal RowVersion? Version { get; private set; }
+
+    /// <summary>Reads the saved schedule again: its version, cron and zone become the form's. False when it could not be read.</summary>
+    internal async Task<bool> ReloadAsync()
+    {
+        ErrorOr<Versioned<ScheduledTaskResponse>> loaded = await Dispatcher.SendVersionedAsync(new GetScheduledTaskByIdQuery(Schema, EditingId!));
 
         if (loaded.IsError)
         {
             ErrorPresenter.Notify(loaded.Errors);
-            return;
+            return false;
         }
 
-        version = loaded.Value.Version;
+        Version = loaded.Value.Version;
         model.Cron = loaded.Value.Value.Cron;
         model.TimeZoneId = loaded.Value.Value.TimeZoneId;
+
+        return true;
     }
 
     private CreateScheduledTaskCommand ToCreate() =>
@@ -136,7 +144,7 @@ public sealed partial class SerginScheduleDialog
         }
     }
 
-    private async Task SaveAsync()
+    internal async Task SaveAsync()
     {
         await form.ValidateAsync();
 
@@ -151,10 +159,21 @@ public sealed partial class SerginScheduleDialog
         {
             ErrorOr<Success> saved = EditingId is null
                 ? (await Dispatcher.SendAsync(ToCreate())).Then(_ => Result.Success)
-                : (await Dispatcher.SendVersionedAsync(ToUpdate(), version)).Then(_ => Result.Success);
+                : (await Dispatcher.SendVersionedAsync(ToUpdate(), Version)).Then(_ => Result.Success);
 
             if (saved.IsError)
             {
+                // Someone saved the schedule since this dialog read it: show what is stored now, with the new version, and say so.
+                if (EditingId is not null && saved.Errors.Exists(VersionErrors.IsStale))
+                {
+                    if (await ReloadAsync())
+                    {
+                        Snackbar.Add(Localizer.Text(ScheduledTaskUiTexts.StaleReloaded), Severity.Warning);
+                    }
+
+                    return;
+                }
+
                 ErrorPresenter.Notify(saved.Errors);
                 return;
             }

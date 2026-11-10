@@ -47,6 +47,11 @@ public static class ScheduledTaskUiTexts
 
     public static TextDefinition Never { get; } = category.Text("Never", "Never run");
 
+    public static TextDefinition NextRunUnavailable { get; } = category.Text("NextRunUnavailable", "Not available");
+
+    public static TextDefinition StaleReloaded { get; } =
+        category.Text("StaleReloaded", "Someone else changed this schedule. It was reloaded: check it and save again.");
+
     public static TextDefinition NotScheduled { get; } = category.Text("NotScheduled", "Not scheduled");
 
     /// <summary>The dialog's own captions.</summary>
@@ -90,7 +95,7 @@ public static class ScheduledTaskUiTexts
     {
         private static readonly TextCategory runs = category.Child("Runs");
 
-        public static TextDefinition Heading { get; } = runs.Text("Title", "Runs");
+        public static TextDefinition Heading { get; } = runs.Text("Title", "Runs · {Command}");
 
         public static TextDefinition NoRuns { get; } = runs.Text("Empty", "No runs yet.");
 
@@ -102,9 +107,11 @@ public static class ScheduledTaskUiTexts
 
         public static TextDefinition Status { get; } = runs.Text("Status", "Status");
 
-        public static TextDefinition Result { get; } = runs.Text("Result", "{Succeeded} of {Total} succeeded, {Failed} failed");
+        public static TextDefinition Summary { get; } = runs.Text("Summary", "{Status}: {Succeeded} of {Total} succeeded, {Failed} failed");
 
-        public static TextDefinition FailedCount { get; } = runs.Text("FailedCount", "{Failed} failed");
+        public static TextDefinition LastOutcome { get; } = runs.Text("LastOutcome", "{Status}, {When}");
+
+        public static TextDefinition LastOutcomeWithFailures { get; } = runs.Text("LastOutcomeWithFailures", "{Status}, {When}: {Failed} failed");
 
         public static TextDefinition Items { get; } = runs.Text("Items", "Records of this run");
 
@@ -164,7 +171,7 @@ public static class ScheduledTaskUiTexts
 
         public static TextDefinition Expression { get; } = cron.Text("Expression", "Cron expression");
 
-        public static TextDefinition TimeZone { get; } = cron.Text("TimeZone", "Time zone");
+        public static TextDefinition TimeZone { get; } = cron.Text("TimeZone", "Time zone: {Zone}");
 
         public static TextDefinition Repeat { get; } = cron.Text("Repeat", "Repeat");
     }

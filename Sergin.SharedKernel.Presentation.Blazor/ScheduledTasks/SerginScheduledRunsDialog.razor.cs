@@ -93,41 +93,17 @@ public sealed partial class SerginScheduledRunsDialog
         openRun = run.Id;
     }
 
-    private string Time(DateTime utc) =>
-        Formatter.DateTime(new DateTimeOffset(DateTime.SpecifyKind(utc, DateTimeKind.Utc)), timeZone);
+    private string Time(DateTime utc) => ScheduledTaskUiFormat.Time(Formatter, timeZone, utc);
 
-    private string NameOf(Guid userId) => names.GetValueOrDefault(userId) ?? userId.ToString("N")[..8];
+    private string NameOf(Guid userId) => ScheduledTaskUiFormat.NameOf(names, userId);
 
-    private string TriggerText(ScheduledRunTrigger trigger) =>
-        Localizer.Text(trigger switch
-        {
-            ScheduledRunTrigger.Scheduled => ScheduledTaskUiTexts.Runs.Scheduled,
-            ScheduledRunTrigger.RunNow => ScheduledTaskUiTexts.Runs.RunNowTrigger,
-            _ => ScheduledTaskUiTexts.Runs.OneOff,
-        });
+    private string TriggerText(ScheduledRunTrigger trigger) => Localizer.Text(ScheduledTaskUiFormat.TriggerText(trigger));
 
-    private string StatusText(ScheduledRunStatus status) =>
-        Localizer.Text(status switch
-        {
-            ScheduledRunStatus.Running => ScheduledTaskUiTexts.Runs.Running,
-            ScheduledRunStatus.Completed => ScheduledTaskUiTexts.Runs.Completed,
-            _ => ScheduledTaskUiTexts.Runs.Skipped,
-        });
+    private string ItemStatusText(ScheduledRunItemStatus status) => Localizer.Text(ScheduledTaskUiFormat.ItemStatusText(status));
 
-    private string ItemStatusText(ScheduledRunItemStatus status) =>
-        Localizer.Text(status switch
-        {
-            ScheduledRunItemStatus.Pending => ScheduledTaskUiTexts.Runs.ItemPending,
-            ScheduledRunItemStatus.Running => ScheduledTaskUiTexts.Runs.ItemRunning,
-            ScheduledRunItemStatus.Retrying => ScheduledTaskUiTexts.Runs.ItemRetrying,
-            ScheduledRunItemStatus.Succeeded => ScheduledTaskUiTexts.Runs.ItemSucceeded,
-            _ => ScheduledTaskUiTexts.Runs.ItemFailed,
-        });
+    private string SummaryText(ScheduledRunListItem run) => ScheduledTaskUiFormat.RunSummary(Localizer, Formatter, run);
 
-    private string ResultText(ScheduledRunListItem run) =>
-        Localizer.Text(
-            ScheduledTaskUiTexts.Runs.Result,
-            new { Succeeded = Formatter.Number(run.Succeeded), Total = Formatter.Number(run.Total), Failed = Formatter.Number(run.Failed) });
+    private string Heading => Localizer.Text(ScheduledTaskUiTexts.Runs.Heading, new { Command = CommandName });
 
     private void Close() => MudDialog.Close();
 }

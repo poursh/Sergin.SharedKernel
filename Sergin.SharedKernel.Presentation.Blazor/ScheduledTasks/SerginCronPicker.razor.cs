@@ -65,6 +65,9 @@ public sealed partial class SerginCronPicker
     private IUiTimeZoneStore TimeZones { get; set; } = default!;
 
     [Inject]
+    private ScheduledTaskNextRuns NextRunTimes { get; set; } = default!;
+
+    [Inject]
     private IDateTimeProvider Clock { get; set; } = default!;
 
     private string TimeText
@@ -79,11 +82,11 @@ public sealed partial class SerginCronPicker
         }
     }
 
-    private TimeZoneInfo Zone => ZoneOf(TimeZoneId);
+    private TimeZoneInfo Zone => ScheduledTaskUiFormat.ZoneOf(TimeZoneId);
 
     private IReadOnlyList<string> NextRuns =>
     [
-        .. CronSchedule.NextRuns(Cron, Zone, new DateTimeOffset(DateTime.SpecifyKind(Clock.UtcNow, DateTimeKind.Utc)), PreviewCount)
+        .. NextRunTimes.Next(Cron, TimeZoneId, new DateTimeOffset(DateTime.SpecifyKind(Clock.UtcNow, DateTimeKind.Utc)), PreviewCount)
             .Select(run => Formatter.DateTime(run, Zone)),
     ];
 
@@ -159,20 +162,10 @@ public sealed partial class SerginCronPicker
         lastCron = Cron;
     }
 
-    private static TimeZoneInfo ZoneOf(string id)
-    {
-        try
-        {
-            return TimeZoneInfo.FindSystemTimeZoneById(id);
-        }
-        catch (Exception exception) when (exception is TimeZoneNotFoundException or InvalidTimeZoneException or ArgumentException)
-        {
-            return TimeZoneInfo.Utc;
-        }
-    }
-
     private static TimeOnly TimeOfDay(string hour, string minute) =>
         new(int.Parse(hour, CultureInfo.InvariantCulture) % 24, int.Parse(minute, CultureInfo.InvariantCulture) % 60);
+
+    private string ZoneCaption => Localizer.Text(ScheduledTaskUiTexts.Cron.TimeZone, new { Zone = Zone.DisplayName });
 
     private string DayName(DayOfWeek value) => Formatter.Culture.DateTimeFormat.GetDayName(value);
 

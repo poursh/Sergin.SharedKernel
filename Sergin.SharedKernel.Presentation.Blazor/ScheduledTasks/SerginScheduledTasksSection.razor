@@ -72,7 +72,7 @@
                         <tr>
                             <td>@Time(run.StartedAtUtc)</td>
                             <td>@NameOf(run.ActingUserId)</td>
-                            <td>@Localizer.Text(StatusText(run.Status)) · @OneOffResultText(run)</td>
+                            <td>@OneOffSummaryText(run)</td>
                         </tr>
                     }
                 </tbody>
