@@ -12,7 +12,7 @@ namespace Sergin.SharedKernel.Application.Securities.Authorization;
 /// <c>AggregateFeatureBuilder.Permissions(...)</c>, plus <see cref="PermissionDefinition.AllPlatform"/>. Built once
 /// from the same sources as the command configuration registry, so a registration mistake fails host start:
 /// the same name from two aggregates, a permission outside its module's schema, a module registering the
-/// reserved <c>sys</c> schema, or a definition class whose initializer rejected its own name.
+/// reserved <c>sys</c> schema (only an aggregate SharedKernel owns registers there), or a definition class whose initializer rejected its own name.
 /// </summary>
 /// <remarks>
 /// Each entry carries its label as a declared text (spec decision 19), the definition's own label being the English
@@ -163,7 +163,7 @@ public sealed class PermissionCatalog
 
     private static void CheckSchema(string? schema, Type root, PermissionDefinition definition)
     {
-        if (definition.Schema == ReservedSchema)
+        if (definition.Schema == ReservedSchema && !IsPlatformRoot(root))
         {
             throw new InvalidOperationException(
                 $"{root.FullName} registers {definition.Permission.Value}, but the '{ReservedSchema}' schema is reserved "
@@ -177,6 +177,13 @@ public sealed class PermissionCatalog
                 + $"expected permission.{schema}.*.");
         }
     }
+
+    /// <summary>
+    /// An aggregate SharedKernel itself owns (the scheduled task), whose permission no one module can own and so lives
+    /// in <c>sys</c>; a module's aggregate, or a test's, never does.
+    /// </summary>
+    private static bool IsPlatformRoot(Type root) =>
+        root.Assembly.GetName().Name?.StartsWith("Sergin.SharedKernel.", StringComparison.Ordinal) == true;
 
     private static void CheckNames(List<PermissionCatalogEntry> collected)
     {

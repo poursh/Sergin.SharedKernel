@@ -15,13 +15,15 @@ namespace Sergin.SharedKernel.Application.Aggregates;
 public sealed class AggregateFeatureRegistry
 {
     private readonly IReadOnlyDictionary<Type, Declaration> declarations;
+    private readonly IReadOnlyCollection<Type> configurationTypes;
 
-    private AggregateFeatureRegistry(IReadOnlyDictionary<Type, Declaration> declarations)
+    private AggregateFeatureRegistry(IReadOnlyDictionary<Type, Declaration> declarations, IReadOnlyCollection<Type> configurationTypes)
     {
         this.declarations = declarations;
+        this.configurationTypes = configurationTypes;
     }
 
-    public static AggregateFeatureRegistry Empty { get; } = new(new Dictionary<Type, Declaration>());
+    public static AggregateFeatureRegistry Empty { get; } = new(new Dictionary<Type, Declaration>(), []);
 
     /// <summary>The configured aggregate root types.</summary>
     public IReadOnlyCollection<Type> ConfiguredTypes => [.. declarations.Keys];
@@ -98,6 +100,17 @@ public sealed class AggregateFeatureRegistry
         return declarations.TryGetValue(aggregateRoot, out Declaration? declaration) ? declaration.Name : null;
     }
 
+    /// <summary>
+    /// This registry's configurations plus <paramref name="moreConfigurationTypes"/>, built and checked afresh: a
+    /// SharedKernel feature a module opts into (scheduled tasks) adds its own aggregate's configuration this way.
+    /// </summary>
+    public AggregateFeatureRegistry Including(IEnumerable<Type> moreConfigurationTypes)
+    {
+        ArgumentNullException.ThrowIfNull(moreConfigurationTypes);
+
+        return FromConfigurationTypes(configurationTypes.Concat(moreConfigurationTypes).Distinct());
+    }
+
     public static AggregateFeatureRegistry FromAssemblies(IEnumerable<Assembly> assemblies)
     {
         ArgumentNullException.ThrowIfNull(assemblies);
@@ -121,9 +134,10 @@ public sealed class AggregateFeatureRegistry
     {
         ArgumentNullException.ThrowIfNull(configurationTypes);
 
+        Type[] types = [.. configurationTypes];
         List<(Type RootType, Type ConfigurationType, Declaration Declaration)> declared = [];
 
-        foreach (Type configurationType in configurationTypes)
+        foreach (Type configurationType in types)
         {
             foreach (Type closedInterface in configurationType.GetInterfaces().Where(IsClosedConfigurationInterface))
             {
@@ -147,7 +161,7 @@ public sealed class AggregateFeatureRegistry
                 + "Declare each aggregate's features in exactly one IAggregateFeatureConfiguration<T>.");
         }
 
-        return new AggregateFeatureRegistry(declared.ToDictionary(item => item.RootType, item => item.Declaration));
+        return new AggregateFeatureRegistry(declared.ToDictionary(item => item.RootType, item => item.Declaration), types);
     }
 
     private static Declaration Run(Type configurationType, Type closedInterface, Type rootType)

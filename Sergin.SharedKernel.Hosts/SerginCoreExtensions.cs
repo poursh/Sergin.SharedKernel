@@ -25,6 +25,7 @@ using Sergin.SharedKernel.Infrastracture.Data;
 using Sergin.SharedKernel.Infrastructure.Data.EFCore;
 using Sergin.SharedKernel.Infrastructure.Data.EFCore.Interceptors;
 using Sergin.SharedKernel.Infrastructure.Data.EFCore.Outbox;
+using Sergin.SharedKernel.Infrastructure.Data.EFCore.ScheduledTasks;
 using Sergin.SharedKernel.Infrastructure.Events;
 using Sergin.SharedKernel.Infrastructure.Events.Integration;
 using Sergin.SharedKernel.Infrastructure.Localizations;
@@ -246,9 +247,14 @@ public static class SerginCoreExtensions
         // EF models (AggregateFeatureGuard). Building it here also runs the registry's own checks — two
         // configurations for one type, a configuration without a parameterless constructor — at composition,
         // in every environment. Each module DbContext builds its own copy for the EF model; see
-        // SerginDbContext.AggregateFeatures for why that one cannot come from DI.
-        builder.Services.AddSingleton(
-            AggregateFeatureRegistry.FromAssemblies(localModules.Select(module => module.ConfigurationsAssembly)));
+        // SerginDbContext.AggregateFeatures for why that one cannot come from DI. A factory, because a module context
+        // that opts into scheduled tasks (registered by its module's AddServices, after this) maps SharedKernel's own
+        // ScheduledTask, whose configuration is in no module's assembly; the module part is still built here.
+        var moduleAggregateFeatures =
+            AggregateFeatureRegistry.FromAssemblies(localModules.Select(module => module.ConfigurationsAssembly));
+        builder.Services.AddSingleton(provider => provider.GetServices<ScheduledTasksRegistration>().Any()
+            ? moduleAggregateFeatures.Including(ScheduledTaskConfigurationTypes.AggregateConfigurations)
+            : moduleAggregateFeatures);
 
         string connectionString = serginSection.GetConnectionString("Database")
             ?? throw new InvalidOperationException("Connection string 'Sergin:ConnectionStrings:Database' is not configured.");
