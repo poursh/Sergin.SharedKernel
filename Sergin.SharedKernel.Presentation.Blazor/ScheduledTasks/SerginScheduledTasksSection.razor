@@ -1,0 +1,82 @@
+@* A record's schedules, embedded: the shared entity-list section frame (title, count, outline), then the table. It renders
+   its rows on the first pass, not after it, because the list is short and unpaged, so the prerender already shows it.
+   The row commands sit in a span that stops the click, so using one does not also open the runs. *@
+@if (visible)
+{
+    <SerginEntityListView TitleText="ScheduledTaskUiTexts.Title" Count="tasks.Count" Problem="problem">
+        <MudTable T="ScheduledTaskListItem" Items="tasks" Hover="true" Striped="true" Bordered="true" Dense="true" Elevation="0"
+                  OnRowClick="ShowRunsAsync" RowStyle="cursor: pointer;">
+            <HeaderContent>
+                <MudTh>@Localizer.Text(ScheduledTaskUiTexts.Columns.Command)</MudTh>
+                <MudTh>@Localizer.Text(ScheduledTaskUiTexts.Columns.Schedule)</MudTh>
+                <MudTh>@Localizer.Text(ScheduledTaskUiTexts.Columns.NextRun)</MudTh>
+                <MudTh>@Localizer.Text(ScheduledTaskUiTexts.Columns.LastOutcome)</MudTh>
+                <MudTh>@Localizer.Text(ScheduledTaskUiTexts.Columns.State)</MudTh>
+                <MudTh Style="width: 1%;" />
+            </HeaderContent>
+            <RowTemplate>
+                <MudTd DataLabel="@Localizer.Text(ScheduledTaskUiTexts.Columns.Command)">@context.CommandName</MudTd>
+                <MudTd DataLabel="@Localizer.Text(ScheduledTaskUiTexts.Columns.Schedule)"><code>@context.Cron</code> <MudText Typo="Typo.caption" Class="d-inline">@context.TimeZoneId</MudText></MudTd>
+                <MudTd DataLabel="@Localizer.Text(ScheduledTaskUiTexts.Columns.NextRun)">@NextRunText(context)</MudTd>
+                <MudTd DataLabel="@Localizer.Text(ScheduledTaskUiTexts.Columns.LastOutcome)">@LastOutcomeText(context)</MudTd>
+                <MudTd DataLabel="@Localizer.Text(ScheduledTaskUiTexts.Columns.State)">
+                    <MudChip T="string" Size="Size.Small" Color="@(context.State == ScheduledTaskState.Active ? Color.Success : Color.Default)">
+                        @Localizer.Text(context.State == ScheduledTaskState.Active ? ScheduledTaskUiTexts.States.Active : ScheduledTaskUiTexts.States.Paused)
+                    </MudChip>
+                </MudTd>
+                <MudTd Style="white-space: nowrap; text-align: right;">
+                    <span @onclick:stopPropagation="true">
+                        <MudTooltip Text="@Localizer.Text(ScheduledTaskUiTexts.RunNow)">
+                            <MudIconButton Icon="@Icons.Material.Outlined.PlayArrow" Size="Size.Small" aria-label="@Localizer.Text(ScheduledTaskUiTexts.RunNow)"
+                                           OnClick="@(() => RunNowAsync(context))" />
+                        </MudTooltip>
+                        <MudTooltip Text="@Localizer.Text(context.State == ScheduledTaskState.Active ? ScheduledTaskUiTexts.Pause : ScheduledTaskUiTexts.Resume)">
+                            <MudIconButton Icon="@(context.State == ScheduledTaskState.Active ? Icons.Material.Outlined.Pause : Icons.Material.Outlined.PlayCircleOutline)"
+                                           Size="Size.Small" aria-label="@Localizer.Text(context.State == ScheduledTaskState.Active ? ScheduledTaskUiTexts.Pause : ScheduledTaskUiTexts.Resume)"
+                                           OnClick="@(() => TogglePauseAsync(context))" />
+                        </MudTooltip>
+                        <MudTooltip Text="@Localizer.Text(CommonTexts.Edit)">
+                            <MudIconButton Icon="@Icons.Material.Outlined.Edit" Size="Size.Small" aria-label="@Localizer.Text(CommonTexts.Edit)"
+                                           OnClick="@(() => EditAsync(context))" />
+                        </MudTooltip>
+                        <MudTooltip Text="@Localizer.Text(CommonTexts.Delete)">
+                            <MudIconButton Icon="@Icons.Material.Outlined.Delete" Size="Size.Small" aria-label="@Localizer.Text(CommonTexts.Delete)"
+                                           OnClick="@(() => DeleteAsync(context))" />
+                        </MudTooltip>
+                    </span>
+                </MudTd>
+            </RowTemplate>
+            <NoRecordsContent>
+                <MudText Typo="Typo.body2">@Localizer.Text(ScheduledTaskUiTexts.Empty)</MudText>
+            </NoRecordsContent>
+        </MudTable>
+
+        <MudText Typo="Typo.subtitle1" Class="mt-4 mb-1">@Localizer.Text(ScheduledTaskUiTexts.OneOffRuns)</MudText>
+        @if (oneOffRuns.Count == 0)
+        {
+            <MudText Typo="Typo.body2">@Localizer.Text(ScheduledTaskUiTexts.OneOffEmpty)</MudText>
+        }
+        else
+        {
+            <MudSimpleTable Dense="true" Elevation="0" Bordered="true" Class="sergin-one-off-runs">
+                <thead>
+                    <tr>
+                        <th>@Localizer.Text(ScheduledTaskUiTexts.Runs.Started)</th>
+                        <th>@Localizer.Text(ScheduledTaskUiTexts.Runs.ActedBy)</th>
+                        <th>@Localizer.Text(ScheduledTaskUiTexts.Runs.Status)</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (ScheduledRunListItem run in oneOffRuns)
+                    {
+                        <tr>
+                            <td>@Time(run.StartedAtUtc)</td>
+                            <td>@NameOf(run.ActingUserId)</td>
+                            <td>@Localizer.Text(StatusText(run.Status)) · @OneOffResultText(run)</td>
+                        </tr>
+                    }
+                </tbody>
+            </MudSimpleTable>
+        }
+    </SerginEntityListView>
+}

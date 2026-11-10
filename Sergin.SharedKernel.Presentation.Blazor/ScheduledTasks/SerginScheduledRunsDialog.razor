@@ -1,0 +1,73 @@
+@* A schedule's runs, and one run's items. The dialog is opened by a click on the schedule's row. *@
+<MudDialog>
+    <TitleContent>
+        <MudText Typo="Typo.h6">@Localizer.Text(ScheduledTaskUiTexts.Runs.Heading) · @CommandName</MudText>
+    </TitleContent>
+    <DialogContent>
+        @if (loading)
+        {
+            <MudProgressLinear Indeterminate="true" />
+        }
+        else if (runs.Count == 0)
+        {
+            <MudText Typo="Typo.body2">@Localizer.Text(ScheduledTaskUiTexts.Runs.NoRuns)</MudText>
+        }
+        else
+        {
+            <MudSimpleTable Dense="true" Elevation="0" Bordered="true" Class="sergin-runs">
+                <thead>
+                    <tr>
+                        <th>@Localizer.Text(ScheduledTaskUiTexts.Runs.Started)</th>
+                        <th>@Localizer.Text(ScheduledTaskUiTexts.Runs.Trigger)</th>
+                        <th>@Localizer.Text(ScheduledTaskUiTexts.Runs.ActedBy)</th>
+                        <th>@Localizer.Text(ScheduledTaskUiTexts.Runs.Status)</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (ScheduledRunListItem run in runs)
+                    {
+                        <tr>
+                            <td>@Time(run.StartedAtUtc)</td>
+                            <td>@TriggerText(run.Trigger)</td>
+                            <td>@NameOf(run.ActingUserId)</td>
+                            <td>@StatusText(run.Status) · @ResultText(run)</td>
+                            <td>
+                                <MudButton Size="Size.Small" Variant="Variant.Text" OnClick="@(() => ShowItemsAsync(run))">@Localizer.Text(ScheduledTaskUiTexts.Runs.ShowItems)</MudButton>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </MudSimpleTable>
+
+            @if (openRun is not null)
+            {
+                <MudText Typo="Typo.subtitle2" Class="mt-4 mb-1">@Localizer.Text(ScheduledTaskUiTexts.Runs.Items)</MudText>
+                <MudSimpleTable Dense="true" Elevation="0" Bordered="true" Class="sergin-run-items">
+                    <thead>
+                        <tr>
+                            <th>@Localizer.Text(ScheduledTaskUiTexts.Runs.Target)</th>
+                            <th>@Localizer.Text(ScheduledTaskUiTexts.Runs.Status)</th>
+                            <th>@Localizer.Text(ScheduledTaskUiTexts.Runs.Attempts)</th>
+                            <th>@Localizer.Text(ScheduledTaskUiTexts.Runs.Error)</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (ScheduledRunItemListItem item in items)
+                        {
+                            <tr>
+                                <td>@item.TargetId</td>
+                                <td>@ItemStatusText(item.Status)</td>
+                                <td>@Formatter.Number(item.Attempts)</td>
+                                <td>@item.ErrorDescription</td>
+                            </tr>
+                        }
+                    </tbody>
+                </MudSimpleTable>
+            }
+        }
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="Close">@Localizer.Text(CommonTexts.Close)</MudButton>
+    </DialogActions>
+</MudDialog>
