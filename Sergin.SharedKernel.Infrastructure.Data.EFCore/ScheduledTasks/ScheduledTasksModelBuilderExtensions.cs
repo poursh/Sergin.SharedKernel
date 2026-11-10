@@ -17,6 +17,8 @@ public static class ScheduledTasksModelBuilderExtensions
     /// <summary>The partial unique index that lets only one run of a task be Running: the overlap rule's guarantee.</summary>
     internal const string OneRunningIndexName = "ix_scheduled_task_runs_task_id_running";
 
+    internal const string StaleItemsIndexName = "ix_scheduled_task_run_items_unfinished_last_activity";
+
     public static ModelBuilder ApplyScheduledTasks(this ModelBuilder modelBuilder)
     {
         ArgumentNullException.ThrowIfNull(modelBuilder);
@@ -74,6 +76,10 @@ public static class ScheduledTasksModelBuilderExtensions
             item.HasKey(x => x.Id);
             item.Property(x => x.Status).IsRequired().HasConversion<string>();
             item.HasOne<ScheduledTaskRun>().WithMany().HasForeignKey(x => x.RunId).OnDelete(DeleteBehavior.Cascade);
+
+            // The recovery sweep's lookup: unfinished items quiet since before a cutoff.
+            item.HasIndex(x => new { x.Status, x.LastActivityAtUtc }).HasDatabaseName(StaleItemsIndexName)
+                .HasFilter("status IN ('Pending', 'Running', 'Retrying')");
         });
 
         return modelBuilder;

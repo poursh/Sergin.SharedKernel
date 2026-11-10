@@ -129,12 +129,41 @@ internal sealed class EfScheduledTaskStore<TContext>(TContext context, string sc
             task.State == ScheduledTaskState.Active))];
     }
 
-    public async Task<IReadOnlyCollection<Guid>> ListUnqueuedRunItemsAsync(DateTime startedBeforeUtc, CancellationToken ct) =>
+    public async Task<bool> TryClaimRunItemAsync(Guid runItemId, DateTime now, DateTime staleBefore, CancellationToken ct) =>
         await context.ScheduledTaskRunItems
-            .Where(item => item.Status == ScheduledRunItemStatus.Pending && item.EngineJobId == null)
-            .Where(item => context.ScheduledTaskRuns.Any(run => run.Id == item.RunId && run.StartedAtUtc < startedBeforeUtc))
-            .Select(item => item.Id)
-            .ToListAsync(ct);
+            .Where(item => item.Id == runItemId)
+            .Where(item => item.Status == ScheduledRunItemStatus.Pending
+                || item.Status == ScheduledRunItemStatus.Retrying
+                || item.Status == ScheduledRunItemStatus.Running && item.LastActivityAtUtc < staleBefore)
+            .ExecuteUpdateAsync(
+                set => set
+                    .SetProperty(item => item.Status, ScheduledRunItemStatus.Running)
+                    .SetProperty(item => item.Attempts, item => item.Attempts + 1)
+                    .SetProperty(item => item.StartedAtUtc, item => item.StartedAtUtc ?? now)
+                    .SetProperty(item => item.LastActivityAtUtc, now),
+                ct) == 1;
+
+    public async Task<IReadOnlyCollection<Guid>> ListStaleRunItemsAsync(DateTime quietSince, CancellationToken ct) =>
+        await Unfinished(quietSince).Select(item => item.Id).ToListAsync(ct);
+
+    public async Task<bool> RelinkStaleRunItemAsync(Guid runItemId, Guid engineJobId, DateTime now, DateTime quietSince, CancellationToken ct) =>
+        await Unfinished(quietSince)
+            .Where(item => item.Id == runItemId)
+            .ExecuteUpdateAsync(
+                set => set
+                    .SetProperty(item => item.EngineJobId, engineJobId)
+                    .SetProperty(item => item.LastActivityAtUtc, now)
+                    .SetProperty(
+                        item => item.Status,
+                        item => item.Status == ScheduledRunItemStatus.Running ? ScheduledRunItemStatus.Retrying : item.Status),
+                ct) == 1;
+
+    private IQueryable<ScheduledTaskRunItem> Unfinished(DateTime quietSince) =>
+        context.ScheduledTaskRunItems.Where(item =>
+            (item.Status == ScheduledRunItemStatus.Pending
+                || item.Status == ScheduledRunItemStatus.Running
+                || item.Status == ScheduledRunItemStatus.Retrying)
+            && item.LastActivityAtUtc < quietSince);
 
     /// <summary>Finished runs only: a run still in progress is kept whatever its age. Its items go by the FK's cascade.</summary>
     public Task<int> PurgeAsync(DateTime olderThanUtc, CancellationToken ct) =>

@@ -46,18 +46,23 @@ public sealed class SerginTickerFunctions(IServiceScopeFactory scopes)
         }
 
         IScheduledTaskStore store = services.GetRequiredService<IScheduledTaskStoreResolver>().For(item.Schema);
-        (ScheduledTaskRun Run, ScheduledTaskRunItem Item)? found = await store.GetRunItemAsync(item.RunItemId, cancellationToken);
-        IReadOnlyList<int> intervals = services.GetRequiredService<IOptions<ScheduledTaskOptions>>().Value.RetryIntervalsSeconds;
-        int attempts = found?.Item.Attempts ?? 1;
-        int seconds = intervals[Math.Clamp(attempts - 1, 0, intervals.Count - 1)];
-        DateTime due = services.GetRequiredService<IDateTimeProvider>().UtcNow.AddSeconds(seconds);
 
-        Guid job = await services.GetRequiredService<TickerQScheduledTaskEngine>().EnqueueRunItemAsync(item, due, cancellationToken);
-
-        if (found is { Item: { } retried })
+        // Purged meanwhile: nothing left to retry.
+        if (await store.GetRunItemAsync(item.RunItemId, cancellationToken) is not { Item: { } retried })
         {
-            retried.LinkJob(job);
-            await store.SaveAsync(cancellationToken);
+            return;
         }
+
+        IReadOnlyList<int> intervals = services.GetRequiredService<IOptions<ScheduledTaskOptions>>().Value.RetryIntervalsSeconds;
+        int seconds = intervals[Math.Clamp(retried.Attempts - 1, 0, intervals.Count - 1)];
+        IDateTimeProvider clock = services.GetRequiredService<IDateTimeProvider>();
+
+        // Lost if the host stops before the link is saved: the item then stays Retrying and quiet, and the recovery
+        // hands it over again once it has been quiet for StaleAfter.
+        Guid job = await services.GetRequiredService<TickerQScheduledTaskEngine>()
+            .EnqueueRunItemAsync(item, clock.UtcNow.AddSeconds(seconds), cancellationToken);
+
+        retried.LinkJob(job, clock.UtcNow);
+        await store.SaveAsync(cancellationToken);
     }
 }

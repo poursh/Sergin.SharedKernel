@@ -9,19 +9,20 @@ using Sergin.SharedKernel.Infrastructure.Data.EFCore.ScheduledTasks;
 namespace Sergin.SharedKernel.Hosts.ScheduledTasks;
 
 /// <summary>
-/// Sergin's rows are the definition and the engine's store only their copy, so at host start the copy is put back in
-/// step, for every module that opted into scheduled tasks:
+/// Sergin's rows are the definition and the engine's store only their copy, so at host start the triggers are put back
+/// in step, for every module that opted into scheduled tasks:
 /// <list type="bullet">
 /// <item>a live task whose trigger the engine does not hold (none linked, or an id the engine lost) gets a new one, and
-/// the row links it; a paused task's trigger, new or kept, is disabled;</item>
-/// <item>a run item still Pending with no engine job, of a run started more than <see cref="Grace"/> ago, is handed to
-/// the engine: its host stopped between saving the run and enqueueing the item. An item stuck Running is not touched
-/// here: its engine job is leased, and the engine restarts a job whose node stopped renewing the lease;</item>
+/// the row links it;</item>
+/// <item>every live task's trigger is enabled exactly when the task is active: a paused task's trigger is disabled, an
+/// active task's disabled trigger enabled again (a pause or resume whose save failed after the engine call, and whose
+/// undo failed too);</item>
 /// <item>a trigger the engine holds for one of this host's schemas that no live task links, made more than
-/// <see cref="Grace"/> ago, is removed: its task was deleted while the engine was unreachable, or never saved.</item>
+/// <see cref="Grace"/> ago, is removed: its task was deleted while the engine was unreachable, or never saved. The grace
+/// keeps the rebuild off a create in flight, which schedules its trigger before it saves its row.</item>
 /// </list>
-/// The grace keeps the rebuild off work another node, or a request on this one, is doing right now: a create schedules
-/// its trigger before it saves its row, and a starter saves its run before it enqueues the items.
+/// Run items are not this service's: <see cref="ScheduledRunItemRecoveryService"/> hands over any unfinished item gone
+/// quiet, all the time rather than only at start.
 /// <para>
 /// The work runs in the background, after start: an engine may refuse changes until it is activated, which a host does
 /// once started. A step that fails is logged and the next goes on; nothing here stops the host. What does stop it is a
@@ -36,7 +37,7 @@ public sealed partial class ScheduledTaskTriggerRebuildService(
     IDateTimeProvider clock,
     ILogger<ScheduledTaskTriggerRebuildService> logger) : BackgroundService
 {
-    /// <summary>How old a run or a trigger must be before the rebuild treats it as left behind.</summary>
+    /// <summary>How old an unlinked trigger must be before the rebuild treats it as left behind.</summary>
     public static readonly TimeSpan Grace = TimeSpan.FromMinutes(1);
 
     private readonly string[] schemas = [.. registrations.Select(registration => registration.Schema).Distinct(StringComparer.Ordinal)];
@@ -90,15 +91,6 @@ public sealed partial class ScheduledTaskTriggerRebuildService(
             {
                 LogStepFailed(exception, "triggers", schema);
             }
-
-            try
-            {
-                await EnqueueUnqueuedItemsAsync(store, engine, cutoff, ct);
-            }
-            catch (Exception exception) when (exception is not OperationCanceledException)
-            {
-                LogStepFailed(exception, "run items", schema);
-            }
         }
 
         try
@@ -122,16 +114,28 @@ public sealed partial class ScheduledTaskTriggerRebuildService(
 
             try
             {
-                if (triggerId is not { } existing || !await engine.ExistsAsync(existing, ct))
+                Guid id;
+                bool enabled;
+
+                if (triggerId is { } existing && await engine.GetEnabledAsync(existing, ct) is { } held)
                 {
-                    triggerId = await engine.ScheduleAsync(state.Trigger, ct);
-                    await LinkAsync(store, state.Id, triggerId.Value, ct);
+                    id = existing;
+                    enabled = held;
+                }
+                else
+                {
+                    // The engine's schedule call takes no enabled state, so a paused task's new trigger is created enabled
+                    // and disabled at once below. A firing in between does nothing: the runner skips a paused task.
+                    id = await engine.ScheduleAsync(state.Trigger, ct);
+                    enabled = true;
+                    triggerId = id;
+                    await LinkAsync(store, state.Id, id, ct);
                     LogRecreated(state.Id.Value, store.Schema);
                 }
 
-                if (!state.Enabled)
+                if (enabled != state.Enabled)
                 {
-                    await engine.SetEnabledAsync(triggerId.Value, enabled: false, ct);
+                    await engine.SetEnabledAsync(id, state.Enabled, ct);
                 }
             }
             catch (Exception exception) when (exception is not OperationCanceledException)
@@ -154,22 +158,6 @@ public sealed partial class ScheduledTaskTriggerRebuildService(
         {
             task.LinkTrigger(triggerId);
             await store.SaveAsync(ct);
-        }
-    }
-
-    private async Task EnqueueUnqueuedItemsAsync(IScheduledTaskStore store, IScheduledTaskEngine engine, DateTime cutoff, CancellationToken ct)
-    {
-        foreach (Guid itemId in await store.ListUnqueuedRunItemsAsync(cutoff, ct))
-        {
-            Guid jobId = await engine.EnqueueRunItemAsync(new ScheduledRunItemReference(store.Schema, itemId), ct);
-
-            if (await store.GetRunItemAsync(itemId, ct) is { } found)
-            {
-                found.Item.LinkJob(jobId);
-                await store.SaveAsync(ct);
-            }
-
-            LogEnqueued(itemId, store.Schema);
         }
     }
 
@@ -200,9 +188,6 @@ public sealed partial class ScheduledTaskTriggerRebuildService(
 
     [LoggerMessage(Level = LogLevel.Warning, Message = "The job engine had lost the trigger of scheduled task {TaskId} in schema {Schema}; it was recreated.")]
     private partial void LogRecreated(Guid taskId, string schema);
-
-    [LoggerMessage(Level = LogLevel.Warning, Message = "Scheduled run item {RunItemId} in schema {Schema} was never handed to the job engine; it was enqueued.")]
-    private partial void LogEnqueued(Guid runItemId, string schema);
 
     [LoggerMessage(Level = LogLevel.Warning, Message = "Removed job engine trigger {TriggerId} of schema {Schema}: no live scheduled task links it (task {TaskId}).")]
     private partial void LogOrphanRemoved(Guid triggerId, string schema, Guid taskId);

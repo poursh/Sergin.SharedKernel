@@ -79,6 +79,9 @@ public sealed class TickerQScheduledTaskEngine(
     public async Task<bool> ExistsAsync(Guid engineTriggerId, CancellationToken ct) =>
         await crons.GetAsync(engineTriggerId, ct) is not null;
 
+    public async Task<bool?> GetEnabledAsync(Guid engineTriggerId, CancellationToken ct) =>
+        (await crons.GetAsync(engineTriggerId, ct))?.IsEnabled;
+
     /// <summary>Sergin's triggers are the cron tickers of <see cref="SerginTickerFunctions.Fire"/>; one whose payload does not read is skipped.</summary>
     public async Task<IReadOnlyCollection<ScheduledEngineTrigger>> ListTriggersAsync(CancellationToken ct)
     {

@@ -25,6 +25,16 @@ public sealed class ScheduledTaskOptions
 
     public TimeSpan PurgeInterval { get; set; } = TimeSpan.FromHours(1);
 
+    /// <summary>
+    /// How long an unfinished run item may go without activity before the recovery takes its job for lost and hands it
+    /// to the engine again; a Running item that quiet may be claimed by the new delivery. Longer than any retry wait (so a
+    /// healthy retry is never duplicated) and longer than the slowest command (or it would be sent twice).
+    /// </summary>
+    public TimeSpan StaleAfter { get; set; } = TimeSpan.FromMinutes(15);
+
+    /// <summary>How often the recovery looks for stale run items.</summary>
+    public TimeSpan RecoveryInterval { get; set; } = TimeSpan.FromMinutes(1);
+
     /// <summary>Names the first key scheduled tasks could not run with, the way <c>OutboxOptions.Validate</c> does.</summary>
     public bool Validate(out string failure)
     {
@@ -49,6 +59,28 @@ public sealed class ScheduledTaskOptions
         if (PurgeInterval <= TimeSpan.Zero)
         {
             failure = $"Sergin:{SectionName}:{nameof(PurgeInterval)} must be a positive duration.";
+            return false;
+        }
+
+        if (StaleAfter <= TimeSpan.Zero)
+        {
+            failure = $"Sergin:{SectionName}:{nameof(StaleAfter)} must be a positive duration.";
+            return false;
+        }
+
+        if (RecoveryInterval <= TimeSpan.Zero)
+        {
+            failure = $"Sergin:{SectionName}:{nameof(RecoveryInterval)} must be a positive duration.";
+            return false;
+        }
+
+        // A Retrying item is quiet for its whole wait; the recovery must not take that for a lost job.
+        var longestRetry = TimeSpan.FromSeconds(RetryIntervalsSeconds.Max());
+
+        if (StaleAfter - longestRetry < RecoveryInterval)
+        {
+            failure = $"Sergin:{SectionName}:{nameof(StaleAfter)} must exceed the longest Sergin:{SectionName}:{nameof(RetryIntervalsSeconds)} "
+                + $"value by at least Sergin:{SectionName}:{nameof(RecoveryInterval)}.";
             return false;
         }
 

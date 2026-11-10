@@ -32,12 +32,31 @@ internal sealed partial class ScheduledRunItemExecutor(
     IOptions<ScheduledTaskOptions> options,
     ILogger<ScheduledRunItemExecutor> logger)
 {
+    /// <summary>The description of an item whose attempts all started and none finished.</summary>
+    internal const string AttemptsLost = "Every attempt started but none finished: the host stopped while it ran.";
+
     /// <summary>Runs one attempt; true when the engine should try again later.</summary>
     public async Task<bool> ExecuteAsync(string schema, Guid runItemId, CancellationToken ct)
     {
         IScheduledTaskStore store = stores.For(schema);
+        ScheduledTaskOptions settings = options.Value;
+        DateTime now = clock.UtcNow;
 
-        // Purged: nothing to do.
+        // Claimed in the database, so a second delivery of the same item (a duplicate job, a recovery's re-enqueue racing
+        // a slow delivery) never sends the command a second time.
+        if (!await store.TryClaimRunItemAsync(runItemId, now, now - settings.StaleAfter, ct))
+        {
+            // Finished by an earlier delivery that may have stopped between saving the item and completing the run:
+            // completing is idempotent, so finish that step, or the run stays open and the overlap rule skips every later
+            // firing of its task. Otherwise it is purged, or another delivery holds it: nothing to do.
+            if (await store.GetRunItemAsync(runItemId, ct) is { Item.Status: ScheduledRunItemStatus.Succeeded or ScheduledRunItemStatus.Failed } finished)
+            {
+                await store.CompleteRunIfFinishedAsync(finished.Run.Id, clock.UtcNow, ct);
+            }
+
+            return false;
+        }
+
         if (await store.GetRunItemAsync(runItemId, ct) is not { } found)
         {
             return false;
@@ -45,25 +64,23 @@ internal sealed partial class ScheduledRunItemExecutor(
 
         (ScheduledTaskRun run, ScheduledTaskRunItem item) = found;
 
-        // Already finished by an earlier delivery of the same job. That delivery may have stopped between saving the
-        // item and completing the run; completing is idempotent, so finish that step, or the run stays open forever and
-        // the overlap rule skips every later firing of its task.
-        if (item.Status is ScheduledRunItemStatus.Succeeded or ScheduledRunItemStatus.Failed)
+        // Every allowed attempt was claimed and lost (the host stopped mid-send, again and again): nothing is left to try.
+        if (item.Attempts > settings.MaxAttempts)
         {
+            item.MarkFailed(ScheduledTaskErrors.ExhaustedCode, AttemptsLost, clock.UtcNow);
+            await store.SaveAsync(ct);
             await store.CompleteRunIfFinishedAsync(run.Id, clock.UtcNow, ct);
+
             return false;
         }
-
-        item.MarkRunning(clock.UtcNow);
-        await store.SaveAsync(ct);
 
         ErrorOr<Success> outcome = await SendAsync(run, item, ct);
 
         if (outcome.IsError && outcome.FirstError.Type == ErrorType.Unexpected)
         {
-            if (item.Attempts < options.Value.MaxAttempts)
+            if (item.Attempts < settings.MaxAttempts)
             {
-                item.MarkRetrying(outcome.FirstError.Code, outcome.FirstError.Description);
+                item.MarkRetrying(outcome.FirstError.Code, outcome.FirstError.Description, clock.UtcNow);
                 await store.SaveAsync(ct);
                 return true;
             }

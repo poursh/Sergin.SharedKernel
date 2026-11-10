@@ -34,7 +34,7 @@ internal sealed partial class ScheduledRunStarter(IServiceProvider services, IDa
         var definition = new ScheduledRunDefinition(
             start.TaskId, start.Trigger, start.ActingUserId, start.ScopeId, start.ScopePath, start.CommandName, start.Arguments);
         var run = ScheduledTaskRun.Start(definition, start.Targets.Count, clock.UtcNow);
-        ScheduledTaskRunItem[] items = [.. start.Targets.Select(target => ScheduledTaskRunItem.Create(run.Id, target.TargetId, target.RootId))];
+        ScheduledTaskRunItem[] items = [.. start.Targets.Select(target => ScheduledTaskRunItem.Create(run.Id, target.TargetId, target.RootId, clock.UtcNow))];
 
         // No targets: nothing will ever finish the run, so it is complete at once rather than open forever.
         if (items.Length == 0)
@@ -65,7 +65,7 @@ internal sealed partial class ScheduledRunStarter(IServiceProvider services, IDa
 
             foreach (ScheduledTaskRunItem item in items)
             {
-                item.LinkJob(await engine.EnqueueRunItemAsync(new ScheduledRunItemReference(store.Schema, item.Id), ct));
+                item.LinkJob(await engine.EnqueueRunItemAsync(new ScheduledRunItemReference(store.Schema, item.Id), ct), clock.UtcNow);
                 enqueued.Add(item.Id);
                 await store.SaveAsync(ct);
             }

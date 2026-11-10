@@ -21,6 +21,9 @@ public interface IScheduledTaskEngine
 
     Task<bool> ExistsAsync(Guid engineTriggerId, CancellationToken ct);
 
+    /// <summary>Whether the trigger fires (true), is disabled (false), or is not held at all (null).</summary>
+    Task<bool?> GetEnabledAsync(Guid engineTriggerId, CancellationToken ct);
+
     /// <summary>
     /// Every trigger the engine holds for scheduled tasks, whichever module's: what the start-up rebuild compares with
     /// the rows to remove the triggers no live task links.

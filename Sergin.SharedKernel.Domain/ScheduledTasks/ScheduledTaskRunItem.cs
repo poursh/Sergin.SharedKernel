@@ -30,7 +30,13 @@ public sealed class ScheduledTaskRunItem
     /// <summary>The engine's job for this item; null until linked.</summary>
     public Guid? EngineJobId { get; private set; }
 
-    public static ScheduledTaskRunItem Create(Guid runId, Guid targetId, Guid? rootId) =>
+    /// <summary>
+    /// When anything last happened to the item: created, handed to the engine, an attempt started, a retry asked for.
+    /// An unfinished item quiet for longer than the recovery's stale period lost its job and is handed over again.
+    /// </summary>
+    public DateTime LastActivityAtUtc { get; private set; }
+
+    public static ScheduledTaskRunItem Create(Guid runId, Guid targetId, Guid? rootId, DateTime at) =>
         new()
         {
             Id = Guid.CreateVersion7(),
@@ -38,16 +44,25 @@ public sealed class ScheduledTaskRunItem
             TargetId = targetId,
             RootId = rootId,
             Status = ScheduledRunItemStatus.Pending,
+            LastActivityAtUtc = at,
         };
 
-    public void LinkJob(Guid engineJobId) => EngineJobId = engineJobId;
+    public void LinkJob(Guid engineJobId, DateTime at)
+    {
+        EngineJobId = engineJobId;
+        LastActivityAtUtc = at;
+    }
 
-    /// <summary>An attempt starts: counted, and the first one's time kept.</summary>
+    /// <summary>
+    /// An attempt starts: counted, and the first one's time kept. The executor claims an item in the database instead
+    /// (the same change, made by one conditional update so two deliveries cannot both start it); this is its in-memory form.
+    /// </summary>
     public void MarkRunning(DateTime at)
     {
         Status = ScheduledRunItemStatus.Running;
         Attempts++;
         StartedAtUtc ??= at;
+        LastActivityAtUtc = at;
     }
 
     public void MarkSucceeded(DateTime at)
@@ -58,9 +73,10 @@ public sealed class ScheduledTaskRunItem
         CompletedAtUtc = at;
     }
 
-    public void MarkRetrying(string code, string description)
+    public void MarkRetrying(string code, string description, DateTime at)
     {
         Status = ScheduledRunItemStatus.Retrying;
+        LastActivityAtUtc = at;
         ErrorCode = code;
         ErrorDescription = description;
     }

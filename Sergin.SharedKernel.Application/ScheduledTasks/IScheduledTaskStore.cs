@@ -44,10 +44,22 @@ public interface IScheduledTaskStore
     Task<IReadOnlyCollection<ScheduledTaskTriggerState>> ListTriggersAsync(CancellationToken ct);
 
     /// <summary>
-    /// The run items still Pending with no engine job, of runs started before <paramref name="startedBeforeUtc"/>: items
-    /// whose run was saved but whose host stopped before it handed them to the engine.
+    /// Starts an attempt of the item, if this delivery may: one conditional update moves a Pending or Retrying item, or a
+    /// Running one quiet since before <paramref name="staleBefore"/> (its delivery died), to Running, counts the attempt
+    /// and stamps the activity. True when this call claimed it; false when the item is finished, purged, or another
+    /// delivery holds it. The row lock makes two concurrent claims of one item end with exactly one true.
     /// </summary>
-    Task<IReadOnlyCollection<Guid>> ListUnqueuedRunItemsAsync(DateTime startedBeforeUtc, CancellationToken ct);
+    Task<bool> TryClaimRunItemAsync(Guid runItemId, DateTime now, DateTime staleBefore, CancellationToken ct);
+
+    /// <summary>The unfinished run items quiet since before <paramref name="quietSince"/>: their jobs are taken for lost.</summary>
+    Task<IReadOnlyCollection<Guid>> ListStaleRunItemsAsync(DateTime quietSince, CancellationToken ct);
+
+    /// <summary>
+    /// Links a stale item to the job the recovery just made for it and stamps the activity, unless something happened to
+    /// it meanwhile (a delivery claimed or finished it); answers whether the row changed. A stale Running item becomes
+    /// Retrying: its attempt was lost, and the stamp would otherwise make the new delivery take it for one still running.
+    /// </summary>
+    Task<bool> RelinkStaleRunItemAsync(Guid runItemId, Guid engineJobId, DateTime now, DateTime quietSince, CancellationToken ct);
 
     /// <summary>Deletes finished runs (and their items) completed before <paramref name="olderThanUtc"/>; answers how many runs.</summary>
     Task<int> PurgeAsync(DateTime olderThanUtc, CancellationToken ct);
