@@ -43,5 +43,11 @@ public interface IScheduledTaskStore
     /// <summary>Deletes finished runs (and their items) completed before <paramref name="olderThanUtc"/>; answers how many runs.</summary>
     Task<int> PurgeAsync(DateTime olderThanUtc, CancellationToken ct);
 
+    /// <summary>
+    /// Saves a run just added. False when the store's one-running-run-per-task guarantee refused it (another run of the
+    /// same task is Running); the pending changes are then discarded, so the caller can record a Skipped run instead.
+    /// </summary>
+    Task<bool> TrySaveStartedRunAsync(CancellationToken ct);
+
     Task SaveAsync(CancellationToken ct);
 }

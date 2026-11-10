@@ -14,6 +14,9 @@ public static class ScheduledTasksModelBuilderExtensions
 {
     private const string JsonbColumnType = "jsonb";
 
+    /// <summary>The partial unique index that lets only one run of a task be Running: the overlap rule's guarantee.</summary>
+    internal const string OneRunningIndexName = "ix_scheduled_task_runs_task_id_running";
+
     public static ModelBuilder ApplyScheduledTasks(this ModelBuilder modelBuilder)
     {
         ArgumentNullException.ThrowIfNull(modelBuilder);
@@ -56,6 +59,10 @@ public static class ScheduledTasksModelBuilderExtensions
 
             // A deleted task is soft-deleted and keeps its history, so nothing cascades from it.
             run.HasOne<ScheduledTask>().WithMany().HasForeignKey(x => x.TaskId).OnDelete(DeleteBehavior.Restrict);
+
+            // HasUnfinishedRunAsync is check-then-act and races; this is the guarantee. One-off runs (no task) and Skipped
+            // or Completed runs fall outside the filter. Statuses are stored as their names.
+            run.HasIndex(x => x.TaskId).IsUnique().HasDatabaseName(OneRunningIndexName).HasFilter("status = 'Running'");
 
             // A task's history, newest first.
             run.HasIndex(x => new { x.TaskId, x.StartedAtUtc }).IsDescending(false, true);

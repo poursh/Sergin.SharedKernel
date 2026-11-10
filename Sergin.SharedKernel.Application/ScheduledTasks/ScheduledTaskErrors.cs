@@ -14,6 +14,14 @@ public static class ScheduledTaskErrors
     public static Error ArgumentsInvalid { get; } =
         Error.Failure("ScheduledTasks.ArgumentsInvalid", "The scheduled command's stored arguments no longer fit its shape.");
 
+    /// <summary>A run was saved but the engine could not take its items; they are failed so the run can finish.</summary>
+    public static Error EngineUnavailable { get; } =
+        Error.Unexpected("ScheduledTasks.EngineUnavailable", "The job engine could not accept the run's items.");
+
+    /// <summary>Another run of the same task started first; the overlap rule skips this one.</summary>
+    public static Error Overlap { get; } =
+        Error.Conflict("ScheduledTasks.Overlap", "A previous run of this task is still unfinished.");
+
     /// <summary>A command that did not opt in with <c>Schedulable(name)</c>.</summary>
     public static Error NotSchedulable { get; } =
         Error.Validation("ScheduledTasks.NotSchedulable", "This command cannot be scheduled.");

@@ -1,4 +1,5 @@
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 using Sergin.SharedKernel.Application.Times;
 using Sergin.SharedKernel.Domain.ScheduledTasks;
 using Sergin.SharedKernel.Domain.Users;
@@ -23,7 +24,7 @@ internal sealed record ScheduledRunStart(
 /// The engine is resolved when a run starts, not injected: the engine is the adapter's to register, and a host
 /// (or a test host) that opts a module in without one must still build its container.
 /// </summary>
-internal sealed class ScheduledRunStarter(IServiceProvider services, IDateTimeProvider clock)
+internal sealed partial class ScheduledRunStarter(IServiceProvider services, IDateTimeProvider clock, ILogger<ScheduledRunStarter> logger)
 {
     public async Task<ErrorOr<Guid>> StartAsync(IScheduledTaskStore store, ScheduledRunStart start, CancellationToken ct)
     {
@@ -42,16 +43,53 @@ internal sealed class ScheduledRunStarter(IServiceProvider services, IDateTimePr
         }
 
         store.AddRun(run, items);
-        await store.SaveAsync(ct);
 
-        IScheduledTaskEngine engine = services.GetRequiredService<IScheduledTaskEngine>();
-
-        foreach (ScheduledTaskRunItem item in items)
+        if (run.TaskId is not null)
         {
-            item.LinkJob(await engine.EnqueueRunItemAsync(new ScheduledRunItemReference(store.Schema, item.Id), ct));
+            // The store's one-Running-run-per-task guarantee: a concurrent starter that got there first wins.
+            if (!await store.TrySaveStartedRunAsync(ct))
+            {
+                return ScheduledTaskErrors.Overlap;
+            }
+        }
+        else
+        {
             await store.SaveAsync(ct);
+        }
+
+        var enqueued = new HashSet<Guid>();
+
+        try
+        {
+            IScheduledTaskEngine engine = services.GetRequiredService<IScheduledTaskEngine>();
+
+            foreach (ScheduledTaskRunItem item in items)
+            {
+                item.LinkJob(await engine.EnqueueRunItemAsync(new ScheduledRunItemReference(store.Schema, item.Id), ct));
+                enqueued.Add(item.Id);
+                await store.SaveAsync(ct);
+            }
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException)
+        {
+            LogEngineFailed(exception, run.Id, start.CommandName);
+
+            // The run is already saved as Running: items no job will ever execute are failed, or it would stay open and
+            // the overlap rule would skip every later firing of its task.
+            foreach (ScheduledTaskRunItem item in items.Where(item => !enqueued.Contains(item.Id)))
+            {
+                item.MarkFailed(ScheduledTaskErrors.EngineUnavailable.Code, ScheduledTaskErrors.EngineUnavailable.Description, clock.UtcNow);
+            }
+
+            await store.SaveAsync(ct);
+            await store.CompleteRunIfFinishedAsync(run.Id, clock.UtcNow, ct);
+
+            return ScheduledTaskErrors.EngineUnavailable;
         }
 
         return run.Id;
     }
+
+    [LoggerMessage(Level = LogLevel.Error, Message = "The job engine failed while enqueueing the items of scheduled run {RunId} ({CommandName}); its unqueued items were failed.")]
+    private partial void LogEngineFailed(Exception exception, Guid runId, string commandName);
 }

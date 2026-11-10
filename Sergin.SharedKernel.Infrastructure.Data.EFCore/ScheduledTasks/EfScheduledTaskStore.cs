@@ -131,5 +131,20 @@ internal sealed class EfScheduledTaskStore<TContext>(TContext context, string sc
             .Where(run => run.CompletedAtUtc != null && run.CompletedAtUtc < olderThanUtc)
             .ExecuteDeleteAsync(ct);
 
+    public async Task<bool> TrySaveStartedRunAsync(CancellationToken ct)
+    {
+        try
+        {
+            await context.SaveChangesAsync(ct);
+            return true;
+        }
+        catch (DbUpdateException exception) when (
+            exception.InnerException is Npgsql.PostgresException { SqlState: "23505", ConstraintName: ScheduledTasksModelBuilderExtensions.OneRunningIndexName })
+        {
+            context.ChangeTracker.Clear();
+            return false;
+        }
+    }
+
     public Task SaveAsync(CancellationToken ct) => context.SaveChangesAsync(ct);
 }
