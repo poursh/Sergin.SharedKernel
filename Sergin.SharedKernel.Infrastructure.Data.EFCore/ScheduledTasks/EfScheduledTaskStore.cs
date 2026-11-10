@@ -65,6 +65,7 @@ internal sealed class EfScheduledTaskStore<TContext>(TContext context, string sc
     /// </summary>
     public async Task CompleteRunIfFinishedAsync(Guid runId, DateTime at, CancellationToken ct)
     {
+        // Every early return below leaves the transaction uncommitted: disposing it rolls back and releases the lock.
         await using IDbContextTransaction transaction = await context.Database.BeginTransactionAsync(ct);
         await context.Database.ExecuteSqlRawAsync(lockRunSql, [runId], ct);
 

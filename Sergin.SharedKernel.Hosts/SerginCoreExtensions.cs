@@ -128,6 +128,7 @@ public static class SerginCoreExtensions
         // Bound in every host, like the outbox's: cheap, and a bad key fails start even before a module opts in.
         builder.Services.AddOptions<ScheduledTaskOptions>()
             .Bind(serginSection.GetSection(ScheduledTaskOptions.SectionName))
+            .WithDefaults()
             .ValidateOnStart();
         builder.Services.AddSingleton<IValidateOptions<ScheduledTaskOptions>, ScheduledTaskOptionsValidator>();
         builder.Services.TryAddSingleton<IDateTimeProvider, DefaultDateTimeProvider>();

@@ -11,8 +11,15 @@ public sealed class ScheduledTaskOptions
     /// <summary>Attempts a run item gets when it throws, the first included; an ErrorOr error is never retried.</summary>
     public int MaxAttempts { get; set; } = 3;
 
-    /// <summary>The engine's wait before each retry, in seconds; the last value repeats.</summary>
-    public IReadOnlyList<int> RetryIntervalsSeconds { get; set; } = [30, 120];
+    /// <summary>The intervals used when none are configured.</summary>
+    public static IReadOnlyList<int> DefaultRetryIntervalsSeconds { get; } = [30, 120];
+
+    /// <summary>
+    /// The engine's wait before each retry, in seconds; the last value repeats. Empty until bound: the configuration
+    /// binder appends configured items to a collection's existing ones, so the default is applied afterwards, by
+    /// <see cref="ScheduledTaskOptionsBuilderExtensions.WithDefaults"/>, only when nothing was configured.
+    /// </summary>
+    public IReadOnlyList<int> RetryIntervalsSeconds { get; set; } = [];
 
     public TimeSpan Retention { get; set; } = TimeSpan.FromDays(30);
 

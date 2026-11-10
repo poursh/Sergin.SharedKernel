@@ -37,14 +37,22 @@ internal sealed partial class ScheduledRunItemExecutor(
     {
         IScheduledTaskStore store = stores.For(schema);
 
-        // Purged, or already finished by an earlier delivery of the same job: nothing to do.
-        if (await store.GetRunItemAsync(runItemId, ct) is not { } found
-            || found.Item.Status is ScheduledRunItemStatus.Succeeded or ScheduledRunItemStatus.Failed)
+        // Purged: nothing to do.
+        if (await store.GetRunItemAsync(runItemId, ct) is not { } found)
         {
             return false;
         }
 
         (ScheduledTaskRun run, ScheduledTaskRunItem item) = found;
+
+        // Already finished by an earlier delivery of the same job. That delivery may have stopped between saving the
+        // item and completing the run; completing is idempotent, so finish that step, or the run stays open forever and
+        // the overlap rule skips every later firing of its task.
+        if (item.Status is ScheduledRunItemStatus.Succeeded or ScheduledRunItemStatus.Failed)
+        {
+            await store.CompleteRunIfFinishedAsync(run.Id, clock.UtcNow, ct);
+            return false;
+        }
 
         item.MarkRunning(clock.UtcNow);
         await store.SaveAsync(ct);

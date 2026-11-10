@@ -69,8 +69,10 @@ public static class ScheduledCommandFactory
                 ? ErrorOrFactory.From<IBaseCommand>(built)
                 : ScheduledTaskErrors.ArgumentsInvalid;
         }
-        catch (JsonException)
+        catch (Exception exception) when (exception is not OperationCanceledException)
         {
+            // Not only JsonException: an id type with no Guid constructor (MissingMethodException) or a value object
+            // whose constructor refuses a stored value throws its own exception, and none of these changes on retry.
             return ScheduledTaskErrors.ArgumentsInvalid;
         }
     }
