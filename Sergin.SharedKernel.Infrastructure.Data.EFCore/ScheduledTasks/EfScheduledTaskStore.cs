@@ -1,3 +1,4 @@
+using Microsoft.EntityFrameworkCore.ChangeTracking;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Storage;
 using Sergin.SharedKernel.Application.ScheduledTasks;
@@ -29,6 +30,15 @@ internal sealed class EfScheduledTaskStore<TContext>(TContext context, string sc
             : context.ScheduledTasks;
 
         return tasks.SingleOrDefaultAsync(task => task.Id == id, ct);
+    }
+
+    public (Guid ScopeId, string ScopePath) ScopeOf(ScheduledTask task)
+    {
+        EntityEntry<ScheduledTask> entry = context.Entry(task);
+
+        return (
+            (Guid)entry.Property(ScopeColumns.ScopeId).CurrentValue!,
+            ((LTree)entry.Property(ScopeColumns.ScopePath).CurrentValue!).ToString());
     }
 
     public void AddTask(ScheduledTask task) => context.ScheduledTasks.Add(task);

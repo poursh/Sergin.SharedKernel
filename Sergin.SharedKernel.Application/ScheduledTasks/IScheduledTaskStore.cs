@@ -16,6 +16,12 @@ public interface IScheduledTaskStore
     /// </summary>
     Task<ScheduledTask?> GetTaskAsync(ScheduledTaskId id, bool ignoreScope, CancellationToken ct);
 
+    /// <summary>
+    /// The scope id and path stamped on a tracked task. They are columns of the scoped-aggregate feature, not
+    /// properties of the domain type, so the store reads them.
+    /// </summary>
+    (Guid ScopeId, string ScopePath) ScopeOf(ScheduledTask task);
+
     void AddTask(ScheduledTask task);
 
     void RemoveTask(ScheduledTask task);

@@ -30,6 +30,8 @@ public static class ScheduledTaskServiceExtensions
         // the send, so its bookkeeping context and the command's are never the same one.
         services.AddScoped<IScheduledTaskStoreResolver, ScheduledTaskStoreResolver>();
         services.AddScoped<ScheduledRunItemExecutor>();
+        services.AddScoped<ScheduledRunStarter>();
+        services.AddScoped<IScheduledTaskRunner, ScheduledTaskRunner>();
 
         return services;
     }
