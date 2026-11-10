@@ -10,4 +10,8 @@
 		<PackageReference Include="TickerQ.EntityFrameworkCore" />
 	</ItemGroup>
 
+	<ItemGroup>
+		<ProjectReference Include="..\Sergin.SharedKernel.Application\Sergin.SharedKernel.Application.csproj" />
+	</ItemGroup>
+
 </Project>

@@ -21,6 +21,12 @@ public interface IScheduledTaskEngine
 
     Task<bool> ExistsAsync(Guid engineTriggerId, CancellationToken ct);
 
+    /// <summary>
+    /// Every trigger the engine holds for scheduled tasks, whichever module's: what the start-up rebuild compares with
+    /// the rows to remove the triggers no live task links.
+    /// </summary>
+    Task<IReadOnlyCollection<ScheduledEngineTrigger>> ListTriggersAsync(CancellationToken ct);
+
     /// <summary>Asks the engine to execute one run item now; answers the engine's job id.</summary>
     Task<Guid> EnqueueRunItemAsync(ScheduledRunItemReference item, CancellationToken ct);
 
@@ -30,6 +36,9 @@ public interface IScheduledTaskEngine
 
 /// <summary>A task's trigger as the engine holds it: which module's task, and when it fires.</summary>
 public sealed record ScheduledTrigger(string Schema, ScheduledTaskId TaskId, string Cron, string TimeZoneId);
+
+/// <summary>A trigger the engine holds: its id, the task its payload names, and when the engine made it.</summary>
+public sealed record ScheduledEngineTrigger(Guid EngineTriggerId, string Schema, ScheduledTaskId TaskId, DateTime CreatedAtUtc);
 
 /// <summary>A run item as the engine holds it: which module's store, and which item.</summary>
 public sealed record ScheduledRunItemReference(string Schema, Guid RunItemId);

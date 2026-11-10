@@ -113,17 +113,28 @@ internal sealed class EfScheduledTaskStore<TContext>(TContext context, string sc
         await transaction.CommitAsync(ct);
     }
 
-    public async Task<IReadOnlyCollection<(ScheduledTaskId Id, Guid? EngineTriggerId, ScheduledTrigger Trigger)>> ListActiveTriggersAsync(CancellationToken ct)
+    public async Task<IReadOnlyCollection<ScheduledTaskTriggerState>> ListTriggersAsync(CancellationToken ct)
     {
-        var active = await context.ScheduledTasks
+        // The scope filter is lifted, the soft-delete filter kept: a deleted task's trigger is an orphan.
+        var live = await context.ScheduledTasks
             .IgnoreQueryFilters([ScopeColumns.QueryFilterName])
             .AsNoTracking()
-            .Where(task => task.State == ScheduledTaskState.Active)
-            .Select(task => new { task.Id, task.EngineTriggerId, task.Cron, task.TimeZoneId })
+            .Select(task => new { task.Id, task.EngineTriggerId, task.Cron, task.TimeZoneId, task.State })
             .ToListAsync(ct);
 
-        return [.. active.Select(task => (task.Id, task.EngineTriggerId, new ScheduledTrigger(schema, task.Id, task.Cron, task.TimeZoneId)))];
+        return [.. live.Select(task => new ScheduledTaskTriggerState(
+            task.Id,
+            task.EngineTriggerId,
+            new ScheduledTrigger(schema, task.Id, task.Cron, task.TimeZoneId),
+            task.State == ScheduledTaskState.Active))];
     }
+
+    public async Task<IReadOnlyCollection<Guid>> ListUnqueuedRunItemsAsync(DateTime startedBeforeUtc, CancellationToken ct) =>
+        await context.ScheduledTaskRunItems
+            .Where(item => item.Status == ScheduledRunItemStatus.Pending && item.EngineJobId == null)
+            .Where(item => context.ScheduledTaskRuns.Any(run => run.Id == item.RunId && run.StartedAtUtc < startedBeforeUtc))
+            .Select(item => item.Id)
+            .ToListAsync(ct);
 
     /// <summary>Finished runs only: a run still in progress is kept whatever its age. Its items go by the FK's cascade.</summary>
     public Task<int> PurgeAsync(DateTime olderThanUtc, CancellationToken ct) =>

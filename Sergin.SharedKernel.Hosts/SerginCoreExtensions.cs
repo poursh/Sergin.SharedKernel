@@ -131,6 +131,10 @@ public static class SerginCoreExtensions
             .WithDefaults()
             .ValidateOnStart();
         builder.Services.AddSingleton<IValidateOptions<ScheduledTaskOptions>, ScheduledTaskOptionsValidator>();
+
+        // Both no-ops until a module opts in. The rebuild also refuses start for an opted-in host with no engine.
+        builder.Services.AddHostedService<ScheduledTaskTriggerRebuildService>();
+        builder.Services.AddHostedService<ScheduledTaskPurgeService>();
         builder.Services.TryAddSingleton<IDateTimeProvider, DefaultDateTimeProvider>();
 
         // Bound against the whole Sergin section, not a subsection: TimeZone is a scalar sitting

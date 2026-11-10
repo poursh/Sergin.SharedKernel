@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
+using Sergin.SharedKernel.Application.ScheduledTasks;
 using TickerQ.DependencyInjection;
 using TickerQ.EntityFrameworkCore.DbContextFactory;
 using TickerQ.EntityFrameworkCore.DependencyInjection;
@@ -13,7 +14,8 @@ public static class TickerQEngineExtensions
     public const string Schema = "tickerq";
 
     /// <summary>
-    /// Registers the TickerQ engine against its own <c>tickerq</c> schema. No dashboard.
+    /// Registers the TickerQ engine against its own <c>tickerq</c> schema, and Sergin's <see cref="IScheduledTaskEngine"/>
+    /// over it. No dashboard. TickerQ's tables are not created here: a host creates them before it starts.
     /// </summary>
     /// <param name="services">The service collection.</param>
     /// <param name="serginSection">The <c>Sergin</c> configuration section.</param>
@@ -42,6 +44,11 @@ public static class TickerQEngineExtensions
                 db => db.UseNpgsql(connectionString),
                 schema: Schema));
         });
+
+        // The engine Sergin calls: a singleton over TickerQ's singleton managers. The concrete type is registered too, so
+        // the run-item function can enqueue a retry at a later time, which the engine interface does not offer.
+        services.AddSingleton<TickerQScheduledTaskEngine>();
+        services.AddSingleton<IScheduledTaskEngine>(provider => provider.GetRequiredService<TickerQScheduledTaskEngine>());
 
         return services;
     }

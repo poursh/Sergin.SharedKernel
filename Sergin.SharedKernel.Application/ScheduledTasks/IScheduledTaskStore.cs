@@ -37,8 +37,17 @@ public interface IScheduledTaskStore
     /// <summary>Completes the run with its counts once no item is still pending, running or retrying; saves.</summary>
     Task CompleteRunIfFinishedAsync(Guid runId, DateTime at, CancellationToken ct);
 
-    /// <summary>Every live, active task's trigger, in every scope: what the engine must hold.</summary>
-    Task<IReadOnlyCollection<(ScheduledTaskId Id, Guid? EngineTriggerId, ScheduledTrigger Trigger)>> ListActiveTriggersAsync(CancellationToken ct);
+    /// <summary>
+    /// Every live task's trigger, in every scope, active or paused: what the engine must hold, enabled exactly when the
+    /// task is active. A deleted task is not listed.
+    /// </summary>
+    Task<IReadOnlyCollection<ScheduledTaskTriggerState>> ListTriggersAsync(CancellationToken ct);
+
+    /// <summary>
+    /// The run items still Pending with no engine job, of runs started before <paramref name="startedBeforeUtc"/>: items
+    /// whose run was saved but whose host stopped before it handed them to the engine.
+    /// </summary>
+    Task<IReadOnlyCollection<Guid>> ListUnqueuedRunItemsAsync(DateTime startedBeforeUtc, CancellationToken ct);
 
     /// <summary>Deletes finished runs (and their items) completed before <paramref name="olderThanUtc"/>; answers how many runs.</summary>
     Task<int> PurgeAsync(DateTime olderThanUtc, CancellationToken ct);
@@ -51,3 +60,6 @@ public interface IScheduledTaskStore
 
     Task SaveAsync(CancellationToken ct);
 }
+
+/// <summary>A live task's trigger as Sergin's row holds it, and whether the engine should fire it.</summary>
+public sealed record ScheduledTaskTriggerState(ScheduledTaskId Id, Guid? EngineTriggerId, ScheduledTrigger Trigger, bool Enabled);
