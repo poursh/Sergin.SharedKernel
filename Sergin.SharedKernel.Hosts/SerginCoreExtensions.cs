@@ -21,6 +21,7 @@ using Sergin.SharedKernel.Hosts;
 using Sergin.SharedKernel.Hosts.Commands;
 using Sergin.SharedKernel.Hosts.Localizations;
 using Sergin.SharedKernel.Hosts.Outbox;
+using Sergin.SharedKernel.Hosts.ScheduledTasks;
 using Sergin.SharedKernel.Infrastracture.Data;
 using Sergin.SharedKernel.Infrastructure.Data.EFCore;
 using Sergin.SharedKernel.Infrastructure.Data.EFCore.Interceptors;
@@ -123,6 +124,12 @@ public static class SerginCoreExtensions
             .Bind(serginSection.GetSection(OutboxOptions.SectionName))
             .ValidateOnStart();
         builder.Services.AddSingleton<IValidateOptions<OutboxOptions>, OutboxOptionsValidator>();
+
+        // Bound in every host, like the outbox's: cheap, and a bad key fails start even before a module opts in.
+        builder.Services.AddOptions<ScheduledTaskOptions>()
+            .Bind(serginSection.GetSection(ScheduledTaskOptions.SectionName))
+            .ValidateOnStart();
+        builder.Services.AddSingleton<IValidateOptions<ScheduledTaskOptions>, ScheduledTaskOptionsValidator>();
         builder.Services.TryAddSingleton<IDateTimeProvider, DefaultDateTimeProvider>();
 
         // Bound against the whole Sergin section, not a subsection: TimeZone is a scalar sitting

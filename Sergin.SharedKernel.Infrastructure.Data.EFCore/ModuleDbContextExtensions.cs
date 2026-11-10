@@ -89,6 +89,16 @@ public static class ModuleDbContextExtensions
             }
 
             services.AddSingleton(new ScheduledTasksRegistration(schema, typeof(TContext)));
+
+            // This context's store, keyed by its schema so the resolver finds the module that owns a task. Reflection
+            // for the same reason as the relay source: EfScheduledTaskStore<TContext> constrains TContext to
+            // IScheduledTasksDbContext, which the runtime check above proves but the compiler cannot see.
+            Type storeType = typeof(EfScheduledTaskStore<>).MakeGenericType(typeof(TContext));
+            services.AddKeyedScoped<IScheduledTaskStore>(
+                schema, (sp, _) => (IScheduledTaskStore)ActivatorUtilities.CreateInstance(sp, storeType, schema));
+
+            // The executor and resolver, once per host however many contexts opt in.
+            services.AddSerginScheduledTasks();
         }
 
         return services;
