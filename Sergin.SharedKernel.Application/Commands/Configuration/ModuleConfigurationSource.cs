@@ -41,7 +41,7 @@ public sealed class ModuleConfigurationSource
     /// <summary>The command configuration types.</summary>
     public IReadOnlyCollection<Type> ConfigurationTypes { get; }
 
-    /// <summary>The aggregate feature configuration types, read for the requests bound to an aggregate.</summary>
+    /// <summary>The aggregate feature configuration types, read for the typed requests on an aggregate.</summary>
     public IReadOnlyCollection<Type> AggregateConfigurationTypes { get; }
 
     /// <summary>
@@ -51,25 +51,9 @@ public sealed class ModuleConfigurationSource
     public IReadOnlyCollection<Type> RequestTypes { get; }
 
     /// <summary>
-    /// The configurations in a module's configurations assembly. The schema is required: it is what lets the
-    /// catalogue refuse a permission registered outside its module.
-    /// </summary>
-    public static ModuleConfigurationSource FromAssembly(Assembly assembly, string schema, string? moduleName = null)
-    {
-        ArgumentNullException.ThrowIfNull(assembly);
-        ArgumentException.ThrowIfNullOrWhiteSpace(schema);
-
-        return new(
-            [.. assembly.GetTypes().Where(CommandConfigurationRegistry.IsConfigurationType)],
-            AggregateFeatureRegistry.ConfigurationTypesIn(assembly),
-            [],
-            schema,
-            moduleName);
-    }
-
-    /// <summary>
     /// The configurations in a module's configurations assembly and the requests in its contracts assembly, so a typed
-    /// record with no configuration still gets its derived rules. The schema is required, as for <see cref="FromAssembly"/>.
+    /// record with no configuration still gets its derived rules. The schema is required: it is what lets the catalogue
+    /// refuse a permission registered outside its module.
     /// </summary>
     public static ModuleConfigurationSource FromAssemblies(
         Assembly configurationsAssembly, Assembly contractsAssembly, string schema, string? moduleName = null)
@@ -78,11 +62,9 @@ public sealed class ModuleConfigurationSource
         ArgumentNullException.ThrowIfNull(contractsAssembly);
         ArgumentException.ThrowIfNullOrWhiteSpace(schema);
 
-        ModuleConfigurationSource configurations = FromAssembly(configurationsAssembly, schema, moduleName);
-
         return new(
-            configurations.ConfigurationTypes,
-            configurations.AggregateConfigurationTypes,
+            [.. configurationsAssembly.GetTypes().Where(CommandConfigurationRegistry.IsConfigurationType)],
+            AggregateFeatureRegistry.ConfigurationTypesIn(configurationsAssembly),
             [.. contractsAssembly.GetTypes().Where(IsRequestType)],
             schema,
             moduleName);

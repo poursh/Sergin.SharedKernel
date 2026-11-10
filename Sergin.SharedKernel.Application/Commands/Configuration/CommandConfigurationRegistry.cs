@@ -6,18 +6,16 @@ using Sergin.SharedKernel.Application.Localizations;
 namespace Sergin.SharedKernel.Application.Commands.Configuration;
 
 /// <summary>
-/// What every <see cref="ICommandConfiguration{TCommand}"/> declared, keyed by request type. Built once per
-/// host from every registered <see cref="ModuleConfigurationSource"/> and read by the permission and
-/// expected-version pipeline behaviors on each send. Refuses two configurations for one request, a
-/// configuration without a parameterless constructor, an expected version on a request that is not an
-/// <see cref="ICommand{TResponse}"/> or whose aggregate is not versioned, and a configuration whose Configure
-/// throws, and a required permission no aggregate registered — each naming the type. A request bound to an
-/// aggregate through <see cref="ICommandConfiguration{TCommand, TAggregateRoot}"/> is checked on any scope unless
-/// that aggregate is scoped, read from the aggregate feature configurations the same sources carry.
-/// A typed record (one implementing a target interface from <c>Commands.Types</c>) takes its aggregate root from its
-/// type, configured or not: a command on an existing entity, child or child collection of a <c>Versioned()</c> root
-/// requires an expected version unless its configuration calls <c>WithoutExpectedVersion()</c>, and the registry
-/// refuses a bound configuration naming another root than the type, and an opt-out where nothing is required.
+/// What every <see cref="ICommandConfiguration{TCommand}"/> declared, and what every typed record's type implies,
+/// keyed by request type. Built once per host from every registered <see cref="ModuleConfigurationSource"/> and read
+/// by the permission and expected-version pipeline behaviors on each send. A typed record (one implementing a target
+/// interface from <c>Commands.Types</c>) takes its aggregate root from its type, configured or not: it is checked on
+/// any scope unless that root is <c>Scoped()</c>, read from the aggregate feature configurations the same sources
+/// carry, and a command on an existing entity, child or child collection of a <c>Versioned()</c> root requires an
+/// expected version unless its configuration calls <c>WithoutExpectedVersion()</c>. An untyped request has no root, is
+/// checked on the current scope and never requires a version. Refuses two configurations for one request, a
+/// configuration without a parameterless constructor, a configuration whose Configure throws, a required permission
+/// no aggregate registered, and an opt-out where nothing is required — each naming the type.
 /// </summary>
 public sealed class CommandConfigurationRegistry
 {
@@ -53,7 +51,7 @@ public sealed class CommandConfigurationRegistry
 
     /// <summary>
     /// The text category <paramref name="requestType"/>'s fields are declared in: the one its configuration names with
-    /// <c>Texts(...)</c>, else its bound root's; null for a request with neither, or with no configuration.
+    /// <c>Texts(...)</c>, else its typed root's; null for a request with neither, or with no configuration.
     /// </summary>
     public TextCategory? CategoryOf(Type requestType)
     {
@@ -99,11 +97,9 @@ public sealed class CommandConfigurationRegistry
         {
             foreach (Type closedInterface in configurationType.GetInterfaces().Where(IsClosedConfigurationInterface))
             {
-                Type[] arguments = closedInterface.GetGenericArguments();
-                Type requestType = arguments[0];
-                Type? aggregateRoot = arguments.Length > 1 ? arguments[1] : null;
+                Type requestType = closedInterface.GetGenericArguments()[0];
                 (CommandSettings requestSettings, Texts requestTexts) =
-                    Run(configurationType, closedInterface, requestType, aggregateRoot, aggregates);
+                    Run(configurationType, closedInterface, requestType, aggregates);
                 declared.Add((requestType, configurationType, requestSettings, requestTexts));
             }
         }
@@ -155,7 +151,6 @@ public sealed class CommandConfigurationRegistry
         Type configurationType,
         Type closedInterface,
         Type requestType,
-        Type? boundRoot,
         AggregateFeatureRegistry aggregates)
     {
         if (requestType.IsAbstract || requestType.IsInterface)
@@ -196,43 +191,12 @@ public sealed class CommandConfigurationRegistry
         }
 
         CommandTarget? target = CommandTypes.TargetOf(requestType);
-
-        if (target is not null && boundRoot is not null && boundRoot != target.Root)
-        {
-            throw new InvalidOperationException(
-                $"Command configuration {configurationType.FullName} binds {requestType.FullName} to {boundRoot.FullName}, "
-                + $"but the request's type names {target.Root.FullName} as its aggregate root. A typed request takes its root "
-                + "from its type: drop the second type argument, or correct the request's target interface.");
-        }
-
-        Type? aggregateRoot = target?.Root ?? boundRoot;
+        Type? aggregateRoot = target?.Root;
         AggregateFeatures features = aggregateRoot is null ? AggregateFeatures.None : aggregates.For(aggregateRoot);
 
         EnsureRegistered(configurationType, requestType, builder.Permissions, aggregates);
 
-        if (builder.ExpectedVersionRequired && !IsCommand(requestType))
-        {
-            throw new InvalidOperationException(
-                $"Command configuration {configurationType.FullName} requires an expected version for {requestType.FullName}, "
-                + "which is not an ICommand<T>. Only a command writes, so only a command can carry an expected version.");
-        }
-
-        if (builder.ExpectedVersionRequired && aggregateRoot is not null && !features.Versioned)
-        {
-            throw new InvalidOperationException(
-                $"Command configuration {configurationType.FullName} requires an expected version for {requestType.FullName}, "
-                + $"but binds it to {aggregateRoot.FullName}, which is not Versioned(): there is no version to check. "
-                + "Call Versioned() in its aggregate feature configuration, or drop RequireExpectedVersion().");
-        }
-
         bool requiredByType = target is not null && RequiresVersionByType(requestType, target, features);
-
-        if (builder.ExpectedVersionWaived && builder.ExpectedVersionRequired)
-        {
-            throw new InvalidOperationException(
-                $"Command configuration {configurationType.FullName} both requires and waives an expected version for "
-                + $"{requestType.FullName}. Call one of RequireExpectedVersion() and WithoutExpectedVersion(), not both.");
-        }
 
         if (builder.ExpectedVersionWaived && !requiredByType)
         {
@@ -242,7 +206,7 @@ public sealed class CommandConfigurationRegistry
                 + "collection of a Versioned() root does. Drop WithoutExpectedVersion().");
         }
 
-        bool requiresVersion = builder.ExpectedVersionRequired || requiredByType && !builder.ExpectedVersionWaived;
+        bool requiresVersion = requiredByType && !builder.ExpectedVersionWaived;
         PermissionScope scope = ScopeOf(aggregateRoot, features);
 
         CommandSettings declared = builder.Permissions.Count == 0 && !requiresVersion && aggregateRoot is null
@@ -298,7 +262,7 @@ public sealed class CommandConfigurationRegistry
         && !CommandTypes.EffectsOf(requestType).Contains(typeof(ICloneCommand<,>))
         && features.Versioned;
 
-    // Unbound: the current scope. Bound: the current scope for a scoped aggregate, whose records live in scopes;
+    // Untyped: the current scope. Typed: the current scope for a scoped aggregate, whose records live in scopes;
     // any scope for another, whose records belong to none.
     private static PermissionScope ScopeOf(Type? aggregateRoot, AggregateFeatures features) =>
         aggregateRoot is not null && !features.Scoped ? PermissionScope.Any : PermissionScope.Current;
@@ -307,9 +271,7 @@ public sealed class CommandConfigurationRegistry
         requestType.GetInterfaces().Any(type => type.IsGenericType && type.GetGenericTypeDefinition() == typeof(ICommand<>));
 
     private static bool IsClosedConfigurationInterface(Type type) =>
-        type.IsGenericType
-        && (type.GetGenericTypeDefinition() == typeof(ICommandConfiguration<>)
-            || type.GetGenericTypeDefinition() == typeof(ICommandConfiguration<,>));
+        type.IsGenericType && type.GetGenericTypeDefinition() == typeof(ICommandConfiguration<>);
 
     private sealed record Texts(TextCategory? Category, IReadOnlySet<string> HiddenProperties);
 }

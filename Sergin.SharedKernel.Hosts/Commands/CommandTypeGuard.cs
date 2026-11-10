@@ -11,7 +11,7 @@ namespace Sergin.SharedKernel.Hosts.Commands;
 /// A typed record must fit the model its interfaces claim: one effect interface at most; <see cref="ISelectable"/> only
 /// on an entity or child target; an <c>ISetPropertyCommand</c> with exactly one shown property besides its ids, an
 /// <c>ITransitionCommand</c> with none; a restore or purge only on a <c>SoftDeletable()</c> root; an
-/// <see cref="IReverseOf{TOther}"/> naming a transition on the same root; and, once every module is typed, no
+/// <see cref="IReverseOf{TOther}"/> naming a transition on the same root; and no
 /// <see cref="ICommand{TResponse}"/> without an effect unless it is an <see cref="ISystemCommand"/>. One refusal names
 /// every offending type.
 /// </summary>
@@ -37,7 +37,7 @@ public sealed class CommandTypeGuard(IEnumerable<Assembly> contractsAssemblies)
     public IReadOnlyCollection<Assembly> Assemblies => assemblies;
 
     public void EnsureShaped(CommandConfigurationRegistry registry, AggregateFeatureRegistry aggregates) =>
-        Check(assemblies.SelectMany(assembly => assembly.GetTypes()), registry, aggregates, requireTyped: false);
+        Check(assemblies.SelectMany(assembly => assembly.GetTypes()), registry, aggregates, requireTyped: true);
 
     /// <summary>
     /// As <see cref="EnsureShaped(CommandConfigurationRegistry, AggregateFeatureRegistry)"/>, reading the aggregate

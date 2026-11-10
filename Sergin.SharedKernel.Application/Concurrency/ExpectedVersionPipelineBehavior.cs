@@ -5,8 +5,9 @@ using Sergin.SharedKernel.Application.Commands.Configuration;
 namespace Sergin.SharedKernel.Application.Concurrency;
 
 /// <summary>
-/// Runs between the permission check and validation. Refuses a command whose configuration calls
-/// <c>RequireExpectedVersion()</c> that arrives without an expected version, and turns the
+/// Runs between the permission check and validation. Refuses a command whose type requires an expected version (one
+/// on an existing entity, child or child collection of a <c>Versioned()</c> root, not waived with
+/// <c>WithoutExpectedVersion()</c>) that arrives without one, and turns the
 /// <see cref="ConcurrencyConflictException"/> a save throws on a version mismatch into
 /// <see cref="VersionErrors.Stale"/>. The check itself is the database's: the row-version interceptor puts the
 /// expected version into the UPDATE's WHERE clause.
