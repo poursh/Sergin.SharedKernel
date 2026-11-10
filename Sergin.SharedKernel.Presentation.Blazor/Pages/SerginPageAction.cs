@@ -31,7 +31,7 @@ public enum SerginActionKind
 /// </param>
 /// <param name="AnyScope">
 /// Whether the permission is checked on any scope rather than the current one — true for an action on an aggregate
-/// that is not <c>Scoped()</c>, mirroring how the pipeline checks a configuration bound to it.
+/// that is not <c>Scoped()</c>, mirroring how the pipeline checks a request typed to it.
 /// </param>
 /// <param name="Disabled">Shown but not clickable, e.g. while a delete is running.</param>
 public sealed record SerginPageAction(

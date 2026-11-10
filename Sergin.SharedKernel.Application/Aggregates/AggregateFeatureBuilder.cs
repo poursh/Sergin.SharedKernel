@@ -103,7 +103,7 @@ public sealed class AggregateFeatureBuilder<TAggregateRoot> : AggregateFeatureBu
     }
 
     /// <summary>
-    /// Names the text category the aggregate's <see cref="FieldText"/>s are declared in: a request bound to this root
+    /// Names the text category the aggregate's <see cref="FieldText"/>s are declared in: a request whose type names this root
     /// takes its field labels (validation messages, form captions) from it unless its own configuration names another.
     /// Not an EF feature. Calling it again replaces the category.
     /// </summary>

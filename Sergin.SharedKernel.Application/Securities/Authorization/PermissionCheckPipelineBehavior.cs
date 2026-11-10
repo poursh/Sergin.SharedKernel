@@ -6,7 +6,7 @@ namespace Sergin.SharedKernel.Application.Securities.Authorization;
 
 /// <summary>
 /// Checks every permission a request's configuration requires on the scope <see cref="IAuthorizationScopeContext"/>
-/// holds, or, for a request bound to an aggregate that is not scoped (<see cref="PermissionScope.Any"/>), on any
+/// holds, or, for a request whose type names an aggregate that is not scoped (<see cref="PermissionScope.Any"/>), on any
 /// scope: the caller only has to hold each permission somewhere. Once the check passes, the request runs
 /// with two things set for it: its permissions in <see cref="RequiredPermissionsContext"/>, which the save checks
 /// again on the scope of every record it writes, and <see cref="ScopeFilter"/>, which narrows its reads of scoped

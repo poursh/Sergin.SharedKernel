@@ -13,7 +13,7 @@ namespace Sergin.SharedKernel.Infrastructure.Data.EFCore.Interceptors;
 /// Checks every permission the request required (<see cref="RequiredPermissionsContext"/>) again on the scope of each
 /// record the save writes, so a request allowed at one scope cannot change a record that lives in another. A scoped
 /// root is checked on the scope it is stored in, and a new one on the scope ScopeStampInterceptor (which runs first)
-/// stamped it with: a request bound to an unscoped aggregate passed the pipeline without a check on the current
+/// stamped it with: a request whose type names an unscoped aggregate passed the pipeline without a check on the current
 /// scope, so a scoped root it or one of its domain-event handlers creates is checked here. A child is checked on its
 /// root's scope. A record of an aggregate that is not scoped belongs to no scope and needs nothing more: the
 /// permissions are published only after the pipeline found the caller holds each of them somewhere, which is all
