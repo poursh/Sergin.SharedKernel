@@ -1,4 +1,5 @@
 using Sergin.SharedKernel.Application.Aggregates;
+using Sergin.SharedKernel.Application.ScheduledTasks.Queries;
 
 namespace Sergin.SharedKernel.Application.ScheduledTasks;
 
@@ -12,6 +13,11 @@ public static class ScheduledTaskConfigurationTypes
     public static IReadOnlyList<Type> All { get; } =
     [
         typeof(ScheduledTaskAggregateFeatureConfiguration),
+        typeof(GetScheduledTasksForTargetQueryConfiguration),
+        typeof(GetScheduledTaskByIdQueryConfiguration),
+        typeof(GetScheduledTaskRunsQueryConfiguration),
+        typeof(GetScheduledTaskRunItemsQueryConfiguration),
+        typeof(GetOneOffRunsForTargetQueryConfiguration),
     ];
 
     /// <summary>The aggregate feature configurations among <see cref="All"/>, which an opting-in context applies.</summary>

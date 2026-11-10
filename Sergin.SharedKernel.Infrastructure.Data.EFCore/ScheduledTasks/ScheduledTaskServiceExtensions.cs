@@ -1,4 +1,8 @@
+using ErrorOr;
+using MediatR;
 using Microsoft.Extensions.DependencyInjection;
+using Sergin.SharedKernel.Application;
+using Sergin.SharedKernel.Application.ScheduledTasks.Queries;
 using Sergin.SharedKernel.Application.ScheduledTasks;
 
 namespace Sergin.SharedKernel.Infrastructure.Data.EFCore.ScheduledTasks;
@@ -32,6 +36,15 @@ public static class ScheduledTaskServiceExtensions
         services.AddScoped<ScheduledRunItemExecutor>();
         services.AddScoped<ScheduledRunStarter>();
         services.AddScoped<IScheduledTaskRunner, ScheduledTaskRunner>();
+
+        // The management reads: SharedKernel's own handlers, which MediatR's scan of the modules' application assemblies
+        // never reaches, and the SQL service they call.
+        services.AddScoped<IScheduledTaskQueries, ScheduledTaskQueries>();
+        services.AddTransient<IRequestHandler<GetScheduledTasksForTargetQuery, ErrorOr<IReadOnlyCollection<ScheduledTaskListItem>>>, GetScheduledTasksForTargetQueryHandler>();
+        services.AddTransient<IRequestHandler<GetScheduledTaskByIdQuery, ErrorOr<ScheduledTaskResponse>>, GetScheduledTaskByIdQueryHandler>();
+        services.AddTransient<IRequestHandler<GetScheduledTaskRunsQuery, ErrorOr<ListQueryResponse<ScheduledRunListItem>>>, GetScheduledTaskRunsQueryHandler>();
+        services.AddTransient<IRequestHandler<GetScheduledTaskRunItemsQuery, ErrorOr<IReadOnlyCollection<ScheduledRunItemListItem>>>, GetScheduledTaskRunItemsQueryHandler>();
+        services.AddTransient<IRequestHandler<GetOneOffRunsForTargetQuery, ErrorOr<IReadOnlyCollection<ScheduledRunListItem>>>, GetOneOffRunsForTargetQueryHandler>();
 
         return services;
     }
