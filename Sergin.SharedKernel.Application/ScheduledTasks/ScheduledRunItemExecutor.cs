@@ -92,7 +92,7 @@ internal sealed partial class ScheduledRunItemExecutor(
             return ScheduledTaskErrors.UnknownCommand;
         }
 
-        ErrorOr<Commands.IBaseCommand> built = ScheduledCommandFactory.Build(command, run.Arguments, item.TargetId, item.RootId);
+        ErrorOr<Application.Commands.IBaseCommand> built = ScheduledCommandFactory.Build(command, run.Arguments, item.TargetId, item.RootId);
 
         if (built.IsError)
         {

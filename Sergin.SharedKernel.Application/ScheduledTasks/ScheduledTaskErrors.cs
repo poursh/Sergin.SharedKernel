@@ -18,6 +18,13 @@ public static class ScheduledTaskErrors
     public static Error EngineUnavailable { get; } =
         Error.Unexpected("ScheduledTasks.EngineUnavailable", "The job engine could not accept the run's items.");
 
+    /// <summary>
+    /// The engine refused a schedule's trigger while it was created or changed; nothing was saved. The same code as
+    /// <see cref="EngineUnavailable"/>: to a person it is the same failure.
+    /// </summary>
+    public static Error TriggerEngineUnavailable { get; } =
+        Error.Unexpected("ScheduledTasks.EngineUnavailable", "The job engine could not accept the schedule; nothing was saved.");
+
     /// <summary>Another run of the same task started first; the overlap rule skips this one.</summary>
     public static Error Overlap { get; } =
         Error.Conflict("ScheduledTasks.Overlap", "A previous run of this task is still unfinished.");

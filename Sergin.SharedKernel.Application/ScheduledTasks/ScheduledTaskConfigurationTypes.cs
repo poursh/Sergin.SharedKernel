@@ -1,4 +1,5 @@
 using Sergin.SharedKernel.Application.Aggregates;
+using Sergin.SharedKernel.Application.ScheduledTasks.Commands;
 using Sergin.SharedKernel.Application.ScheduledTasks.Queries;
 
 namespace Sergin.SharedKernel.Application.ScheduledTasks;
@@ -18,6 +19,13 @@ public static class ScheduledTaskConfigurationTypes
         typeof(GetScheduledTaskRunsQueryConfiguration),
         typeof(GetScheduledTaskRunItemsQueryConfiguration),
         typeof(GetOneOffRunsForTargetQueryConfiguration),
+        typeof(CreateScheduledTaskCommandConfiguration),
+        typeof(UpdateScheduledTaskCommandConfiguration),
+        typeof(PauseScheduledTaskCommandConfiguration),
+        typeof(ResumeScheduledTaskCommandConfiguration),
+        typeof(DeleteScheduledTaskCommandConfiguration),
+        typeof(RunScheduledTaskNowCommandConfiguration),
+        typeof(RunCommandOnceCommandConfiguration),
     ];
 
     /// <summary>The aggregate feature configurations among <see cref="All"/>, which an opting-in context applies.</summary>

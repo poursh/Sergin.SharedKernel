@@ -1,7 +1,9 @@
 using ErrorOr;
+using FluentValidation;
 using MediatR;
 using Microsoft.Extensions.DependencyInjection;
 using Sergin.SharedKernel.Application;
+using Sergin.SharedKernel.Application.ScheduledTasks.Commands;
 using Sergin.SharedKernel.Application.ScheduledTasks.Queries;
 using Sergin.SharedKernel.Application.ScheduledTasks;
 
@@ -45,6 +47,22 @@ public static class ScheduledTaskServiceExtensions
         services.AddTransient<IRequestHandler<GetScheduledTaskRunsQuery, ErrorOr<ListQueryResponse<ScheduledRunListItem>>>, GetScheduledTaskRunsQueryHandler>();
         services.AddTransient<IRequestHandler<GetScheduledTaskRunItemsQuery, ErrorOr<IReadOnlyCollection<ScheduledRunItemListItem>>>, GetScheduledTaskRunItemsQueryHandler>();
         services.AddTransient<IRequestHandler<GetOneOffRunsForTargetQuery, ErrorOr<IReadOnlyCollection<ScheduledRunListItem>>>, GetOneOffRunsForTargetQueryHandler>();
+
+
+        // The management commands: their handlers and validators by hand, for the same reason; validators scoped, as
+        // AddSerginCore registers a module's, so they live in the request scope the validation behavior runs in.
+        services.AddScoped<ScheduledTaskAuthority>();
+        services.AddScoped<ScheduledTaskEngineAccessor>();
+        services.AddTransient<IRequestHandler<CreateScheduledTaskCommand, ErrorOr<CreateScheduledTaskCommandResponse>>, CreateScheduledTaskCommandHandler>();
+        services.AddTransient<IRequestHandler<UpdateScheduledTaskCommand, ErrorOr<UpdateScheduledTaskCommandResponse>>, UpdateScheduledTaskCommandHandler>();
+        services.AddTransient<IRequestHandler<PauseScheduledTaskCommand, ErrorOr<Success>>, PauseScheduledTaskCommandHandler>();
+        services.AddTransient<IRequestHandler<ResumeScheduledTaskCommand, ErrorOr<Success>>, ResumeScheduledTaskCommandHandler>();
+        services.AddTransient<IRequestHandler<DeleteScheduledTaskCommand, ErrorOr<Success>>, DeleteScheduledTaskCommandHandler>();
+        services.AddTransient<IRequestHandler<RunScheduledTaskNowCommand, ErrorOr<ScheduledRunStartedResponse>>, RunScheduledTaskNowCommandHandler>();
+        services.AddTransient<IRequestHandler<RunCommandOnceCommand, ErrorOr<ScheduledRunStartedResponse>>, RunCommandOnceCommandHandler>();
+        services.AddScoped<IValidator<CreateScheduledTaskCommand>, CreateScheduledTaskCommandValidator>();
+        services.AddScoped<IValidator<UpdateScheduledTaskCommand>, UpdateScheduledTaskCommandValidator>();
+        services.AddScoped<IValidator<RunCommandOnceCommand>, RunCommandOnceCommandValidator>();
 
         return services;
     }
