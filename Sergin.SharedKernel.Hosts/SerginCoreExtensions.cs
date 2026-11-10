@@ -13,6 +13,7 @@ using Sergin.SharedKernel.Application.Events;
 using Sergin.SharedKernel.Application.Events.Integration;
 using Sergin.SharedKernel.Application.Localizations;
 using Sergin.SharedKernel.Application.Localizations.Validation;
+using Sergin.SharedKernel.Application.ScheduledTasks;
 using Sergin.SharedKernel.Application.Securities.Authorization;
 using Sergin.SharedKernel.Application.Securities.Users;
 using Sergin.SharedKernel.Application.Times;
@@ -166,6 +167,11 @@ public static class SerginCoreExtensions
 
         builder.Services.AddSingleton(provider =>
             CommandConfigurationRegistry.FromSources(provider.GetServices<ModuleConfigurationSource>()));
+
+        // Every request a configuration made Schedulable(name), read from the same sources and the registry above;
+        // resolved at start so a bad declaration fails host start. Empty when no module declares one.
+        builder.Services.AddSingleton(provider => ScheduledCommandCatalog.FromSources(
+            provider.GetServices<ModuleConfigurationSource>(), provider.GetRequiredService<CommandConfigurationRegistry>()));
 
         // What the aggregates registered with .Permissions(...), from the same sources; resolved at start beside
         // the registry above so a duplicate or misplaced permission fails host start.
