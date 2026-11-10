@@ -41,7 +41,7 @@ public sealed class CommandConfigurationRegistry
     /// <summary>Every request the registry answers for: the configured ones and the typed ones, configured or not.</summary>
     public IReadOnlyCollection<Type> RequestTypes => [.. settings.Keys];
 
-    /// <summary>The settings <paramref name="requestType"/> declared; None for an unconfigured request.</summary>
+    /// <summary>The settings <paramref name="requestType"/> declared, or a typed record's derived from its type; None for a request neither configured nor typed.</summary>
     public CommandSettings For(Type requestType)
     {
         ArgumentNullException.ThrowIfNull(requestType);
@@ -51,7 +51,7 @@ public sealed class CommandConfigurationRegistry
 
     /// <summary>
     /// The text category <paramref name="requestType"/>'s fields are declared in: the one its configuration names with
-    /// <c>Texts(...)</c>, else its typed root's; null for a request with neither, or with no configuration.
+    /// <c>Texts(...)</c>, else its typed root's (a typed record with no configuration takes its root's too); null for a request with neither.
     /// </summary>
     public TextCategory? CategoryOf(Type requestType)
     {
