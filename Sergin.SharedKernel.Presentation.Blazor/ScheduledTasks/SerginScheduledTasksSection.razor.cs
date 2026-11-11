@@ -43,6 +43,7 @@ public sealed partial class SerginScheduledTasksSection : IDisposable
     private bool visible;
     private Timer? poller;
     private int polling;
+    private volatile bool disposed;
 
     /// <summary>The owning module's schema.</summary>
     [Parameter]
@@ -179,9 +180,14 @@ public sealed partial class SerginScheduledTasksSection : IDisposable
     /// <inheritdoc />
     public void Dispose()
     {
+        // Set first: a reload still awaiting its read must not start a timer nobody will dispose.
+        disposed = true;
         poller?.Dispose();
         poller = null;
     }
+
+    /// <summary>Whether the section's poll timer is running (it is while a listed run is Running, never after disposal).</summary>
+    public bool IsPolling => poller is not null;
 
     private bool AnyRunning => oneOffRuns.Any(run => run.Status == ScheduledRunStatus.Running)
         || tasks.Any(task => task.LastRunStatus == ScheduledRunStatus.Running);
@@ -189,7 +195,7 @@ public sealed partial class SerginScheduledTasksSection : IDisposable
     // A timer owned by the section: on only while a listed run is Running, off again once none is, and gone with the section.
     private void UpdatePolling()
     {
-        if (AnyRunning)
+        if (AnyRunning && !disposed)
         {
             poller ??= new Timer(tick => InvokeAsync(PollAsync), null, PollInterval, PollInterval);
         }
@@ -203,7 +209,7 @@ public sealed partial class SerginScheduledTasksSection : IDisposable
     private async Task PollAsync()
     {
         // A tick that arrives while the previous read is still going is dropped, so reads never pile up.
-        if (poller is null || Interlocked.Exchange(ref polling, 1) == 1)
+        if (disposed || poller is null || Interlocked.Exchange(ref polling, 1) == 1)
         {
             return;
         }
