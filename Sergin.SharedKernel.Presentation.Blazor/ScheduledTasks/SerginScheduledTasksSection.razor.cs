@@ -31,7 +31,7 @@ namespace Sergin.SharedKernel.Presentation.Blazor.ScheduledTasks;
 /// catalogue, and the module's own arguments form is the module view's to offer through <see cref="SerginScheduleDialog"/>.
 /// The command is shown by its stable name, as stored.
 /// </remarks>
-public sealed partial class SerginScheduledTasksSection
+public sealed partial class SerginScheduledTasksSection : IDisposable
 {
     private const int OneOffTake = 5;
 
@@ -41,6 +41,8 @@ public sealed partial class SerginScheduledTasksSection
     private TimeZoneInfo timeZone = TimeZoneInfo.Utc;
     private SerginProblem? problem;
     private bool visible;
+    private Timer? poller;
+    private int polling;
 
     /// <summary>The owning module's schema.</summary>
     [Parameter]
@@ -51,6 +53,13 @@ public sealed partial class SerginScheduledTasksSection
     [Parameter]
     [EditorRequired]
     public Guid TargetId { get; set; }
+
+    /// <summary>
+    /// How often the section reads its runs again while one it lists is still Running; two seconds by default. It is a
+    /// parameter so a test can shorten it.
+    /// </summary>
+    [Parameter]
+    public TimeSpan PollInterval { get; set; } = TimeSpan.FromSeconds(2);
 
     [Inject]
     private IScopeAuthorization ScopeAuthorization { get; set; } = default!;
@@ -99,6 +108,7 @@ public sealed partial class SerginScheduledTasksSection
     public async Task ReloadAsync()
     {
         await LoadAsync();
+        UpdatePolling();
         // The host calls this from its own handler, so this component is not re-rendered by anything else (the parent skips
         // a child whose parameters did not change).
         await InvokeAsync(StateHasChanged);
@@ -163,6 +173,48 @@ public sealed partial class SerginScheduledTasksSection
         {
             timeZone = browser;
             StateHasChanged();
+        }
+    }
+
+    /// <inheritdoc />
+    public void Dispose()
+    {
+        poller?.Dispose();
+        poller = null;
+    }
+
+    private bool AnyRunning => oneOffRuns.Any(run => run.Status == ScheduledRunStatus.Running)
+        || tasks.Any(task => task.LastRunStatus == ScheduledRunStatus.Running);
+
+    // A timer owned by the section: on only while a listed run is Running, off again once none is, and gone with the section.
+    private void UpdatePolling()
+    {
+        if (AnyRunning)
+        {
+            poller ??= new Timer(tick => InvokeAsync(PollAsync), null, PollInterval, PollInterval);
+        }
+        else
+        {
+            poller?.Dispose();
+            poller = null;
+        }
+    }
+
+    private async Task PollAsync()
+    {
+        // A tick that arrives while the previous read is still going is dropped, so reads never pile up.
+        if (poller is null || Interlocked.Exchange(ref polling, 1) == 1)
+        {
+            return;
+        }
+
+        try
+        {
+            await ReloadAsync();
+        }
+        finally
+        {
+            Interlocked.Exchange(ref polling, 0);
         }
     }
 
@@ -297,7 +349,8 @@ public sealed partial class SerginScheduledTasksSection
 
         IBaseCommand saved = template.Value;
 
-        bool changed = await Dialogs.ShowScheduleAsync(new SerginScheduleRequest(
+        // Whatever the dialog did (saved, ran once, cancelled), the lists are read again.
+        await Dialogs.ShowScheduleAsync(new SerginScheduleRequest(
             Schema,
             ScheduledTaskUiTexts.EditTitle,
             () => saved,
@@ -305,10 +358,7 @@ public sealed partial class SerginScheduledTasksSection
             [.. task.Targets.Select(target => target.TargetId.ToString())],
             EditingId: id));
 
-        if (changed)
-        {
-            await ReloadAsync();
-        }
+        await ReloadAsync();
     }
 
     // The version is read just before the write, as a detail page's delete does; a stale answer shows as its own message.
