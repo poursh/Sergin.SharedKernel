@@ -1,7 +1,9 @@
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
+using Sergin.SharedKernel.Application.Events.Integration;
 using Sergin.SharedKernel.Application.ScheduledTasks;
+using Sergin.SharedKernel.Application.Securities.Users;
 using Sergin.SharedKernel.Application.Times;
 using Sergin.SharedKernel.Domain.ScheduledTasks;
 using Sergin.SharedKernel.Infrastructure.Data.EFCore.ScheduledTasks;
@@ -74,6 +76,12 @@ public sealed partial class ScheduledTaskTriggerRebuildService(
     private async Task RebuildAsync(CancellationToken ct)
     {
         await using AsyncServiceScope scope = services.CreateAsyncScope();
+
+        // A relink saves the audited, versioned task: under the platform's own actor (the outbox relay's identity), not
+        // whatever user a bare scope would resolve. Seeded before anything in the scope reads the user.
+        scope.ServiceProvider.GetRequiredService<UserContextAccessor>().Current =
+            scope.ServiceProvider.GetRequiredService<IOutboxRelayIdentity>().User;
+
         IScheduledTaskEngine engine = scope.ServiceProvider.GetRequiredService<IScheduledTaskEngine>();
         IScheduledTaskStoreResolver stores = scope.ServiceProvider.GetRequiredService<IScheduledTaskStoreResolver>();
         DateTime cutoff = clock.UtcNow - Grace;

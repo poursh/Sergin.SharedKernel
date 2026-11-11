@@ -20,6 +20,10 @@ namespace Sergin.SharedKernel.Hosts.ScheduledTasks;
 /// healthy item does nothing, and a Running item is taken over only once it has been quiet for the stale period. An item
 /// whose every allowed attempt was claimed and lost ends Failed as exhausted, and its run completes.
 /// </para>
+/// <para>
+/// The same pass completes a run that is still open though every item finished and it started more than the stale period
+/// ago: the item's save landed and the run's completion did not (a database fault or shutdown in between).
+/// </para>
 /// <para>Public, like <c>OutboxRelayService</c>, so an integration test can remove it and run a pass by hand.</para>
 /// </summary>
 public sealed partial class ScheduledRunItemRecoveryService(
@@ -31,26 +35,23 @@ public sealed partial class ScheduledRunItemRecoveryService(
 {
     private readonly string[] schemas = [.. registrations.Select(registration => registration.Schema).Distinct(StringComparer.Ordinal)];
 
-    /// <summary>One pass over every opted-in schema; answers how many items were handed over again.</summary>
+    /// <summary>
+    /// One pass over every opted-in schema; answers how many items were handed over again. Each schema gets its own scope
+    /// and its own try, so a failure (a database fault, an engine that cannot be resolved) is logged and the next schema
+    /// and the next pass go on: nothing here faults the background loop, which would stop the host.
+    /// </summary>
     public async Task<int> RecoverOnceAsync(CancellationToken ct)
     {
         int recovered = 0;
-
-        if (schemas.Length == 0)
-        {
-            return recovered;
-        }
-
-        await using AsyncServiceScope scope = services.CreateAsyncScope();
-        IScheduledTaskEngine engine = scope.ServiceProvider.GetRequiredService<IScheduledTaskEngine>();
-        IScheduledTaskStoreResolver stores = scope.ServiceProvider.GetRequiredService<IScheduledTaskStoreResolver>();
         DateTime quietSince = clock.UtcNow - options.Value.StaleAfter;
 
         foreach (string schema in schemas)
         {
             try
             {
-                IScheduledTaskStore store = stores.For(schema);
+                await using AsyncServiceScope scope = services.CreateAsyncScope();
+                IScheduledTaskStore store = scope.ServiceProvider.GetRequiredService<IScheduledTaskStoreResolver>().For(schema);
+                IScheduledTaskEngine engine = scope.ServiceProvider.GetRequiredService<IScheduledTaskEngine>();
 
                 foreach (Guid itemId in await store.ListStaleRunItemsAsync(quietSince, ct))
                 {
@@ -61,6 +62,13 @@ public sealed partial class ScheduledRunItemRecoveryService(
                         recovered++;
                         LogRecovered(itemId, schema);
                     }
+                }
+
+                // Every item finished but the run's completion was lost: complete it, or its task skips every firing.
+                foreach (Guid runId in await store.ListRunsToCompleteAsync(quietSince, ct))
+                {
+                    await store.CompleteRunIfFinishedAsync(runId, clock.UtcNow, ct);
+                    LogRunCompleted(runId, schema);
                 }
             }
             catch (Exception exception) when (exception is not OperationCanceledException)
@@ -97,6 +105,9 @@ public sealed partial class ScheduledRunItemRecoveryService(
 
     [LoggerMessage(Level = LogLevel.Warning, Message = "Scheduled run item {RunItemId} in schema {Schema} had gone quiet; it was handed to the job engine again.")]
     private partial void LogRecovered(Guid runItemId, string schema);
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "Scheduled run {RunId} in schema {Schema} had every item finished but was still open; it was completed.")]
+    private partial void LogRunCompleted(Guid runId, string schema);
 
     [LoggerMessage(Level = LogLevel.Error, Message = "The scheduled run item recovery failed for schema {Schema}; retrying after the recovery interval.")]
     private partial void LogRecoveryFailed(Exception exception, string schema);

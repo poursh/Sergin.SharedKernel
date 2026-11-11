@@ -55,6 +55,14 @@ public interface IScheduledTaskStore
     Task<IReadOnlyCollection<Guid>> ListStaleRunItemsAsync(DateTime quietSince, CancellationToken ct);
 
     /// <summary>
+    /// The runs still Running, started before <paramref name="quietSinceUtc"/>, with no item left pending, running or
+    /// retrying: every item finished but the completion was lost (a fault or shutdown between the item's save and
+    /// <see cref="CompleteRunIfFinishedAsync"/>). Left alone, such a run would make the overlap rule skip every later
+    /// firing of its task.
+    /// </summary>
+    Task<IReadOnlyCollection<Guid>> ListRunsToCompleteAsync(DateTime quietSinceUtc, CancellationToken ct);
+
+    /// <summary>
     /// Links a stale item to the job the recovery just made for it and stamps the activity, unless something happened to
     /// it meanwhile (a delivery claimed or finished it); answers whether the row changed. A stale Running item becomes
     /// Retrying: its attempt was lost, and the stamp would otherwise make the new delivery take it for one still running.

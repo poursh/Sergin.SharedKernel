@@ -42,7 +42,7 @@ internal sealed partial class ScheduledTaskRunner(
                 return;
             }
 
-            if (started.FirstError != ScheduledTaskErrors.Overlap)
+            if (started.FirstError.Code != ScheduledTaskErrors.Overlap.Code)
             {
                 LogStartFailed(task.Id.Value, task.CommandName, string.Join("; ", started.Errors.Select(error => error.Code)));
                 return;

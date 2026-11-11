@@ -1,4 +1,4 @@
-﻿using System.Linq.Expressions;
+using System.Linq.Expressions;
 using Sergin.SharedKernel.Application.Localizations;
 
 namespace Sergin.SharedKernel.Application.Commands.Configuration;

@@ -48,7 +48,6 @@ public static class ScheduledTaskServiceExtensions
         services.AddTransient<IRequestHandler<GetScheduledTaskRunItemsQuery, ErrorOr<IReadOnlyCollection<ScheduledRunItemListItem>>>, GetScheduledTaskRunItemsQueryHandler>();
         services.AddTransient<IRequestHandler<GetOneOffRunsForTargetQuery, ErrorOr<IReadOnlyCollection<ScheduledRunListItem>>>, GetOneOffRunsForTargetQueryHandler>();
 
-
         // The management commands: their handlers and validators by hand, for the same reason; validators scoped, as
         // AddSerginCore registers a module's, so they live in the request scope the validation behavior runs in.
         services.AddScoped<ScheduledTaskAuthority>();

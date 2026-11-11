@@ -146,6 +146,17 @@ internal sealed class EfScheduledTaskStore<TContext>(TContext context, string sc
     public async Task<IReadOnlyCollection<Guid>> ListStaleRunItemsAsync(DateTime quietSince, CancellationToken ct) =>
         await Unfinished(quietSince).Select(item => item.Id).ToListAsync(ct);
 
+    public async Task<IReadOnlyCollection<Guid>> ListRunsToCompleteAsync(DateTime quietSinceUtc, CancellationToken ct) =>
+        await context.ScheduledTaskRuns
+            .Where(run => run.Status == ScheduledRunStatus.Running && run.StartedAtUtc < quietSinceUtc)
+            .Where(run => !context.ScheduledTaskRunItems.Any(item =>
+                item.RunId == run.Id
+                && (item.Status == ScheduledRunItemStatus.Pending
+                    || item.Status == ScheduledRunItemStatus.Running
+                    || item.Status == ScheduledRunItemStatus.Retrying)))
+            .Select(run => run.Id)
+            .ToListAsync(ct);
+
     public async Task<bool> RelinkStaleRunItemAsync(Guid runItemId, Guid engineJobId, DateTime now, DateTime quietSince, CancellationToken ct) =>
         await Unfinished(quietSince)
             .Where(item => item.Id == runItemId)
