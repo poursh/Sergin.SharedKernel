@@ -91,6 +91,10 @@ public sealed partial class SerginScheduledTasksSection
     [Inject]
     private ScheduledCommandCatalog Catalog { get; set; } = default!;
 
+    // Read for its FiresTriggers only: a schedule saved with an engine that fires nothing must not look as if it will run.
+    [Inject]
+    private IScheduledTaskEngine Engine { get; set; } = default!;
+
     /// <summary>Reads the schedules and the one-off runs again — after the host saved a schedule.</summary>
     public async Task ReloadAsync()
     {

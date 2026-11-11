@@ -4,6 +4,10 @@
 @if (visible)
 {
     <SerginEntityListView TitleText="ScheduledTaskUiTexts.Title" Count="tasks.Count" Problem="problem">
+        @if (!Engine.FiresTriggers)
+        {
+            <MudAlert Severity="Severity.Info" Dense="true" Class="mb-3 sergin-scheduled-runs-off">@Localizer.Text(ScheduledTaskUiTexts.EngineOff)</MudAlert>
+        }
         <MudTable T="ScheduledTaskListItem" Items="tasks" Hover="true" Striped="true" Bordered="true" Dense="true" Elevation="0"
                   OnRowClick="ShowRunsAsync" RowStyle="cursor: pointer;">
             <HeaderContent>

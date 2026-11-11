@@ -54,6 +54,10 @@ public static class ScheduledTaskUiTexts
 
     public static TextDefinition NotScheduled { get; } = category.Text("NotScheduled", "Not scheduled");
 
+    /// <summary>Shown by the section and the dialog while the host's engine fires no trigger (the stand-in, before a licence).</summary>
+    public static TextDefinition EngineOff { get; } =
+        category.Text("EngineOff", "Scheduled runs are off until the scheduling engine is configured. Run now still works.");
+
     /// <summary>The dialog's own captions.</summary>
     public static class Dialog
     {

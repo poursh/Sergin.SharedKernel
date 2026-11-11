@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Components;
 using MudBlazor;
 using Sergin.SharedKernel.Application.Commands;
 using Sergin.SharedKernel.Application.Concurrency;
+using Sergin.SharedKernel.Application.ScheduledTasks;
 using Sergin.SharedKernel.Application.ScheduledTasks.Commands;
 using Sergin.SharedKernel.Application.ScheduledTasks.Queries;
 using Sergin.SharedKernel.Domain;
@@ -80,6 +81,10 @@ public sealed partial class SerginScheduleDialog
 
     [Inject]
     private IStringLocalizer Localizer { get; set; } = default!;
+
+    // The off-state line above Save: saving still works, but nothing will fire until the real engine is configured.
+    [Inject]
+    private IScheduledTaskEngine Engine { get; set; } = default!;
 
     protected override async Task OnInitializedAsync()
     {

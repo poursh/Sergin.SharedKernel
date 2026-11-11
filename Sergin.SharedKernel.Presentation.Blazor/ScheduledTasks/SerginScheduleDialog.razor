@@ -33,6 +33,11 @@
                         <SerginCronPicker @bind-Cron="model.Cron" @bind-TimeZoneId="model.TimeZoneId"
                                           CronFor="@(() => model.Cron)" />
                     </div>
+
+                    @if (!Engine.FiresTriggers)
+                    {
+                        <MudAlert Severity="Severity.Info" Dense="true" Class="sergin-scheduled-runs-off">@Localizer.Text(ScheduledTaskUiTexts.EngineOff)</MudAlert>
+                    }
                 </MudStack>
             </MudForm>
         }
