@@ -98,6 +98,14 @@ public sealed partial class SerginScheduledTasksSection
     /// <summary>Reads the schedules and the one-off runs again — after the host saved a schedule.</summary>
     public async Task ReloadAsync()
     {
+        await LoadAsync();
+        // The host calls this from its own handler, so this component is not re-rendered by anything else (the parent skips
+        // a child whose parameters did not change).
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private async Task LoadAsync()
+    {
         if (!visible)
         {
             return;
