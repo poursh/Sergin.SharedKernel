@@ -10,6 +10,12 @@ namespace Sergin.SharedKernel.Application.ScheduledTasks;
 /// </summary>
 public interface IScheduledTaskEngine
 {
+    /// <summary>
+    /// Whether a saved schedule's trigger ever fires. False for an engine that only executes run items (the in-process
+    /// stand-in used without a TickerQ licence): schedules are kept, run-now and one-off runs still execute.
+    /// </summary>
+    bool FiresTriggers { get; }
+
     /// <summary>Registers a cron trigger for the task and answers the engine's id for it.</summary>
     Task<Guid> ScheduleAsync(ScheduledTrigger trigger, CancellationToken ct);
 

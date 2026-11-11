@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Options;
 using Sergin.SharedKernel.Application.ScheduledTasks;
 using TickerQ.DependencyInjection;
@@ -14,8 +15,11 @@ public static class TickerQEngineExtensions
     public const string Schema = "tickerq";
 
     /// <summary>
-    /// Registers the TickerQ engine against its own <c>tickerq</c> schema, and Sergin's <see cref="IScheduledTaskEngine"/>
-    /// over it. No dashboard. TickerQ's tables are not created here: a host creates them before it starts.
+    /// Registers Sergin's <see cref="IScheduledTaskEngine"/>. With <c>Sergin:ScheduledTasks:TickerQ:LicensePath</c> set:
+    /// the TickerQ engine against its own <c>tickerq</c> schema (no dashboard; TickerQ's tables are not created here, a
+    /// host creates them before it starts), and a licence guard that refuses start when the path names no file, so a
+    /// typo never falls back. Blank or absent: <see cref="InProcessScheduledTaskEngine"/> and its worker instead, and no
+    /// TickerQ service at all; schedules are kept and never fire, run items execute in process.
     /// </summary>
     /// <param name="services">The service collection.</param>
     /// <param name="serginSection">The <c>Sergin</c> configuration section.</param>
@@ -25,22 +29,27 @@ public static class TickerQEngineExtensions
         ArgumentNullException.ThrowIfNull(services);
         ArgumentNullException.ThrowIfNull(serginSection);
 
-        services.AddOptions<TickerQScheduledTaskOptions>()
-            .Bind(serginSection.GetSection(TickerQScheduledTaskOptions.SectionName))
-            .ValidateOnStart();
+        IConfigurationSection section = serginSection.GetSection(TickerQScheduledTaskOptions.SectionName);
+        OptionsBuilder<TickerQScheduledTaskOptions> options = services.AddOptions<TickerQScheduledTaskOptions>().Bind(section);
+        string licensePath = section[nameof(TickerQScheduledTaskOptions.LicensePath)] ?? string.Empty;
+
+        if (string.IsNullOrWhiteSpace(licensePath))
+        {
+            services.AddSingleton<InProcessScheduledTaskEngine>();
+            services.AddSingleton<IScheduledTaskEngine>(provider => provider.GetRequiredService<InProcessScheduledTaskEngine>());
+            services.AddHostedService<InProcessRunItemWorker>();
+
+            return services;
+        }
+
+        options.ValidateOnStart();
         services.AddSingleton<IValidateOptions<TickerQScheduledTaskOptions>, TickerQLicenseGuard>();
 
-        string licensePath = serginSection.GetSection(TickerQScheduledTaskOptions.SectionName)[nameof(TickerQScheduledTaskOptions.LicensePath)] ?? string.Empty;
-
-        services.AddTickerQ(options =>
+        services.AddTickerQ(tickerQ =>
         {
-            if (licensePath.Length > 0)
-            {
-                options.UseLicense(licensePath);
-            }
-
-            options.UseApplicationNamespace("sergin");
-            options.AddOperationalStore(store => store.UseTickerQDbContext<TickerQDbContext>(
+            tickerQ.UseLicense(licensePath);
+            tickerQ.UseApplicationNamespace("sergin");
+            tickerQ.AddOperationalStore(store => store.UseTickerQDbContext<TickerQDbContext>(
                 db => db.UseNpgsql(connectionString),
                 schema: Schema));
         });
@@ -51,5 +60,22 @@ public static class TickerQEngineExtensions
         services.AddSingleton<IScheduledTaskEngine>(provider => provider.GetRequiredService<TickerQScheduledTaskEngine>());
 
         return services;
+    }
+
+    /// <summary>
+    /// Activates TickerQ when <see cref="AddSerginTickerQ"/> registered it, and does nothing for the in-process stand-in,
+    /// so a host calls this one method whichever engine its configuration chose.
+    /// </summary>
+    /// <param name="host">The built host.</param>
+    public static IHost UseSerginTickerQ(this IHost host)
+    {
+        ArgumentNullException.ThrowIfNull(host);
+
+        if (host.Services.GetService<IServiceProviderIsService>()?.IsService(typeof(TickerQScheduledTaskEngine)) == true)
+        {
+            host.UseTickerQ();
+        }
+
+        return host;
     }
 }
