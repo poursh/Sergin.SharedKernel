@@ -29,7 +29,8 @@ namespace Sergin.SharedKernel.Hosts.ScheduledTasks;
 /// The work runs in the background, after start: an engine may refuse changes until it is activated, which a host does
 /// once started. A step that fails is logged and the next goes on; nothing here stops the host. What does stop it is a
 /// host that opted a module in but registered no <see cref="IScheduledTaskEngine"/>: every schedule would fail on its
-/// first engine call, so start fails instead, naming the schemas.
+/// first engine call, so start fails instead, naming the schemas. An engine whose <see cref="IScheduledTaskEngine.FiresTriggers"/>
+/// is false (the in-process stand-in) gets no reconciliation at all: the pass is skipped and logged.
 /// </para>
 /// <para>Public, like <c>OutboxRelayService</c>, so an integration test can find its registration and remove it.</para>
 /// </summary>
@@ -83,6 +84,15 @@ public sealed partial class ScheduledTaskTriggerRebuildService(
             scope.ServiceProvider.GetRequiredService<IOutboxRelayIdentity>().User;
 
         IScheduledTaskEngine engine = scope.ServiceProvider.GetRequiredService<IScheduledTaskEngine>();
+
+        // An engine that never fires (the stand-in without a licence) holds no trigger to reconcile with: relinking every
+        // task would only bump its version on each start. The first start with a real engine recreates them all.
+        if (!engine.FiresTriggers)
+        {
+            LogSkipped(schemas);
+            return;
+        }
+
         IScheduledTaskStoreResolver stores = scope.ServiceProvider.GetRequiredService<IScheduledTaskStoreResolver>();
         DateTime cutoff = clock.UtcNow - Grace;
         var linked = new Dictionary<string, HashSet<Guid>>(StringComparer.Ordinal);
@@ -187,6 +197,9 @@ public sealed partial class ScheduledTaskTriggerRebuildService(
             }
         }
     }
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "The scheduled-task trigger rebuild was skipped for schema(s) {Schemas}: scheduled runs are off, the job engine fires no triggers.")]
+    private partial void LogSkipped(IReadOnlyCollection<string> schemas);
 
     [LoggerMessage(Level = LogLevel.Error, Message = "The scheduled-task rebuild failed for its {Step} step in schema(s) {Schema}; the next start tries again.")]
     private partial void LogStepFailed(Exception exception, string step, string schema);
