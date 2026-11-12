@@ -95,9 +95,6 @@ public sealed class PickerOptions
     }
 
     private static Type ItemOf(Type listQuery) =>
-        listQuery.GetInterfaces()
-            .Where(contract => contract.IsGenericType && contract.GetGenericTypeDefinition() == typeof(IListQuery<>))
-            .Select(contract => contract.GetGenericArguments()[0])
-            .FirstOrDefault()
+        AggregateViewModelJoin.ListItemOf(listQuery)
         ?? throw new InvalidOperationException($"{listQuery.FullName} is not an IListQuery<TItem>, so a picker cannot read its items.");
 }

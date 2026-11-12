@@ -1,4 +1,3 @@
-using System.Collections.Concurrent;
 using System.Reflection;
 using Microsoft.AspNetCore.Components;
 using MudBlazor;
@@ -17,17 +16,12 @@ using Sergin.SharedKernel.Presentation.Localizations;
 
 namespace Sergin.SharedKernel.Presentation.Blazor.Aggregates.Views.Parts;
 
-/// <summary>What every generated list shares: the command roles a row offers (as icons, and in its menu), and the closed body types.</summary>
+/// <summary>The command roles a generated list row offers: as icons, and in its menu.</summary>
 internal static class GeneratedLists
 {
-    // The closed body type per item type, made once per process rather than once per render.
-    private static readonly ConcurrentDictionary<Type, Type> bodyTypes = new();
-
     public static IReadOnlySet<CommandRole> Icons { get; } = new HashSet<CommandRole> { CommandRole.Update, CommandRole.Delete };
 
     public static IReadOnlySet<CommandRole> Menu { get; } = new HashSet<CommandRole> { CommandRole.Transition };
-
-    public static Type BodyTypeOf(Type item) => bodyTypes.GetOrAdd(item, static type => typeof(GeneratedListBody<>).MakeGenericType(type));
 }
 
 /// <summary>What a generated list view asks of its body, whose item type it does not name.</summary>

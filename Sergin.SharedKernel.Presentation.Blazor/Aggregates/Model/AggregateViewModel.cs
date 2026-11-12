@@ -53,6 +53,8 @@ namespace Sergin.SharedKernel.Presentation.Blazor.Aggregates;
 /// Reads a list item into a name-to-value bag the way <paramref name="DetailArguments"/> reads a GetOne response: what
 /// fills a row command's texts. Compiled once; null with no list.
 /// </param>
+/// <param name="ListItem">The list query's item type; null with no list.</param>
+/// <param name="ListBodyType">The list view's body closed over <paramref name="ListItem"/>, made at registry build; null with no list.</param>
 public sealed record AggregateViewModel(
     Type Root,
     Type Configuration,
@@ -93,4 +95,6 @@ public sealed record AggregateViewModel(
     Func<object, IReadOnlyDictionary<string, object?>>? DetailArguments,
     TextDefinition? ListSearchPlaceholder = null,
     IReadOnlyDictionary<string, FieldText>? ListFieldLabels = null,
-    Func<object, IReadOnlyDictionary<string, object?>>? ListItemArguments = null);
+    Func<object, IReadOnlyDictionary<string, object?>>? ListItemArguments = null,
+    Type? ListItem = null,
+    Type? ListBodyType = null);

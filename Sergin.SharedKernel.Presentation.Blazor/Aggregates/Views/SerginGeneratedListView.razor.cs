@@ -57,14 +57,8 @@ public sealed partial class SerginGeneratedListView<TRoot>
     {
         Model = Views.For<TRoot>();
 
-        Type item = Model.List?.GetInterfaces()
-                .Where(contract => contract.IsGenericType && contract.GetGenericTypeDefinition() == typeof(IListQuery<>))
-                .Select(contract => contract.GetGenericArguments()[0])
-                .FirstOrDefault()
-            ?? throw new InvalidOperationException(
-                $"{typeof(TRoot).FullName} has no list query, so its list view has nothing to load. Add an IListOf<{typeof(TRoot).Name}>.");
-
-        bodyType = GeneratedLists.BodyTypeOf(item);
+        bodyType = Model.ListBodyType ?? throw new InvalidOperationException(
+            $"{typeof(TRoot).FullName} has no list query, so its list view has nothing to load. Add an IListOf<{typeof(TRoot).Name}>.");
         Trail = [ListStep()];
         Actions = [.. CreateAction()];
     }

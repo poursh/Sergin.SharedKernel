@@ -4,6 +4,7 @@ using Sergin.SharedKernel.Application.Aggregates;
 using Sergin.SharedKernel.Application.Commands;
 using Sergin.SharedKernel.Application.Commands.Configuration;
 using Sergin.SharedKernel.Application.Commands.Types;
+using Sergin.SharedKernel.Presentation.Blazor.Aggregates.Views.Parts;
 using Sergin.SharedKernel.Presentation.Blazor.Pages;
 
 namespace Sergin.SharedKernel.Presentation.Blazor.Aggregates;
@@ -90,7 +91,9 @@ internal sealed class AggregateViewModelJoin(
             getOneResponse is null ? null : ArgumentsReader(getOneResponse),
             (builder.ListFields as IListFilterDeclarations)?.SearchPlaceholder,
             ListFieldLabels(listFieldSet, list),
-            listItem is null ? null : ArgumentsReader(listItem));
+            listItem is null ? null : ArgumentsReader(listItem),
+            listItem,
+            listItem is null ? null : typeof(GeneratedListBody<>).MakeGenericType(listItem));
     }
 
     // Every public property's compiled, unwrapping reader, made once; a read fills a fresh bag.
@@ -559,7 +562,8 @@ internal sealed class AggregateViewModelJoin(
 
     private static Type? ResponseOf(Type query) => GenericArgumentOf(query, typeof(IQuery<>));
 
-    private static Type? ListItemOf(Type query) => GenericArgumentOf(query, typeof(IListQuery<>));
+    /// <summary>The <c>TItem</c> of the <c>IListQuery&lt;TItem&gt;</c> <paramref name="query"/> implements, or null.</summary>
+    internal static Type? ListItemOf(Type query) => GenericArgumentOf(query, typeof(IListQuery<>));
 
     private static Type? GenericArgumentOf(Type request, Type openInterface) =>
         request.GetInterfaces()
