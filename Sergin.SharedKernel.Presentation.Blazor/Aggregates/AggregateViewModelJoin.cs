@@ -46,6 +46,7 @@ internal sealed class AggregateViewModelJoin(
         IReadOnlyList<FieldView> detailFields = Fields(getOneResponse, CategoryOf(getOne), builder.DetailFields, out string? detailTitle);
         IReadOnlyList<FieldView> listFields = Fields(listItem, CategoryOf(list), builder.ListFields, out string? listTitle);
         ListFieldSet? listFieldSet = list is null ? null : ListFieldSetOf(list);
+        IReadOnlyList<ListFilterView> filters = Filters(listFieldSet, builder.ListFields as IListFilterDeclarations);
 
         return new AggregateViewModel(
             root,
@@ -71,7 +72,7 @@ internal sealed class AggregateViewModelJoin(
             commandViews.Any(command => command.ScheduleName is not null),
             detailTitle,
             listTitle,
-            Filters(listFieldSet, builder.ListFields as IListFilterDeclarations));
+            filters);
     }
 
     private InvalidOperationException Refuse(string problem) =>
@@ -281,12 +282,13 @@ internal sealed class AggregateViewModelJoin(
             return new ListFilterView(field, component, null, null, null);
         }
 
-        if (targets.RootByName(field.Id) is { } target)
+        if (targets.RootByName(field.Id) is { } target && targets.IsListed(target))
         {
             return new ListFilterView(field, null, target, null, null);
         }
 
         if (targets.ChildByName(field.Id) is { } child
+            && targets.IsListed(child.Root, child.Child)
             && set.Find(AggregateTargets.FilterIdOf(child.Root)) is { Kind: ListFieldKind.Identifier } parent)
         {
             return new ListFilterView(field, null, child.Root, child.Child, parent.Id);
@@ -294,7 +296,7 @@ internal sealed class AggregateViewModelJoin(
 
         throw Refuse(
             $"the {root.Name} list's Identifier filter '{field.Id}' names no root or child entity (<name>Id names one called "
-            + "<Name>; a child also needs the filter named after its root). Give it a picker with List(list => list.Filter(...)).");
+            + "<Name>, and it needs an IListOf<Name> query for its options; a child also needs an IChildListOf query, its root's list and the filter named after its root). Give it a picker with List(list => list.Filter(...)).");
     }
 
     // ---- Forms ----
@@ -364,7 +366,16 @@ internal sealed class AggregateViewModelJoin(
             throw Refuse($"{command.FullName}.{name} is of {primitive.FullName}, which no generated input edits.");
         }
 
-        return new FormFieldView(name, label, parameter.ParameterType, FormInputKind.Picker, PickerRootOf(command, parameter), null, null);
+        Type pickerRoot = PickerRootOf(command, parameter);
+
+        if (!targets.IsListed(pickerRoot))
+        {
+            throw Refuse(
+                $"{command.FullName}.{name} is the id of {pickerRoot.Name}, which has no IListOf<{pickerRoot.Name}> query to supply "
+                + "the picker's options.");
+        }
+
+        return new FormFieldView(name, label, parameter.ParameterType, FormInputKind.Picker, pickerRoot, null, null);
     }
 
     /// <summary>
@@ -420,6 +431,13 @@ internal sealed class AggregateViewModelJoin(
             throw Refuse(
                 $"ChildPicker<{picker.ParentRoot.Name}, …>(x => x.{name}) on {command.FullName}: {child.Child.Name} is a child of "
                 + $"{child.Root.Name}, not of {picker.ParentRoot.Name}.");
+        }
+
+        if (!targets.IsListed(child.Root, child.Child))
+        {
+            throw Refuse(
+                $"ChildPicker<{picker.ParentRoot.Name}, …>(x => x.{name}) on {command.FullName}: the picker needs an "
+                + $"IListOf<{child.Root.Name}> query for the parent and an IChildListOf<{child.Root.Name}, …, {child.Child.Name}> query for its options.");
         }
 
         if (getOneResponse is not null && picker.Response != getOneResponse)

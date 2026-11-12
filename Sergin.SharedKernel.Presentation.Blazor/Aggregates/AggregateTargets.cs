@@ -6,23 +6,32 @@ namespace Sergin.SharedKernel.Presentation.Blazor.Aggregates;
 /// <summary>
 /// The roots and child entities the typed requests name, and their id types: what a form picker or an identifier
 /// filter can offer. A target is found by its id type, or by name — <c>&lt;Name&gt;Id</c> names the root or child
-/// called <c>&lt;Name&gt;</c>. A name two types share resolves to neither.
+/// called <c>&lt;Name&gt;</c>. A name two types share resolves to neither. A picker can only offer a target with a query
+/// supplying its options: a root needs an <c>IListOf&lt;Root&gt;</c>, a child an <c>IChildListOf&lt;Root, …, Child&gt;</c>
+/// (and its root's list, for the parent picker); <see cref="IsListed(Type)"/> and <see cref="IsListed(Type, Type)"/> answer that.
 /// </summary>
 internal sealed class AggregateTargets
 {
     private readonly Dictionary<Type, Type?> rootIds;
     private readonly Dictionary<Type, Type> childRoots;
+    private readonly HashSet<Type> listedRoots;
+    private readonly HashSet<(Type Root, Type Child)> listedChildren;
 
-    private AggregateTargets(Dictionary<Type, Type?> rootIds, Dictionary<Type, Type> childRoots)
+    private AggregateTargets(
+        Dictionary<Type, Type?> rootIds, Dictionary<Type, Type> childRoots, HashSet<Type> listedRoots, HashSet<(Type Root, Type Child)> listedChildren)
     {
         this.rootIds = rootIds;
         this.childRoots = childRoots;
+        this.listedRoots = listedRoots;
+        this.listedChildren = listedChildren;
     }
 
     public static AggregateTargets From(IEnumerable<Type> requestTypes)
     {
         Dictionary<Type, Type?> roots = [];
         Dictionary<Type, Type> children = [];
+        HashSet<Type> listedRoots = [];
+        HashSet<(Type Root, Type Child)> listedChildren = [];
 
         foreach (Type request in requestTypes)
         {
@@ -42,9 +51,35 @@ internal sealed class AggregateTargets
             {
                 children.TryAdd(child, target.Root);
             }
+
+            CollectLists(request, listedRoots, listedChildren);
         }
 
-        return new AggregateTargets(roots, children);
+        return new AggregateTargets(roots, children, listedRoots, listedChildren);
+    }
+
+    /// <summary>Whether a list query (<c>IListOf&lt;<paramref name="root"/>&gt;</c>) supplies a picker of the root.</summary>
+    public bool IsListed(Type root) => listedRoots.Contains(root);
+
+    /// <summary>Whether a child list query (<c>IChildListOf</c>) supplies <paramref name="child"/> under <paramref name="root"/>, and the root's list supplies the parent picker.</summary>
+    public bool IsListed(Type root, Type child) => listedChildren.Contains((root, child)) && listedRoots.Contains(root);
+
+    private static void CollectLists(Type request, HashSet<Type> listedRoots, HashSet<(Type Root, Type Child)> listedChildren)
+    {
+        foreach (Type contract in request.GetInterfaces().Where(contract => contract.IsGenericType))
+        {
+            Type definition = contract.GetGenericTypeDefinition();
+            Type[] arguments = contract.GetGenericArguments();
+
+            if (definition == typeof(IListOf<>))
+            {
+                listedRoots.Add(arguments[0]);
+            }
+            else if (definition == typeof(IChildListOf<,,>))
+            {
+                listedChildren.Add((arguments[0], arguments[2]));
+            }
+        }
     }
 
     /// <summary>The root whose id type is <paramref name="idType"/>, or null.</summary>
