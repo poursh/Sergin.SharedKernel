@@ -36,6 +36,19 @@ public static class ShellTexts
         public static TextDefinition Actions { get; } = category.Text("Actions", "Actions");
     }
 
+    /// <summary>
+    /// The generated views' default action words, beside the shared verbs of <see cref="CommonTexts"/> under the same
+    /// <c>common.actions.*</c> category. Not named <c>Actions</c>: <see cref="Navigation.Actions"/> would shadow it.
+    /// </summary>
+    public static class CommandActions
+    {
+        private static readonly TextCategory category = common.Child("Actions");
+
+        /// <summary>A generated delete's confirm; <c>{Name}</c> is the record's display field.</summary>
+        public static TextDefinition DeleteConfirm { get; } =
+            category.Text("DeleteConfirm", "Delete {Name}? It disappears from every list and page.");
+    }
+
     /// <summary>The default home slot.</summary>
     public static class Welcome
     {
