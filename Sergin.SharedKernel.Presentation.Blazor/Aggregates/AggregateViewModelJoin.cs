@@ -93,7 +93,9 @@ internal sealed class AggregateViewModelJoin(
             ListFieldLabels(listFieldSet, list),
             listItem is null ? null : ArgumentsReader(listItem),
             listItem,
-            listItem is null ? null : typeof(GeneratedListBody<>).MakeGenericType(listItem));
+            listItem is null ? null : typeof(GeneratedListBody<>).MakeGenericType(listItem),
+            create is null ? null : builder.Forms.GetValueOrDefault(create)?.DeclaredTitle,
+            update is null ? null : builder.Forms.GetValueOrDefault(update)?.DeclaredTitle);
     }
 
     // Every public property's compiled, unwrapping reader, made once; a read fills a fresh bag.
@@ -461,7 +463,9 @@ internal sealed class AggregateViewModelJoin(
 
         if (kind is { } simple)
         {
-            return new FormFieldView(name, label, parameter.ParameterType, simple, null, null, null);
+            IReadOnlyList<object>? values = simple == FormInputKind.Select ? [.. Enum.GetValues(primitive).Cast<object>()] : null;
+
+            return new FormFieldView(name, label, parameter.ParameterType, simple, null, null, null, primitive, EnumValues: values);
         }
 
         if (primitive != typeof(Guid))
@@ -478,7 +482,16 @@ internal sealed class AggregateViewModelJoin(
                 + "the picker's options.");
         }
 
-        return new FormFieldView(name, label, parameter.ParameterType, FormInputKind.Picker, pickerRoot, null, null);
+        return new FormFieldView(
+            name,
+            label,
+            parameter.ParameterType,
+            FormInputKind.Picker,
+            pickerRoot,
+            null,
+            null,
+            primitive,
+            FormOptionsOf(command, name, () => PickerOptions.ForRoot(ListQueryOf(pickerRoot))));
     }
 
     /// <summary>
@@ -550,7 +563,54 @@ internal sealed class AggregateViewModelJoin(
                 + $"{picker.Response.FullName}, which is not {root.Name}'s GetOne response {getOneResponse.FullName}.");
         }
 
-        return new FormFieldView(name, label, parameter.ParameterType, FormInputKind.ChildPicker, child.Child, child.Root, picker.ParentFromRecord);
+        (Type childList, Type rootId) = ChildListQueryOf(child.Root, child.Child);
+
+        return new FormFieldView(
+            name,
+            label,
+            parameter.ParameterType,
+            FormInputKind.ChildPicker,
+            child.Child,
+            child.Root,
+            picker.ParentFromRecord,
+            typeof(Guid),
+            FormOptionsOf(command, name, () => PickerOptions.ForChild(childList, rootId)),
+            FormOptionsOf(command, name, () => PickerOptions.ForRoot(ListQueryOf(child.Root))),
+            ParentLabelOf(command, name, child.Root),
+            picker.ParentFirst ?? ShellTexts.Forms.SelectParentFirst);
+    }
+
+    // The parent select's label: the <Parent>Id field text of the command's category, else the parent root's name.
+    private FormParentLabel ParentLabelOf(Type command, string name, Type parentRoot)
+    {
+        TextCategory? category = commands.CategoryOf(command);
+
+        if ((category is null ? null : texts.FindField(category, $"{parentRoot.Name}Id")) is { } field)
+        {
+            return new FormParentLabel(field.Label, field.Placeholder);
+        }
+
+        TextDefinition parentName = aggregates.NameOf(parentRoot) ?? throw Refuse(
+            $"ChildPicker(x => x.{name}) on {command.FullName}: its parent select has no label. Declare a {parentRoot.Name}Id "
+            + $"FieldText in {category?.Prefix ?? "the command's category"}, or Named(...) on {parentRoot.Name}'s aggregate feature configuration.");
+
+        return new FormParentLabel(parentName, null);
+    }
+
+    // A picker whose list query a form cannot build or read is refused at start, naming the field.
+    private PickerOptions FormOptionsOf(Type command, string name, Func<PickerOptions> make)
+    {
+        try
+        {
+            return make();
+        }
+        catch (InvalidOperationException exception)
+        {
+            throw new InvalidOperationException(
+                $"Aggregate view configuration {view.Configuration.FullName}: the form field {command.FullName}.{name} cannot load its options. "
+                + exception.Message,
+                exception);
+        }
     }
 
     // ---- Request shapes ----

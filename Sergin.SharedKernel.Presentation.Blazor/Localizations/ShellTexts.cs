@@ -57,6 +57,24 @@ public static class ShellTexts
             category.Text("BulkDone", "Done for {Count} records.", "Reported after a bulk action; {Count} is the number of records it ran on.");
     }
 
+    /// <summary>The generated create and edit forms' default words.</summary>
+    public static class Forms
+    {
+        private static readonly TextCategory category = common.Child("Forms");
+
+        /// <summary>A generated create form's default title; <c>{Name}</c> is the root's name.</summary>
+        public static TextDefinition NewTitle { get; } =
+            category.Text("NewTitle", "New {Name}", "A generated create form's title; {Name} is the record type's name, such as Device.");
+
+        /// <summary>A generated edit form's default title; <c>{Name}</c> is the root's name.</summary>
+        public static TextDefinition EditTitle { get; } =
+            category.Text("EditTitle", "Edit {Name}", "A generated edit form's title; {Name} is the record type's name, such as Device.");
+
+        /// <summary>A generated child picker's placeholder while no parent is chosen; <c>{Parent}</c> is the parent select's label.</summary>
+        public static TextDefinition SelectParentFirst { get; } =
+            category.Text("SelectParentFirst", "Select {Parent} first", "Shown in a picker disabled until {Parent}, another field's label, is chosen.");
+    }
+
     /// <summary>The default home slot.</summary>
     public static class Welcome
     {

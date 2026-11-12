@@ -55,6 +55,8 @@ namespace Sergin.SharedKernel.Presentation.Blazor.Aggregates;
 /// </param>
 /// <param name="ListItem">The list query's item type; null with no list.</param>
 /// <param name="ListBodyType">The list view's body closed over <paramref name="ListItem"/>, made at registry build; null with no list.</param>
+/// <param name="CreateTitle">The create form's title, from <c>Form&lt;T&gt;(form => form.Title(...))</c>; null for the shell's "New {Name}".</param>
+/// <param name="UpdateTitle">The edit form's title, likewise; null for the shell's "Edit {Name}".</param>
 public sealed record AggregateViewModel(
     Type Root,
     Type Configuration,
@@ -97,4 +99,6 @@ public sealed record AggregateViewModel(
     IReadOnlyDictionary<string, FieldText>? ListFieldLabels = null,
     Func<object, IReadOnlyDictionary<string, object?>>? ListItemArguments = null,
     Type? ListItem = null,
-    Type? ListBodyType = null);
+    Type? ListBodyType = null,
+    TextDefinition? CreateTitle = null,
+    TextDefinition? UpdateTitle = null);
