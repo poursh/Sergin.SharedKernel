@@ -43,6 +43,10 @@ namespace Sergin.SharedKernel.Presentation.Blazor.Aggregates;
 /// <param name="BuildCreate">Builds the create command from form values.</param>
 /// <param name="UpdateInvoker">Sends the update command; null with none.</param>
 /// <param name="BuildUpdate">Builds the update command from the record's id and form values.</param>
+/// <param name="DetailArguments">
+/// Reads every public property of a GetOne response into a name-to-value bag, value objects read through to their
+/// primitive: what fills a text's placeholders from the loaded record. Compiled once; null with no GetOne.
+/// </param>
 public sealed record AggregateViewModel(
     Type Root,
     Type Configuration,
@@ -79,4 +83,5 @@ public sealed record AggregateViewModel(
     RequestInvoker? CreateInvoker,
     Func<Guid, IReadOnlyDictionary<string, object?>, object>? BuildCreate,
     RequestInvoker? UpdateInvoker,
-    Func<Guid, IReadOnlyDictionary<string, object?>, object>? BuildUpdate);
+    Func<Guid, IReadOnlyDictionary<string, object?>, object>? BuildUpdate,
+    Func<object, IReadOnlyDictionary<string, object?>>? DetailArguments);

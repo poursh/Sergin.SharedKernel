@@ -45,6 +45,7 @@ public sealed partial class SerginGeneratedDetailView<TRoot>
     private string? commandName;
     private SerginScheduledTasksSection? section;
     private GeneratedCommandActions commands = default!;
+    private FieldView? titleField;
 
     [Parameter]
     public Guid Id { get; set; }
@@ -96,8 +97,7 @@ public sealed partial class SerginGeneratedDetailView<TRoot>
     {
         get
         {
-            FieldView? title = Model.DetailFields.FirstOrDefault(candidate => candidate.Name == Model.DetailTitleField);
-            object? value = record is null || title is null ? null : ValueObjects.Unwrap(title.Get(record));
+            object? value = record is null || titleField is null ? null : titleField.Get(record);
 
             return value?.ToString() ?? Id.ToString();
         }
@@ -124,6 +124,7 @@ public sealed partial class SerginGeneratedDetailView<TRoot>
         }
 
         commands = new GeneratedCommandActions(this, RunAsync, DeleteAsync);
+        titleField = Model.DetailFields.FirstOrDefault(candidate => candidate.Name == Model.DetailTitleField);
 
         canManageSchedules = Model.HasSchedulableCommand && await ScopeAuthorization.CurrentUserHasAsync(ScheduledTaskPermissions.Manage);
     }
@@ -246,12 +247,13 @@ public sealed partial class SerginGeneratedDetailView<TRoot>
         return true;
     }
 
-    // The record's properties fill a text's placeholders, plus {Name}: its display field.
+    // The record's properties (value objects read through, by the model's compiled reader) fill a text's placeholders,
+    // plus {Name} — its display field — unless the record has a Name of its own.
     private Dictionary<string, object?> PlaceholderArguments()
     {
-        Dictionary<string, object?> arguments = record is null
+        Dictionary<string, object?> arguments = record is null || Model.DetailArguments is null
             ? new(StringComparer.Ordinal)
-            : new(TextPlaceholders.ArgumentsOf(record), StringComparer.Ordinal);
+            : new(Model.DetailArguments(record), StringComparer.Ordinal);
 
         arguments.TryAdd("Name", DisplayText);
 

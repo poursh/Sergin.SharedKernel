@@ -137,14 +137,58 @@ public static class ValueObjects
                 return current;
             }
 
-            ParameterInfo parameter = type.GetConstructors().Single(candidate => candidate.GetParameters().Length == 1).GetParameters()[0];
-            PropertyInfo property = type.GetProperty(parameter.Name!, BindingFlags.Public | BindingFlags.Instance | BindingFlags.IgnoreCase)
-                ?? throw new InvalidOperationException($"{type.FullName} has no property for its constructor value '{parameter.Name}'.");
-
-            current = property.GetValue(current);
+            current = InnerPropertyOf(type).GetValue(current);
         }
 
         return current;
+    }
+
+    /// <summary>
+    /// A compiled reader of <paramref name="property"/> that answers the primitive inside its value, through any number
+    /// of wrappers (null-safe), as <c>object</c>: made once at registry build, so a render reads no metadata.
+    /// </summary>
+    public static Func<object, object?> UnwrappedGetter(PropertyInfo property)
+    {
+        ArgumentNullException.ThrowIfNull(property);
+
+        ParameterExpression record = Expression.Parameter(typeof(object), "record");
+        Expression value = Expression.Property(Expression.Convert(record, property.DeclaringType!), property);
+
+        return Expression.Lambda<Func<object, object?>>(Unwrapped(value), record).Compile();
+    }
+
+    // The value read through each wrapper's inner property; a null wrapper yields null.
+    private static Expression Unwrapped(Expression value)
+    {
+        Expression current = Expression.Convert(value, typeof(object));
+        Type type = value.Type;
+
+        for (int depth = 0; depth < MaxDepth && !IsPrimitive(Nullable.GetUnderlyingType(type) ?? type) && WrappedValueOf(type) is not null; depth++)
+        {
+            PropertyInfo inner = InnerPropertyOf(type);
+            ParameterExpression wrapper = Expression.Variable(type, "wrapper");
+
+            current = Expression.Block(
+                [wrapper],
+                Expression.Assign(wrapper, Expression.Convert(current, type)),
+                Expression.Condition(
+                    Expression.Equal(wrapper, Expression.Constant(null, type)),
+                    Expression.Constant(null, typeof(object)),
+                    Expression.Convert(Expression.Property(wrapper, inner), typeof(object))));
+            type = inner.PropertyType;
+        }
+
+        return current;
+    }
+
+    private static PropertyInfo InnerPropertyOf(Type type)
+    {
+        ParameterInfo parameter = type.GetConstructors()
+            .Select(constructor => constructor.GetParameters())
+            .Single(parameters => parameters.Length == 1 && parameters[0].ParameterType != type)[0];
+
+        return type.GetProperty(parameter.Name!, BindingFlags.Public | BindingFlags.Instance | BindingFlags.IgnoreCase)
+            ?? throw new InvalidOperationException($"{type.FullName} has no property for its constructor value '{parameter.Name}'.");
     }
 
     public static bool IsNumber(Type primitive) => numbers.Contains(primitive);

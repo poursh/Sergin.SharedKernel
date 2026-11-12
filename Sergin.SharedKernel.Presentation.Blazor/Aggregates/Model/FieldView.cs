@@ -7,7 +7,7 @@ namespace Sergin.SharedKernel.Presentation.Blazor.Aggregates;
 /// </summary>
 /// <param name="Name">The property name.</param>
 /// <param name="Label">Its declared texts.</param>
-/// <param name="Get">Reads the value from a record of the response or item type.</param>
+/// <param name="Get">Reads the value from a record of the response or item type, a value object read through to the primitive it wraps; compiled once.</param>
 /// <param name="Href">Where the value links to, from <c>Link(...)</c>; null for plain text.</param>
 /// <param name="Component">A component rendering the value instead (<c>[Parameter] Context</c>, <c>[Parameter] Value</c>); null for the default.</param>
 /// <param name="Hidden">Not shown.</param>

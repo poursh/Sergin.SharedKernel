@@ -6,8 +6,9 @@ namespace Sergin.SharedKernel.Presentation.Blazor.Aggregates.Views.Parts;
 
 /// <summary>
 /// One <see cref="FieldView"/> of a loaded record as a <see cref="Pages.SerginDetailField"/>: its configured component
-/// (given <c>Context</c> and <c>Value</c>), a link when the field has an <c>Href</c>, else the value as text — a value
-/// object read through to the value it wraps, a date in the viewer's culture, anything else as the culture prints it.
+/// (given <c>Context</c> and <c>Value</c>), a link when the field has an <c>Href</c>, else the value as text — a date in
+/// the viewer's culture, anything else as the culture prints it. <see cref="FieldView.Get"/> answers a value object's
+/// primitive already, so nothing here reads metadata.
 /// </summary>
 public sealed partial class GeneratedField
 {
@@ -38,7 +39,8 @@ public sealed partial class GeneratedField
         ["Value"] = Value,
     };
 
-    private string? Text => Format(ValueObjects.Unwrap(Value));
+    // The field reader already read a value object through to its primitive.
+    private string? Text => Format(Value);
 
     private string? Format(object? value) => value switch
     {

@@ -1,4 +1,3 @@
-using System.Linq.Expressions;
 using System.Reflection;
 using MudBlazor;
 using Sergin.SharedKernel.Application.Aggregates;
@@ -87,7 +86,31 @@ internal sealed class AggregateViewModelJoin(
             Invoker(create),
             create is null ? null : RequestFactory.ForForm(create),
             Invoker(update),
-            update is null ? null : RequestFactory.ForForm(update));
+            update is null ? null : RequestFactory.ForForm(update),
+            getOneResponse is null ? null : ArgumentsReader(getOneResponse));
+    }
+
+    // Every public property's compiled, unwrapping reader, made once; a read fills a fresh bag.
+    private static Func<object, IReadOnlyDictionary<string, object?>> ArgumentsReader(Type record)
+    {
+        (string Name, Func<object, object?> Get)[] readers =
+        [
+            .. record.GetProperties(BindingFlags.Public | BindingFlags.Instance)
+                .Where(property => property.GetIndexParameters().Length == 0)
+                .Select(property => (property.Name, ValueObjects.UnwrappedGetter(property))),
+        ];
+
+        return value =>
+        {
+            Dictionary<string, object?> arguments = new(readers.Length, StringComparer.Ordinal);
+
+            foreach ((string name, Func<object, object?> get) in readers)
+            {
+                arguments[name] = get(value);
+            }
+
+            return arguments;
+        };
     }
 
     private static RequestInvoker? Invoker(Type? request) => request is null ? null : RequestInvoker.For(request);
@@ -221,13 +244,14 @@ internal sealed class AggregateViewModelJoin(
             fields.Add(new FieldView(
                 property.Name,
                 label,
-                GetterOf(property),
+                ValueObjects.UnwrappedGetter(property),
                 named?.Href,
                 named?.Component,
                 named?.Hidden ?? (IsGuid(property.PropertyType) || property.Name == "Id"),
                 named?.Order ?? index));
 
-            title ??= property.PropertyType == typeof(string) ? property.Name : null;
+            // A string, or a value object wrapping one: the record's name as stored.
+            title ??= ValueObjects.PrimitiveOf(property.PropertyType) == typeof(string) ? property.Name : null;
         }
 
         return [.. fields.OrderBy(field => field.Order)];
@@ -246,13 +270,6 @@ internal sealed class AggregateViewModelJoin(
         }
 
         return label;
-    }
-
-    private static Func<object, object?> GetterOf(PropertyInfo property)
-    {
-        ParameterExpression record = Expression.Parameter(typeof(object), "record");
-        Expression value = Expression.Property(Expression.Convert(record, property.DeclaringType!), property);
-        return Expression.Lambda<Func<object, object?>>(Expression.Convert(value, typeof(object)), record).Compile();
     }
 
     private static bool IsGuid(Type type) => (Nullable.GetUnderlyingType(type) ?? type) == typeof(Guid);
