@@ -47,6 +47,12 @@ namespace Sergin.SharedKernel.Presentation.Blazor.Aggregates;
 /// Reads every public property of a GetOne response into a name-to-value bag, value objects read through to their
 /// primitive: what fills a text's placeholders from the loaded record. Compiled once; null with no GetOne.
 /// </param>
+/// <param name="ListSearchPlaceholder">The list's quick-search placeholder, from <c>SearchPlaceholder(...)</c>; null for the shell's.</param>
+/// <param name="ListFieldLabels">Each list field's field text in the list query's category, by list field id.</param>
+/// <param name="ListItemArguments">
+/// Reads a list item into a name-to-value bag the way <paramref name="DetailArguments"/> reads a GetOne response: what
+/// fills a row command's texts. Compiled once; null with no list.
+/// </param>
 public sealed record AggregateViewModel(
     Type Root,
     Type Configuration,
@@ -84,4 +90,7 @@ public sealed record AggregateViewModel(
     Func<Guid, IReadOnlyDictionary<string, object?>, object>? BuildCreate,
     RequestInvoker? UpdateInvoker,
     Func<Guid, IReadOnlyDictionary<string, object?>, object>? BuildUpdate,
-    Func<object, IReadOnlyDictionary<string, object?>>? DetailArguments);
+    Func<object, IReadOnlyDictionary<string, object?>>? DetailArguments,
+    TextDefinition? ListSearchPlaceholder = null,
+    IReadOnlyDictionary<string, FieldText>? ListFieldLabels = null,
+    Func<object, IReadOnlyDictionary<string, object?>>? ListItemArguments = null);

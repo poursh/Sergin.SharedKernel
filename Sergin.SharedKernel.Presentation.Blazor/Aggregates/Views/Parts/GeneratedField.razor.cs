@@ -1,4 +1,3 @@
-using System.Globalization;
 using Microsoft.AspNetCore.Components;
 using Sergin.SharedKernel.Presentation.Localizations;
 
@@ -40,17 +39,5 @@ public sealed partial class GeneratedField
     };
 
     // The field reader already read a value object through to its primitive.
-    private string? Text => Format(Value);
-
-    private string? Format(object? value) => value switch
-    {
-        null => null,
-        string text => text,
-        DateTimeOffset moment => Formatter.DateTime(moment),
-        DateTime moment => Formatter.DateTime(new DateTimeOffset(DateTime.SpecifyKind(moment, DateTimeKind.Utc))),
-        int number => Formatter.Number(number),
-        long number => Formatter.Number(number),
-        IFormattable formattable => formattable.ToString(null, CultureInfo.CurrentCulture),
-        _ => value.ToString(),
-    };
+    private string? Text => FieldValueText.Format(Value, Formatter);
 }

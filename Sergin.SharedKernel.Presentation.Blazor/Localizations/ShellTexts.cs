@@ -47,6 +47,14 @@ public static class ShellTexts
         /// <summary>A generated delete's confirm; <c>{Name}</c> is the record's display field.</summary>
         public static TextDefinition DeleteConfirm { get; } =
             category.Text("DeleteConfirm", "Delete {Name}? It disappears from every list and page.");
+
+        /// <summary>A generated bulk delete's confirm; <c>{Count}</c> is the number of selected rows.</summary>
+        public static TextDefinition DeleteManyConfirm { get; } =
+            category.Text("DeleteManyConfirm", "Delete {Count} selected records? They disappear from every list and page.");
+
+        /// <summary>What a generated bulk command reports; <c>{Count}</c> is the number of rows it ran on.</summary>
+        public static TextDefinition BulkDone { get; } =
+            category.Text("BulkDone", "Done for {Count} records.", "Reported after a bulk action; {Count} is the number of records it ran on.");
     }
 
     /// <summary>The default home slot.</summary>
@@ -91,6 +99,13 @@ public static class ShellTexts
         public static TextDefinition NothingMatchesSearch { get; } = category.Text("NothingMatchesSearch", "Nothing matches this search.");
 
         public static TextDefinition Selection { get; } = category.Text("Selection", "Selection");
+
+        /// <summary>An applied filter's chip: the field's label, then the chosen value.</summary>
+        public static TextDefinition FilterChip { get; } =
+            category.Text("FilterChip", "{Field}: {Value}", "An applied filter: the field's label, then the chosen value.");
+
+        /// <summary>A date-range filter's chosen days; an open end shows as an ellipsis.</summary>
+        public static TextDefinition DateRange { get; } = category.Text("DateRange", "{From} – {To}", "A date-range filter's chosen days.");
 
         public static TextDefinition Selected { get; } =
             category.Text("Selected", "selected", "Follows the number of selected rows, which is shown in bold before it.");

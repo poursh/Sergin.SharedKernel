@@ -99,21 +99,44 @@ public static class RequestFactory
     /// <summary>A list query built from a page's <see cref="ListQueryInput"/>.</summary>
     public static Func<ListQueryInput, object> ForList(Type listQueryType)
     {
+        Func<Guid, ListQueryInput, object> build = ForListCore(listQueryType, rootIdType: null);
+
+        return input => build(Guid.Empty, input);
+    }
+
+    /// <summary>
+    /// A child list query (<c>IChildListOf</c>) built from its root's id and a <see cref="ListQueryInput"/>: its
+    /// constructor takes the root id (of <paramref name="rootIdType"/>) besides what a list query takes.
+    /// </summary>
+    public static Func<Guid, ListQueryInput, object> ForChildList(Type listQueryType, Type rootIdType)
+    {
+        ArgumentNullException.ThrowIfNull(rootIdType);
+
+        return ForListCore(listQueryType, rootIdType);
+    }
+
+    private static Func<Guid, ListQueryInput, object> ForListCore(Type listQueryType, Type? rootIdType)
+    {
         ConstructorInfo constructor = ConstructorOf(listQueryType);
         Type[] supported = [typeof(Paggination), typeof(Term), typeof(Filtering), typeof(Sorting)];
         ParameterInfo[] parameters = constructor.GetParameters();
+        int rootIds = rootIdType is null ? 0 : parameters.Count(parameter => parameter.ParameterType == rootIdType);
 
         if (!parameters.Any(parameter => parameter.ParameterType == typeof(Paggination))
-            || parameters.Any(parameter => !supported.Contains(parameter.ParameterType)))
+            || parameters.Any(parameter => !supported.Contains(parameter.ParameterType) && parameter.ParameterType != rootIdType)
+            || rootIdType is not null && rootIds != 1)
         {
+            string rootId = rootIdType is null ? string.Empty : $"its root's {rootIdType.Name} and ";
+
             throw new InvalidOperationException(
                 $"{listQueryType.FullName} is not a list query a view can build: its constructor is ({Describe(constructor)}), "
-                + "which must take a Paggination and may take a Term, Filtering and Sorting.");
+                + $"which must take {rootId}a Paggination and may take a Term, Filtering and Sorting.");
         }
 
+        Func<object?, object?> toRootId = rootIdType is null ? _ => null : ValueObjects.Converter(rootIdType, neverNull: true);
         Func<object?[], object> build = Compile(constructor);
 
-        return input =>
+        return (rootId, input) =>
         {
             Filtering? filtering = input.Filtering.Count == 0
                 ? null
@@ -129,7 +152,8 @@ public static class RequestFactory
                     _ when parameter.ParameterType == typeof(Paggination) => input.Paggination,
                     _ when parameter.ParameterType == typeof(Term) => term,
                     _ when parameter.ParameterType == typeof(Filtering) => filtering,
-                    _ => (object?)sorting,
+                    _ when parameter.ParameterType == typeof(Sorting) => sorting,
+                    _ => toRootId(rootId),
                 }),
             ]);
         };

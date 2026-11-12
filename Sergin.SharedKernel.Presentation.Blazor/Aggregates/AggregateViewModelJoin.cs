@@ -87,7 +87,10 @@ internal sealed class AggregateViewModelJoin(
             create is null ? null : RequestFactory.ForForm(create),
             Invoker(update),
             update is null ? null : RequestFactory.ForForm(update),
-            getOneResponse is null ? null : ArgumentsReader(getOneResponse));
+            getOneResponse is null ? null : ArgumentsReader(getOneResponse),
+            (builder.ListFields as IListFilterDeclarations)?.SearchPlaceholder,
+            ListFieldLabels(listFieldSet, list),
+            listItem is null ? null : ArgumentsReader(listItem));
     }
 
     // Every public property's compiled, unwrapping reader, made once; a read fills a fresh bag.
@@ -175,7 +178,10 @@ internal sealed class AggregateViewModelJoin(
                 declared?.IsHidden ?? false,
                 [.. declared?.MenuItems ?? []],
                 RequestInvoker.For(request),
-                RequestFactory.IsIdOnly(request) ? RequestFactory.ForId(request) : null);
+                RequestFactory.IsIdOnly(request) ? RequestFactory.ForId(request) : null,
+                declared?.DeclaredBulkSucceededText,
+                declared?.ConfirmManyTitle,
+                declared?.ConfirmManyText);
         }
     }
 
@@ -320,19 +326,77 @@ internal sealed class AggregateViewModelJoin(
 
         if (targets.RootByName(field.Id) is { } target && targets.IsListed(target))
         {
-            return new ListFilterView(field, null, target, null, null);
+            return new ListFilterView(field, null, target, null, null, OptionsOf(field, () => PickerOptions.ForRoot(ListQueryOf(target))));
         }
 
         if (targets.ChildByName(field.Id) is { } child
             && targets.IsListed(child.Root, child.Child)
             && set.Find(AggregateTargets.FilterIdOf(child.Root)) is { Kind: ListFieldKind.Identifier } parent)
         {
-            return new ListFilterView(field, null, child.Root, child.Child, parent.Id);
+            (Type childList, Type rootId) = ChildListQueryOf(child.Root, child.Child);
+
+            return new ListFilterView(
+                field, null, child.Root, child.Child, parent.Id, OptionsOf(field, () => PickerOptions.ForChild(childList, rootId)));
         }
 
         throw Refuse(
             $"the {root.Name} list's Identifier filter '{field.Id}' names no root or child entity (<name>Id names one called "
             + "<Name>, and it needs an IListOf<Name> query for its options; a child also needs an IChildListOf query, its root's list and the filter named after its root). Give it a picker with List(list => list.Filter(...)).");
+    }
+
+    // A picker whose list query a view cannot build or read is refused at start, naming the filter.
+    private PickerOptions OptionsOf(ListField field, Func<PickerOptions> make)
+    {
+        try
+        {
+            return make();
+        }
+        catch (InvalidOperationException exception)
+        {
+            throw new InvalidOperationException(
+                $"Aggregate view configuration {view.Configuration.FullName}: the {root.Name} list's filter '{field.Id}' cannot load its options. "
+                + $"{exception.Message} Give it a picker with List(list => list.Filter(...)).",
+                exception);
+        }
+    }
+
+    // The target is listed (AggregateTargets.IsListed), so its list query is among the request types.
+    private Type ListQueryOf(Type target) =>
+        commands.RequestTypes
+            .OrderBy(type => type.FullName, StringComparer.Ordinal)
+            .First(request => typeof(IListOf<>).MakeGenericType(target).IsAssignableFrom(request));
+
+    private (Type Query, Type RootId) ChildListQueryOf(Type childRoot, Type child) =>
+        commands.RequestTypes
+            .OrderBy(type => type.FullName, StringComparer.Ordinal)
+            .SelectMany(request => request.GetInterfaces()
+                .Where(contract => contract.IsGenericType && contract.GetGenericTypeDefinition() == typeof(IChildListOf<,,>))
+                .Select(contract => (Request: request, Arguments: contract.GetGenericArguments())))
+            .Where(candidate => candidate.Arguments[0] == childRoot && candidate.Arguments[2] == child)
+            .Select(candidate => (candidate.Request, candidate.Arguments[1]))
+            .First();
+
+    // Each list field's field text in the list query's category, matched as FieldTextGuard matches it (ignoring case).
+    private Dictionary<string, FieldText> ListFieldLabels(ListFieldSet? set, Type? list)
+    {
+        Dictionary<string, FieldText> labels = new(StringComparer.Ordinal);
+
+        if (set is null || CategoryOf(list) is not { } category)
+        {
+            return labels;
+        }
+
+        IReadOnlyList<FieldText> fields = texts.FieldsOf(category);
+
+        foreach (ListField field in set.Fields)
+        {
+            if (fields.FirstOrDefault(text => string.Equals(text.PropertyName, field.Id, StringComparison.OrdinalIgnoreCase)) is { } label)
+            {
+                labels[field.Id] = label;
+            }
+        }
+
+        return labels;
     }
 
     // ---- Forms ----

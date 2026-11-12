@@ -12,9 +12,11 @@ namespace Sergin.SharedKernel.Presentation.Blazor.Aggregates;
 /// <param name="TargetRoot">The root whose records are offered, or the child's root; null with a component.</param>
 /// <param name="TargetChild">The child entity offered, or null for a root.</param>
 /// <param name="ParentFilterId">For a child, the id of the filter that picks its root.</param>
+/// <param name="Options">Loads the generated picker's options (a child's under the chosen root); null with a component.</param>
 public sealed record ListFilterView(
     ListField Field,
     Type? Component,
     Type? TargetRoot,
     Type? TargetChild,
-    string? ParentFilterId);
+    string? ParentFilterId,
+    PickerOptions? Options = null);

@@ -20,6 +20,12 @@ public abstract class CommandViewBuilder
 
     internal TextDefinition? ConfirmText { get; private protected set; }
 
+    internal TextDefinition? DeclaredBulkSucceededText { get; private protected set; }
+
+    internal TextDefinition? ConfirmManyTitle { get; private protected set; }
+
+    internal TextDefinition? ConfirmManyText { get; private protected set; }
+
     internal bool IsHidden { get; private protected set; }
 
     internal List<CommandMenuItemView> MenuItems { get; } = [];
@@ -65,6 +71,27 @@ public sealed class CommandViewBuilder<TCommand> : CommandViewBuilder
         ArgumentNullException.ThrowIfNull(text);
         ConfirmTitle = title;
         ConfirmText = text;
+        return this;
+    }
+
+    /// <summary>
+    /// The text a list's bulk run of the command reports, replacing the default; <c>{Count}</c> is the number of rows it
+    /// ran on.
+    /// </summary>
+    public CommandViewBuilder<TCommand> BulkSucceededText(TextDefinition text)
+    {
+        ArgumentNullException.ThrowIfNull(text);
+        DeclaredBulkSucceededText = text;
+        return this;
+    }
+
+    /// <summary>A list's bulk delete confirm's title and text, replacing the defaults; <c>{Count}</c> is the number of selected rows.</summary>
+    public CommandViewBuilder<TCommand> ConfirmDeleteMany(TextDefinition title, TextDefinition text)
+    {
+        ArgumentNullException.ThrowIfNull(title);
+        ArgumentNullException.ThrowIfNull(text);
+        ConfirmManyTitle = title;
+        ConfirmManyText = text;
         return this;
     }
 

@@ -4,7 +4,7 @@ using Sergin.SharedKernel.Presentation.Blazor.Pages;
 namespace Sergin.SharedKernel.Presentation.Blazor.Aggregates.Views.Parts;
 
 /// <summary>
-/// The actions bar of a generated record view, from its root's commands: an update links to the edit route, a
+/// The actions of a generated record view (or of one list row), from its root's commands: an update links to the edit route, a
 /// transition and a delete run through the view's own handlers, each disabled while it runs. Commands are offered in
 /// the model's order, a hidden one not at all (the actions bar puts the danger ones at the far end); each carries its
 /// first required permission, which the bar hides it for.
@@ -34,22 +34,35 @@ internal sealed class GeneratedCommandActions(IHandleEvent receiver, Func<Comman
     /// <param name="model">The root's model.</param>
     /// <param name="id">The record's id.</param>
     /// <param name="menuItemsOf">The entries behind a command's drop-down; empty for a plain button.</param>
-    public IReadOnlyList<SerginPageAction> For(AggregateViewModel model, Guid id, Func<CommandView, IReadOnlyList<SerginMenuItem>> menuItemsOf)
+    /// <param name="roles">Only the commands of these roles (a list row's icons, or its menu); null for every role.</param>
+    /// <param name="run">Sends a transition on this record, replacing the handler the actions were made with (a list row's).</param>
+    /// <param name="delete">Confirms and sends a delete on this record, replacing the handler the actions were made with.</param>
+    public IReadOnlyList<SerginPageAction> For(
+        AggregateViewModel model,
+        Guid id,
+        Func<CommandView, IReadOnlyList<SerginMenuItem>> menuItemsOf,
+        IReadOnlySet<CommandRole>? roles = null,
+        Func<CommandView, Task>? run = null,
+        Func<CommandView, Task>? delete = null)
     {
-        List<SerginPageAction> actions = [];
+        ArgumentNullException.ThrowIfNull(model);
 
-        foreach (CommandView command in model.Commands.Where(command => !command.Hidden))
+        List<SerginPageAction> actions = [];
+        Func<CommandView, Task> runCommand = run ?? runAsync;
+        Func<CommandView, Task> deleteCommand = delete ?? deleteAsync;
+
+        foreach (CommandView command in model.Commands.Where(command => !command.Hidden && (roles is null || roles.Contains(command.Role))))
         {
             SerginPageAction? action = command.Role switch
             {
                 CommandRole.Update when model.Routes.Edit is { } edit => Action(command, menuItemsOf) with { Href = edit(id) },
                 CommandRole.Transition => Action(command, menuItemsOf) with
                 {
-                    OnClick = EventCallback.Factory.Create(receiver, () => runAsync(command)),
+                    OnClick = EventCallback.Factory.Create(receiver, () => runCommand(command)),
                 },
                 CommandRole.Delete => Action(command, menuItemsOf) with
                 {
-                    OnClick = EventCallback.Factory.Create(receiver, () => deleteAsync(command)),
+                    OnClick = EventCallback.Factory.Create(receiver, () => deleteCommand(command)),
                 },
                 _ => null,
             };

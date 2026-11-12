@@ -1,0 +1,10 @@
+@typeparam TRoot
+@* The list view of a configured root, generated from its model: see the code-behind. *@
+<SerginAggregateListView TitleText="Model.Title" Trail="Trail" Actions="Actions" Overview="Overview" OverviewSummary="OverviewSummary">
+    <HeaderActions>
+        <SerginReloadButton OnReload="ReloadAsync" />
+    </HeaderActions>
+    <ChildContent>
+        @Body
+    </ChildContent>
+</SerginAggregateListView>
