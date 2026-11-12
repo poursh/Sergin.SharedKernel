@@ -3,11 +3,14 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Sergin.SharedKernel.Application.Commands.Configuration;
 using Sergin.SharedKernel.Application.Events.Integration;
+using Sergin.SharedKernel.Application.ScheduledTasks;
 using Sergin.SharedKernel.Application.Securities.Authorization;
 using Sergin.SharedKernel.Infrastructure.Data.EFCore.Aggregates;
 using Sergin.SharedKernel.Infrastructure.Data.EFCore.Interceptors;
 using Sergin.SharedKernel.Infrastructure.Data.EFCore.Outbox;
+using Sergin.SharedKernel.Infrastructure.Data.EFCore.ScheduledTasks;
 
 namespace Sergin.SharedKernel.Infrastructure.Data.EFCore;
 
@@ -73,6 +76,29 @@ public static class ModuleDbContextExtensions
             // relay service drains every module's source in turn.
             Type relaySourceType = typeof(OutboxRelaySource<>).MakeGenericType(typeof(TContext));
             services.AddSingleton<IOutboxRelaySource>(sp => (IOutboxRelaySource)ActivatorUtilities.CreateInstance(sp, relaySourceType, schema));
+        }
+
+        if (typeof(IScheduledTasksDbContext).IsAssignableFrom(typeof(TContext)))
+        {
+            // The scheduled-task configurations are one source per host, however many contexts opt in: the command
+            // registry derives the management requests' rules from it and the permission catalogue picks up Manage.
+            // No schema, as the configurations are SharedKernel's, not this module's.
+            if (!services.Any(descriptor => descriptor.ServiceType == typeof(ScheduledTasksRegistration)))
+            {
+                services.AddSingleton(ModuleConfigurationSource.FromTypes([.. ScheduledTaskConfigurationTypes.All]));
+            }
+
+            services.AddSingleton(new ScheduledTasksRegistration(schema, typeof(TContext)));
+
+            // This context's store, keyed by its schema so the resolver finds the module that owns a task. Reflection
+            // for the same reason as the relay source: EfScheduledTaskStore<TContext> constrains TContext to
+            // IScheduledTasksDbContext, which the runtime check above proves but the compiler cannot see.
+            Type storeType = typeof(EfScheduledTaskStore<>).MakeGenericType(typeof(TContext));
+            services.AddKeyedScoped<IScheduledTaskStore>(
+                schema, (sp, _) => (IScheduledTaskStore)ActivatorUtilities.CreateInstance(sp, storeType, schema));
+
+            // The executor and resolver, once per host however many contexts opt in.
+            services.AddSerginScheduledTasks();
         }
 
         return services;

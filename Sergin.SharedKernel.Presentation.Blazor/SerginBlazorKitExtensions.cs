@@ -3,6 +3,7 @@ using MudBlazor.Services;
 using Sergin.SharedKernel.Presentation.Blazor.Dispatching;
 using Sergin.SharedKernel.Presentation.Blazor.Errors;
 using Sergin.SharedKernel.Presentation.Blazor.Localizations;
+using Sergin.SharedKernel.Presentation.Blazor.ScheduledTasks;
 using Sergin.SharedKernel.Presentation.Blazor.Security;
 using Sergin.SharedKernel.Presentation.Blazor.Theming;
 using Sergin.SharedKernel.Presentation.Blazor.Times;
@@ -24,6 +25,11 @@ public static class SerginBlazorKitExtensions
         // The shell's own words: only the Blazor kit shows them, so they are declared here, not in Application.
         // FromTypes reads only the types it is given, so the nested parts (Layout, Navigation, …) are passed too.
         services.AddSingleton(TextSource.FromTypes("common", TextOrigin.Ui, [typeof(ShellTexts), .. typeof(ShellTexts).GetNestedTypes()]));
+
+        // The scheduled-task parts' words, in the same key space as the Application-side ScheduledTaskTexts.
+        services.AddSingleton(TextSource.FromTypes("common", TextOrigin.Ui, [typeof(ScheduledTaskUiTexts), .. typeof(ScheduledTaskUiTexts).GetNestedTypes()]));
+
+        services.AddSingleton<ScheduledTaskNextRuns>();
 
         services.AddScoped<IUiErrorPresenter, MudUiErrorPresenter>();
 

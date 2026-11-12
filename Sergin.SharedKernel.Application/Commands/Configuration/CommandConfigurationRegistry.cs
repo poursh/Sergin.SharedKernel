@@ -209,9 +209,9 @@ public sealed class CommandConfigurationRegistry
         bool requiresVersion = requiredByType && !builder.ExpectedVersionWaived;
         PermissionScope scope = ScopeOf(aggregateRoot, features);
 
-        CommandSettings declared = builder.Permissions.Count == 0 && !requiresVersion && aggregateRoot is null
+        CommandSettings declared = builder.Permissions.Count == 0 && !requiresVersion && aggregateRoot is null && builder.ScheduleName is null
             ? CommandSettings.None
-            : new CommandSettings([.. builder.Permissions.Distinct()], requiresVersion, scope, aggregateRoot);
+            : new CommandSettings([.. builder.Permissions.Distinct()], requiresVersion, scope, aggregateRoot, builder.ScheduleName);
 
         TextCategory? category = builder.TextCategory ?? (aggregateRoot is null ? null : aggregates.TextsOf(aggregateRoot));
 

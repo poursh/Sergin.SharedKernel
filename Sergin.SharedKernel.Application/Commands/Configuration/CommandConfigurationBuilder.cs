@@ -11,6 +11,9 @@ public abstract class CommandConfigurationBuilder
     /// <summary>The configuration waived the expected version the request's type would otherwise require.</summary>
     internal bool ExpectedVersionWaived { get; private protected set; }
 
+    /// <summary>The stable name the configuration gave with <c>Schedulable(name)</c>, or null when the request may not be scheduled.</summary>
+    internal string? ScheduleName { get; private protected set; }
+
     /// <summary>The text category the request's fields are declared in, or null to take its typed root's.</summary>
     internal TextCategory? TextCategory { get; private protected set; }
 
@@ -48,6 +51,21 @@ public sealed class CommandConfigurationBuilder<TCommand> : CommandConfiguration
     public CommandConfigurationBuilder<TCommand> WithoutExpectedVersion()
     {
         ExpectedVersionWaived = true;
+        return this;
+    }
+
+    /// <summary>
+    /// Lets a person schedule this request to run later or repeatedly, under a stable <paramref name="name"/>
+    /// (<c>dm.devices.read-profile</c>: lower-case, starting with the module's schema segment). The scheduled command
+    /// catalogue refuses, at host start, a request that is not an entity or child-entity command, a creation or system
+    /// command, a command that still requires an expected version, a malformed or duplicate name, or a name outside
+    /// the module's schema. Calling it again replaces the name.
+    /// </summary>
+    public CommandConfigurationBuilder<TCommand> Schedulable(string name)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(name);
+
+        ScheduleName = name;
         return this;
     }
 

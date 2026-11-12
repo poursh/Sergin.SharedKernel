@@ -13,6 +13,7 @@ using Sergin.SharedKernel.Application.Events;
 using Sergin.SharedKernel.Application.Events.Integration;
 using Sergin.SharedKernel.Application.Localizations;
 using Sergin.SharedKernel.Application.Localizations.Validation;
+using Sergin.SharedKernel.Application.ScheduledTasks;
 using Sergin.SharedKernel.Application.Securities.Authorization;
 using Sergin.SharedKernel.Application.Securities.Users;
 using Sergin.SharedKernel.Application.Times;
@@ -20,10 +21,12 @@ using Sergin.SharedKernel.Hosts;
 using Sergin.SharedKernel.Hosts.Commands;
 using Sergin.SharedKernel.Hosts.Localizations;
 using Sergin.SharedKernel.Hosts.Outbox;
+using Sergin.SharedKernel.Hosts.ScheduledTasks;
 using Sergin.SharedKernel.Infrastracture.Data;
 using Sergin.SharedKernel.Infrastructure.Data.EFCore;
 using Sergin.SharedKernel.Infrastructure.Data.EFCore.Interceptors;
 using Sergin.SharedKernel.Infrastructure.Data.EFCore.Outbox;
+using Sergin.SharedKernel.Infrastructure.Data.EFCore.ScheduledTasks;
 using Sergin.SharedKernel.Infrastructure.Events;
 using Sergin.SharedKernel.Infrastructure.Events.Integration;
 using Sergin.SharedKernel.Infrastructure.Localizations;
@@ -121,6 +124,18 @@ public static class SerginCoreExtensions
             .Bind(serginSection.GetSection(OutboxOptions.SectionName))
             .ValidateOnStart();
         builder.Services.AddSingleton<IValidateOptions<OutboxOptions>, OutboxOptionsValidator>();
+
+        // Bound in every host, like the outbox's: cheap, and a bad key fails start even before a module opts in.
+        builder.Services.AddOptions<ScheduledTaskOptions>()
+            .Bind(serginSection.GetSection(ScheduledTaskOptions.SectionName))
+            .WithDefaults()
+            .ValidateOnStart();
+        builder.Services.AddSingleton<IValidateOptions<ScheduledTaskOptions>, ScheduledTaskOptionsValidator>();
+
+        // All three no-ops until a module opts in. The rebuild also refuses start for an opted-in host with no engine.
+        builder.Services.AddHostedService<ScheduledTaskTriggerRebuildService>();
+        builder.Services.AddHostedService<ScheduledTaskPurgeService>();
+        builder.Services.AddHostedService<ScheduledRunItemRecoveryService>();
         builder.Services.TryAddSingleton<IDateTimeProvider, DefaultDateTimeProvider>();
 
         // Bound against the whole Sergin section, not a subsection: TimeZone is a scalar sitting
@@ -166,6 +181,11 @@ public static class SerginCoreExtensions
 
         builder.Services.AddSingleton(provider =>
             CommandConfigurationRegistry.FromSources(provider.GetServices<ModuleConfigurationSource>()));
+
+        // Every request a configuration made Schedulable(name), read from the same sources and the registry above;
+        // resolved at start so a bad declaration fails host start. Empty when no module declares one.
+        builder.Services.AddSingleton(provider => ScheduledCommandCatalog.FromSources(
+            provider.GetServices<ModuleConfigurationSource>(), provider.GetRequiredService<CommandConfigurationRegistry>()));
 
         // What the aggregates registered with .Permissions(...), from the same sources; resolved at start beside
         // the registry above so a duplicate or misplaced permission fails host start.
@@ -240,9 +260,14 @@ public static class SerginCoreExtensions
         // EF models (AggregateFeatureGuard). Building it here also runs the registry's own checks — two
         // configurations for one type, a configuration without a parameterless constructor — at composition,
         // in every environment. Each module DbContext builds its own copy for the EF model; see
-        // SerginDbContext.AggregateFeatures for why that one cannot come from DI.
-        builder.Services.AddSingleton(
-            AggregateFeatureRegistry.FromAssemblies(localModules.Select(module => module.ConfigurationsAssembly)));
+        // SerginDbContext.AggregateFeatures for why that one cannot come from DI. A factory, because a module context
+        // that opts into scheduled tasks (registered by its module's AddServices, after this) maps SharedKernel's own
+        // ScheduledTask, whose configuration is in no module's assembly; the module part is still built here.
+        var moduleAggregateFeatures =
+            AggregateFeatureRegistry.FromAssemblies(localModules.Select(module => module.ConfigurationsAssembly));
+        builder.Services.AddSingleton(provider => provider.GetServices<ScheduledTasksRegistration>().Any()
+            ? moduleAggregateFeatures.Including(ScheduledTaskConfigurationTypes.AggregateConfigurations)
+            : moduleAggregateFeatures);
 
         string connectionString = serginSection.GetConnectionString("Database")
             ?? throw new InvalidOperationException("Connection string 'Sergin:ConnectionStrings:Database' is not configured.");

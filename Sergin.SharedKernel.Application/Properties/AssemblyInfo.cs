@@ -14,6 +14,7 @@ using System.Runtime.InteropServices;
 [assembly: ComVisible(false)]
 
 [assembly: InternalsVisibleTo("Sergin.SharedKernel.Hosts")]
+[assembly: InternalsVisibleTo("Sergin.SharedKernel.Infrastructure.Data.EFCore")]
 [assembly: InternalsVisibleTo("Sergin.SharedKernel.Hosts.WebApi")]
 [assembly: InternalsVisibleTo("Sergin.SharedKernel.Hosts.WebUi")]
 [assembly: InternalsVisibleTo("Sergin.MeterMinder.IntegrationTests.All")]

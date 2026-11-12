@@ -8,6 +8,7 @@ using Microsoft.Extensions.Options;
 using Scalar.AspNetCore;
 using Sergin.SharedKernel.Application.Commands.Configuration;
 using Sergin.SharedKernel.Application.Localizations;
+using Sergin.SharedKernel.Application.ScheduledTasks;
 using Sergin.SharedKernel.Application.Securities.Authorization;
 using Sergin.SharedKernel.Application.Securities.Users;
 using Sergin.SharedKernel.Hosts.Authentication;
@@ -63,6 +64,9 @@ public static class SerginWebApiExtensions
         TextCatalog catalog = app.Services.GetRequiredService<TextCatalog>();
 
         EnsureCommandTypes(app.Services, registry);
+
+        // Builds the scheduled command catalogue now, so a bad Schedulable() fails start.
+        app.Services.GetRequiredService<ScheduledCommandCatalog>();
 
         // Every field a person sees has its label declared.
         app.Services.GetRequiredService<FieldTextGuard>().EnsureLabelled(registry, catalog);

@@ -1,0 +1,54 @@
+@* The Schedule dialog. The form is a MudForm validated by the pipeline's own validator; its Save button sits in the
+   dialog's actions, outside the form, so it validates and sends itself (SaveAsync), and SuppressImplicitSubmission stays
+   on so Enter in a field never submits the bare <form> and reloads the page. *@
+<MudDialog>
+    <TitleContent>
+        <MudText Typo="Typo.h6">@Localizer.Text(CommandTitle)</MudText>
+    </TitleContent>
+    <DialogContent>
+        @if (EditingId is null || Version is not null)
+        {
+            <MudForm @ref="form" Model="model" Validation="@validation" @bind-IsValid="isValid">
+                <MudStack Spacing="3">
+                    @if (ArgumentsForm is not null)
+                    {
+                        <div class="sergin-schedule-arguments">@ArgumentsForm</div>
+                    }
+
+                    <div class="sergin-schedule-targets">
+                        <MudText Typo="Typo.subtitle2">@Localizer.Text(ScheduledTaskUiTexts.Dialog.Targets)</MudText>
+                        @if (TargetLabels.Count > 0)
+                        {
+                            <MudChipSet T="string" ReadOnly="true">
+                                @foreach (string label in TargetLabels)
+                                {
+                                    <MudChip T="string" Size="Size.Small">@label</MudChip>
+                                }
+                            </MudChipSet>
+                        }
+                    </div>
+
+                    <div>
+                        <MudText Typo="Typo.subtitle2" Class="mb-2">@Localizer.Text(ScheduledTaskUiTexts.Dialog.Trigger)</MudText>
+                        <SerginCronPicker @bind-Cron="model.Cron" @bind-TimeZoneId="model.TimeZoneId"
+                                          CronFor="@(() => model.Cron)" />
+                    </div>
+
+                    @if (!Engine.FiresTriggers)
+                    {
+                        <MudAlert Severity="Severity.Info" Dense="true" Class="sergin-scheduled-runs-off">@Localizer.Text(ScheduledTaskUiTexts.EngineOff)</MudAlert>
+                    }
+                </MudStack>
+            </MudForm>
+        }
+        else
+        {
+            <MudProgressLinear Indeterminate="true" />
+        }
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="Cancel">@Localizer.Text(CommonTexts.Cancel)</MudButton>
+        <MudButton OnClick="RunNowAsync" Disabled="busy" Variant="Variant.Outlined" Color="Color.Primary">@Localizer.Text(ScheduledTaskUiTexts.RunNow)</MudButton>
+        <MudButton OnClick="SaveAsync" Disabled="@(busy || !isValid)" Variant="Variant.Filled" Color="Color.Primary">@Localizer.Text(ScheduledTaskUiTexts.Save)</MudButton>
+    </DialogActions>
+</MudDialog>
