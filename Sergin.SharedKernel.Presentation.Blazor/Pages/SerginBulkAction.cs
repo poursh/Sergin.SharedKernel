@@ -19,10 +19,12 @@ namespace Sergin.SharedKernel.Presentation.Blazor.Pages;
 /// <see cref="SerginPageAction"/>.
 /// </param>
 /// <param name="AnyScope">Whether the permission is checked on any scope rather than the current one.</param>
+/// <param name="MenuItems">Further commands behind a drop-down on the button, run on the same selection.</param>
 public sealed record SerginBulkAction<TItem>(
     TextDefinition Label,
     string? Icon,
     SerginActionKind Kind,
     Func<IReadOnlyList<TItem>, Task> OnRun,
     PermissionDefinition? Permission = null,
-    bool AnyScope = false);
+    bool AnyScope = false,
+    IReadOnlyList<SerginBulkMenuItem<TItem>>? MenuItems = null);

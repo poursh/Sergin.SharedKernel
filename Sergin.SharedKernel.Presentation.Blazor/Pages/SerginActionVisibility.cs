@@ -22,7 +22,24 @@ internal sealed class SerginActionVisibility(IScopeAuthorization scopeAuthorizat
         {
             if (action.Permission is null || await HoldsAsync(action.Permission, action.AnyScope))
             {
-                visible.Add(action);
+                visible.Add(action.MenuItems is { Count: > 0 }
+                    ? action with { MenuItems = await VisibleItemsAsync(action.MenuItems) }
+                    : action);
+            }
+        }
+
+        return visible;
+    }
+
+    private async Task<IReadOnlyList<SerginMenuItem>> VisibleItemsAsync(IReadOnlyList<SerginMenuItem> items)
+    {
+        List<SerginMenuItem> visible = new(items.Count);
+
+        foreach (SerginMenuItem item in items)
+        {
+            if (item.Permission is null || await HoldsAsync(item.Permission, item.AnyScope))
+            {
+                visible.Add(item);
             }
         }
 
