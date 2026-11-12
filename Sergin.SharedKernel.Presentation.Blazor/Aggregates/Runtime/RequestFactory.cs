@@ -21,11 +21,29 @@ public static class RequestFactory
     private const string IdParameter = "Id";
 
     private static readonly JsonSerializerOptions camelCase = new() { PropertyNamingPolicy = JsonNamingPolicy.CamelCase };
-    private static readonly MethodInfo wrap = typeof(ValueObjects).GetMethod(nameof(ValueObjects.Wrap))!;
 
     /// <summary>Whether the request's one constructor takes only the target's <c>Id</c>.</summary>
     public static bool IsIdOnly(Type requestType) =>
         ConstructorOf(requestType).GetParameters() is [{ } only] && string.Equals(only.Name, IdParameter, StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>Whether the request's one constructor takes nothing (an overview query).</summary>
+    public static bool IsParameterless(Type requestType) => ConstructorOf(requestType).GetParameters().Length == 0;
+
+    /// <summary>A request whose constructor takes nothing.</summary>
+    public static Func<object> ForNone(Type requestType)
+    {
+        ConstructorInfo constructor = ConstructorOf(requestType);
+
+        if (!IsParameterless(requestType))
+        {
+            throw new InvalidOperationException(
+                $"{requestType.FullName} cannot be built without arguments: its constructor is ({Describe(constructor)}).");
+        }
+
+        Func<object?[], object> build = Compile(constructor);
+
+        return () => build([]);
+    }
 
     /// <summary>A request whose constructor takes exactly the target id, built from the id's Guid.</summary>
     public static Func<Guid, object> ForId(Type requestType)
@@ -38,38 +56,43 @@ public static class RequestFactory
                 $"{requestType.FullName} cannot be built from an id alone: its constructor is ({Describe(constructor)}), not (Id).");
         }
 
-        ParameterExpression id = Expression.Parameter(typeof(Guid), "id");
-        Type idType = constructor.GetParameters()[0].ParameterType;
-        Expression wrapped = Expression.Convert(
-            Expression.Call(wrap, Expression.Constant(idType), Expression.Convert(id, typeof(object))), idType);
+        Func<object?, object?> id = ValueObjects.Converter(constructor.GetParameters()[0].ParameterType, neverNull: true);
+        Func<object?[], object> build = Compile(constructor);
 
-        return Expression.Lambda<Func<Guid, object>>(Expression.Convert(Expression.New(constructor, wrapped), typeof(object)), id).Compile();
+        return guid => build([id(guid)]);
     }
 
     /// <summary>
     /// A request built from the target id (ignored when the request has no <c>Id</c>, as a create) and form values keyed by
-    /// parameter name; a primitive is wrapped into the parameter's type, a missing value is the type's default.
+    /// parameter name; a primitive is wrapped into the parameter's type. A missing value becomes the primitive's default
+    /// (empty string, <see cref="Guid.Empty"/>, 0), so a wrapper is never null and the validators can read it; only a
+    /// parameter declared nullable stays null.
     /// </summary>
     public static Func<Guid, IReadOnlyDictionary<string, object?>, object> ForForm(Type requestType)
     {
         ConstructorInfo constructor = ConstructorOf(requestType);
         ParameterInfo[] parameters = constructor.GetParameters();
+        NullabilityInfoContext nullability = new();
+        Func<object?, object?>[] converters =
+        [
+            .. parameters.Select(parameter => ValueObjects.Converter(
+                parameter.ParameterType,
+                neverNull: !IsNullable(parameter, nullability))),
+        ];
+        bool[] isId = [.. parameters.Select(parameter => string.Equals(parameter.Name, IdParameter, StringComparison.OrdinalIgnoreCase))];
+        string[] names = [.. parameters.Select(parameter => parameter.Name!)];
+        Func<object?[], object> build = Compile(constructor);
 
         return (id, values) =>
         {
-            object?[] arguments = new object?[parameters.Length];
+            object?[] arguments = new object?[names.Length];
 
-            for (int index = 0; index < parameters.Length; index++)
+            for (int index = 0; index < names.Length; index++)
             {
-                ParameterInfo parameter = parameters[index];
-
-                arguments[index] = string.Equals(parameter.Name, IdParameter, StringComparison.OrdinalIgnoreCase)
-                    ? ValueObjects.Wrap(parameter.ParameterType, id)
-                    : ValueObjects.Wrap(parameter.ParameterType, ValueOf(values, parameter.Name!))
-                        ?? DefaultOf(parameter.ParameterType);
+                arguments[index] = converters[index](isId[index] ? id : ValueOf(values, names[index]));
             }
 
-            return constructor.Invoke(arguments);
+            return build(arguments);
         };
     }
 
@@ -88,6 +111,8 @@ public static class RequestFactory
                 + "which must take a Paggination and may take a Term, Filtering and Sorting.");
         }
 
+        Func<object?[], object> build = Compile(constructor);
+
         return input =>
         {
             Filtering? filtering = input.Filtering.Count == 0
@@ -97,7 +122,7 @@ public static class RequestFactory
             Sorting? sorting = input.Sorting.Count == 0 ? null : Sorting.Create(JsonSerializer.Serialize(input.Sorting, camelCase));
             Term? term = input.Term is { Length: > 0 } text ? new Term(text) : null;
 
-            return constructor.Invoke(
+            return build(
             [
                 .. parameters.Select(parameter => parameter.ParameterType switch
                 {
@@ -120,7 +145,24 @@ public static class RequestFactory
         return values.FirstOrDefault(pair => string.Equals(pair.Key, name, StringComparison.OrdinalIgnoreCase)).Value;
     }
 
-    private static object? DefaultOf(Type type) => type.IsValueType ? Activator.CreateInstance(type) : null;
+    private static bool IsNullable(ParameterInfo parameter, NullabilityInfoContext nullability) =>
+        Nullable.GetUnderlyingType(parameter.ParameterType) is not null
+        || !parameter.ParameterType.IsValueType && nullability.Create(parameter).WriteState == NullabilityState.Nullable;
+
+    /// <summary>The constructor as a compiled delegate over an argument array, so building a request reflects on nothing.</summary>
+    private static Func<object?[], object> Compile(ConstructorInfo constructor)
+    {
+        ParameterExpression arguments = Expression.Parameter(typeof(object?[]), "arguments");
+        Expression[] converted =
+        [
+            .. constructor.GetParameters().Select((parameter, index) =>
+                Expression.Convert(Expression.ArrayIndex(arguments, Expression.Constant(index)), parameter.ParameterType)),
+        ];
+
+        return Expression
+            .Lambda<Func<object?[], object>>(Expression.Convert(Expression.New(constructor, converted), typeof(object)), arguments)
+            .Compile();
+    }
 
     private static string Describe(ConstructorInfo constructor) =>
         string.Join(", ", constructor.GetParameters().Select(parameter => $"{parameter.ParameterType.Name} {parameter.Name}"));

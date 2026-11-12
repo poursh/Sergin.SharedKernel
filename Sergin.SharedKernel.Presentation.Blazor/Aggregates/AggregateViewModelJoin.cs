@@ -41,15 +41,15 @@ internal sealed class AggregateViewModelJoin(
         Type? listItem = list is null ? null : ListItemOf(list);
         CommandView[] commandViews = [.. Commands(requests)];
 
-        AggregateViewGuard.EnsureConfigured(view, commandViews, getOne, getOneResponse, list, listItem, create, update);
+        Type? overview = Single(requests, typeof(IOverviewQuery<>));
+        Type? audit = Single(requests, typeof(IAuditQuery<,>));
+
+        AggregateViewGuard.EnsureConfigured(view, commandViews, getOne, getOneResponse, list, listItem, create, update, overview, audit);
 
         IReadOnlyList<FieldView> detailFields = Fields(getOneResponse, CategoryOf(getOne), builder.DetailFields, out string? detailTitle);
         IReadOnlyList<FieldView> listFields = Fields(listItem, CategoryOf(list), builder.ListFields, out string? listTitle);
         ListFieldSet? listFieldSet = list is null ? null : ListFieldSetOf(list);
         IReadOnlyList<ListFilterView> filters = Filters(listFieldSet, builder.ListFields as IListFilterDeclarations);
-
-        Type? overview = Single(requests, typeof(IOverviewQuery<>));
-        Type? audit = Single(requests, typeof(IAuditQuery<,>));
 
         return new AggregateViewModel(
             root,
@@ -77,13 +77,13 @@ internal sealed class AggregateViewModelJoin(
             listTitle,
             filters,
             Invoker(getOne),
-            IdBuilder(getOne),
+            getOne is null ? null : RequestFactory.ForId(getOne),
             Invoker(list),
             list is null ? null : RequestFactory.ForList(list),
             Invoker(overview),
-            IdBuilder(overview),
+            overview is null ? null : RequestFactory.ForNone(overview),
             Invoker(audit),
-            IdBuilder(audit),
+            audit is null ? null : RequestFactory.ForId(audit),
             Invoker(create),
             create is null ? null : RequestFactory.ForForm(create),
             Invoker(update),
@@ -91,9 +91,6 @@ internal sealed class AggregateViewModelJoin(
     }
 
     private static RequestInvoker? Invoker(Type? request) => request is null ? null : RequestInvoker.For(request);
-
-    private static Func<Guid, object>? IdBuilder(Type? request) =>
-        request is not null && RequestFactory.IsIdOnly(request) ? RequestFactory.ForId(request) : null;
 
     private InvalidOperationException Refuse(string problem) =>
         new($"Aggregate view configuration {view.Configuration.FullName}: {problem}");

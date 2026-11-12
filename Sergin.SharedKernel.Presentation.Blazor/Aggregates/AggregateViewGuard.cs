@@ -62,6 +62,22 @@ public static class AggregateViewGuard
         }
     }
 
+    /// <summary>GetOne and audit queries are sent from the record's id alone; an overview takes no arguments.</summary>
+    private static void EnsureQueryShapes(DeclaredView view, Type? getOne, Type? overview, Type? audit)
+    {
+        if (new[] { getOne, audit }.OfType<Type>().FirstOrDefault(query => !RequestFactory.IsIdOnly(query)) is { } query)
+        {
+            throw Refuse(
+                view,
+                $"{query.FullName} is loaded from the record's id alone, but its constructor takes more than the id. Give it a constructor of only the id.");
+        }
+
+        if (overview is not null && !RequestFactory.IsParameterless(overview))
+        {
+            throw Refuse(view, $"{overview.FullName} is an overview over the whole collection, so its constructor must take no arguments.");
+        }
+    }
+
     internal static void EnsureOnePerRoot(IReadOnlyCollection<DeclaredView> declared)
     {
         string[] duplicates =
@@ -89,12 +105,15 @@ public static class AggregateViewGuard
         Type? list,
         Type? listItem,
         Type? create,
-        Type? update)
+        Type? update,
+        Type? overview,
+        Type? audit)
     {
         AggregateViewBuilder builder = view.Builder;
 
         EnsureCommandsOfRoot(view, commands);
         EnsureIdOnly(view, commands);
+        EnsureQueryShapes(view, getOne, overview, audit);
         EnsureRecord(view, builder.DetailFields?.Record, getOneResponse, "Detail", "GetOne query's response");
         EnsureRecord(view, builder.ListFields?.Record, listItem, "List", "list query's item");
 

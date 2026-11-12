@@ -36,7 +36,7 @@ namespace Sergin.SharedKernel.Presentation.Blazor.Aggregates;
 /// <param name="ListInvoker">Sends the list query; null with no list.</param>
 /// <param name="BuildList">Builds the list query from a page's paging, term, filters and sort.</param>
 /// <param name="OverviewInvoker">Sends the overview query; null with no overview.</param>
-/// <param name="BuildOverview">Builds the overview query from the record's id, or null when it is not id-only.</param>
+/// <param name="BuildOverview">Builds the overview query (it targets the whole collection and takes no arguments); null with no overview.</param>
 /// <param name="AuditInvoker">Sends the audit query; null with no audit query.</param>
 /// <param name="BuildAudit">Builds the audit query from the record's id, or null when it is not id-only.</param>
 /// <param name="CreateInvoker">Sends the create command; null with none.</param>
@@ -73,7 +73,7 @@ public sealed record AggregateViewModel(
     RequestInvoker? ListInvoker,
     Func<ListQueryInput, object>? BuildList,
     RequestInvoker? OverviewInvoker,
-    Func<Guid, object>? BuildOverview,
+    Func<object>? BuildOverview,
     RequestInvoker? AuditInvoker,
     Func<Guid, object>? BuildAudit,
     RequestInvoker? CreateInvoker,

@@ -1,4 +1,5 @@
 using System.Globalization;
+using System.Linq.Expressions;
 using System.Reflection;
 
 namespace Sergin.SharedKernel.Presentation.Blazor.Aggregates;
@@ -54,45 +55,72 @@ public static class ValueObjects
     }
 
     /// <summary>
-    /// <paramref name="primitive"/> as <paramref name="type"/>: a wrapper is constructed around the (recursively wrapped)
-    /// primitive; a value already of the type, or null, is returned as it is; a primitive of another kind is converted.
+    /// <paramref name="primitive"/> as <paramref name="type"/> (see <see cref="Converter"/>). Reflects on every call: for
+    /// build-time and test use, never the send path.
     /// </summary>
-    public static object? Wrap(Type type, object? primitive)
+    public static object? Wrap(Type type, object? primitive) => Converter(type)(primitive);
+
+    /// <summary>
+    /// A converter from a primitive to <paramref name="type"/>, made once and then free of reflection: a wrapper is
+    /// constructed around the (recursively converted) primitive through a compiled constructor; a value already of the
+    /// type, or null, is returned as it is; a primitive of another kind is converted. With <paramref name="neverNull"/>
+    /// a null becomes the primitive's default (empty string, <see cref="Guid.Empty"/>, 0, false) before conversion, so a
+    /// wrapper is never null and a validator reading its <c>Value</c> cannot fail.
+    /// </summary>
+    public static Func<object?, object?> Converter(Type type, bool neverNull = false)
     {
         ArgumentNullException.ThrowIfNull(type);
 
         Type target = Nullable.GetUnderlyingType(type) ?? type;
+        Func<object?, object?> core = CoreConverter(target);
 
-        if (primitive is null || target.IsInstanceOfType(primitive))
+        if (!neverNull || PrimitiveOf(target) is not { } primitive)
         {
-            return primitive;
+            return core;
         }
 
+        object fallback = primitive == typeof(string) ? string.Empty : Activator.CreateInstance(primitive)!;
+
+        return value => core(value ?? fallback);
+    }
+
+    private static Func<object?, object?> CoreConverter(Type target)
+    {
         if (target.IsEnum)
         {
-            return primitive is string name ? Enum.Parse(target, name) : Enum.ToObject(target, primitive);
+            return value => value switch
+            {
+                null => null,
+                string name => Enum.Parse(target, name),
+                _ => target.IsInstanceOfType(value) ? value : Enum.ToObject(target, value),
+            };
         }
 
-        if (target == typeof(Guid) && primitive is string text)
+        if (target == typeof(Guid))
         {
-            return Guid.Parse(text);
+            return value => value is string text ? Guid.Parse(text) : value;
         }
 
         if (IsPrimitive(target))
         {
-            return Convert.ChangeType(primitive, target, CultureInfo.InvariantCulture);
+            return value => value is null || target.IsInstanceOfType(value) ? value : Convert.ChangeType(value, target, CultureInfo.InvariantCulture);
         }
 
         if (WrappedValueOf(target) is { } inner)
         {
             ConstructorInfo constructor = target.GetConstructors()
                 .Single(candidate => candidate.GetParameters() is [{ } only] && only.ParameterType == inner);
+            ParameterExpression argument = Expression.Parameter(typeof(object), "value");
+            Func<object, object> construct = Expression
+                .Lambda<Func<object, object>>(
+                    Expression.Convert(Expression.New(constructor, Expression.Convert(argument, inner)), typeof(object)), argument)
+                .Compile();
+            Func<object?, object?> innerConverter = Converter(inner);
 
-            return constructor.Invoke([Wrap(inner, primitive)]);
+            return value => value is null || target.IsInstanceOfType(value) ? value : construct(innerConverter(value)!);
         }
 
-        throw new InvalidOperationException(
-            $"{target.FullName} is neither a primitive nor a single-value wrapper, so {primitive.GetType().Name} cannot become one.");
+        throw new InvalidOperationException($"{target.FullName} is neither a primitive nor a single-value wrapper, so a view cannot build one from a form value.");
     }
 
     /// <summary>The primitive inside <paramref name="value"/>, through any number of wrappers; a primitive or null is itself.</summary>
