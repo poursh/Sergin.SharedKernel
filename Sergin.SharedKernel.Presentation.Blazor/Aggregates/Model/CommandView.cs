@@ -24,6 +24,8 @@ namespace Sergin.SharedKernel.Presentation.Blazor.Aggregates;
 /// <param name="ConfirmText">The delete confirm's text, or null for the default.</param>
 /// <param name="Hidden">Not offered as an action.</param>
 /// <param name="MenuItems">Further entries behind the action's drop-down.</param>
+/// <param name="Invoker">Sends the command without naming its response type.</param>
+/// <param name="BuildFromId">Builds the command from the target's id; null unless its constructor is id-only (always set for a transition or delete).</param>
 public sealed record CommandView(
     Type Request,
     CommandRole Role,
@@ -39,7 +41,9 @@ public sealed record CommandView(
     TextDefinition? ConfirmTitle,
     TextDefinition? ConfirmText,
     bool Hidden,
-    IReadOnlyList<CommandMenuItemView> MenuItems);
+    IReadOnlyList<CommandMenuItemView> MenuItems,
+    RequestInvoker Invoker,
+    Func<Guid, object>? BuildFromId);
 
 /// <summary>An entry a configuration put behind a command's drop-down with <c>MenuItem(...)</c>.</summary>
 public sealed record CommandMenuItemView(

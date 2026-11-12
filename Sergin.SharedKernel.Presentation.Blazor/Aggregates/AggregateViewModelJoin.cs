@@ -48,6 +48,9 @@ internal sealed class AggregateViewModelJoin(
         ListFieldSet? listFieldSet = list is null ? null : ListFieldSetOf(list);
         IReadOnlyList<ListFilterView> filters = Filters(listFieldSet, builder.ListFields as IListFilterDeclarations);
 
+        Type? overview = Single(requests, typeof(IOverviewQuery<>));
+        Type? audit = Single(requests, typeof(IAuditQuery<,>));
+
         return new AggregateViewModel(
             root,
             view.Configuration,
@@ -58,8 +61,8 @@ internal sealed class AggregateViewModelJoin(
             aggregates.For(root),
             getOne,
             list,
-            Single(requests, typeof(IOverviewQuery<>)),
-            Single(requests, typeof(IAuditQuery<,>)),
+            overview,
+            audit,
             create,
             update,
             commandViews,
@@ -72,8 +75,25 @@ internal sealed class AggregateViewModelJoin(
             commandViews.Any(command => command.ScheduleName is not null),
             detailTitle,
             listTitle,
-            filters);
+            filters,
+            Invoker(getOne),
+            IdBuilder(getOne),
+            Invoker(list),
+            list is null ? null : RequestFactory.ForList(list),
+            Invoker(overview),
+            IdBuilder(overview),
+            Invoker(audit),
+            IdBuilder(audit),
+            Invoker(create),
+            create is null ? null : RequestFactory.ForForm(create),
+            Invoker(update),
+            update is null ? null : RequestFactory.ForForm(update));
     }
+
+    private static RequestInvoker? Invoker(Type? request) => request is null ? null : RequestInvoker.For(request);
+
+    private static Func<Guid, object>? IdBuilder(Type? request) =>
+        request is not null && RequestFactory.IsIdOnly(request) ? RequestFactory.ForId(request) : null;
 
     private InvalidOperationException Refuse(string problem) =>
         new($"Aggregate view configuration {view.Configuration.FullName}: {problem}");
@@ -133,7 +153,9 @@ internal sealed class AggregateViewModelJoin(
                 declared?.ConfirmTitle,
                 declared?.ConfirmText,
                 declared?.IsHidden ?? false,
-                [.. declared?.MenuItems ?? []]);
+                [.. declared?.MenuItems ?? []],
+                RequestInvoker.For(request),
+                RequestFactory.IsIdOnly(request) ? RequestFactory.ForId(request) : null);
         }
     }
 
@@ -343,15 +365,15 @@ internal sealed class AggregateViewModelJoin(
             return ChildPickerOf(command, parameter, label, picker, getOneResponse);
         }
 
-        Type primitive = ValueObjectPrimitives.PrimitiveOf(parameter.ParameterType) ?? throw Refuse(
+        Type primitive = ValueObjects.PrimitiveOf(parameter.ParameterType) ?? throw Refuse(
             $"{command.FullName}.{name} is of {parameter.ParameterType.FullName}, which wraps no single value a form can edit.");
 
         FormInputKind? kind = primitive switch
         {
             _ when primitive == typeof(string) => FormInputKind.Text,
             _ when primitive == typeof(bool) => FormInputKind.Switch,
-            _ when ValueObjectPrimitives.IsNumber(primitive) => FormInputKind.Number,
-            _ when ValueObjectPrimitives.IsDate(primitive) => FormInputKind.Date,
+            _ when ValueObjects.IsNumber(primitive) => FormInputKind.Number,
+            _ when ValueObjects.IsDate(primitive) => FormInputKind.Date,
             _ when primitive.IsEnum => FormInputKind.Select,
             _ => null,
         };

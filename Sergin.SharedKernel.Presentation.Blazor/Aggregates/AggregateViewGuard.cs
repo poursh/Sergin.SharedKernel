@@ -48,6 +48,20 @@ public static class AggregateViewGuard
         }
     }
 
+    /// <summary>A transition or delete is sent for one record: its constructor must take the id and nothing else.</summary>
+    private static void EnsureIdOnly(DeclaredView view, IReadOnlyCollection<CommandView> commands)
+    {
+        CommandView? offender = commands.FirstOrDefault(command => command.Role is CommandRole.Transition or CommandRole.Delete && command.BuildFromId is null);
+
+        if (offender is not null)
+        {
+            throw Refuse(
+                view,
+                $"{offender.Request.FullName} is a {offender.Role} command, which a generated view sends from the record's id alone, but its "
+                + "constructor takes more than the id. Give it a constructor of only the id, or model it as an update or set-property command.");
+        }
+    }
+
     internal static void EnsureOnePerRoot(IReadOnlyCollection<DeclaredView> declared)
     {
         string[] duplicates =
@@ -80,6 +94,7 @@ public static class AggregateViewGuard
         AggregateViewBuilder builder = view.Builder;
 
         EnsureCommandsOfRoot(view, commands);
+        EnsureIdOnly(view, commands);
         EnsureRecord(view, builder.DetailFields?.Record, getOneResponse, "Detail", "GetOne query's response");
         EnsureRecord(view, builder.ListFields?.Record, listItem, "List", "list query's item");
 
