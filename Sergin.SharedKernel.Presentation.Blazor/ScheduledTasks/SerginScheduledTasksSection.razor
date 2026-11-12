@@ -3,12 +3,19 @@
    The row commands sit in a span that stops the click, so using one does not also open the runs. *@
 @if (visible)
 {
-    <SerginEntityListView TitleText="ScheduledTaskUiTexts.Title" Count="tasks.Count" Problem="problem">
+    <div id="@ElementId">
+    <SerginEntityListView TitleText="ScheduledTaskUiTexts.Title" Count="shownTasks.Count" Problem="problem">
+        @if (CommandName is not null)
+        {
+            <MudChip T="string" Size="Size.Small" OnClose="ClearFilterAsync" Class="mb-2 sergin-scheduled-filter">
+                @Localizer.Text(ScheduledTaskUiTexts.FilteredTo, new { Command = CommandName })
+            </MudChip>
+        }
         @if (!Engine.FiresTriggers)
         {
             <MudAlert Severity="Severity.Info" Dense="true" Class="mb-3 sergin-scheduled-runs-off">@Localizer.Text(ScheduledTaskUiTexts.EngineOff)</MudAlert>
         }
-        <MudTable T="ScheduledTaskListItem" Items="tasks" Hover="true" Striped="true" Bordered="true" Dense="true" Elevation="0"
+        <MudTable T="ScheduledTaskListItem" Items="shownTasks" Hover="true" Striped="true" Bordered="true" Dense="true" Elevation="0"
                   OnRowClick="ShowRunsAsync" RowStyle="cursor: pointer;">
             <HeaderContent>
                 <MudTh>@Localizer.Text(ScheduledTaskUiTexts.Columns.Command)</MudTh>
@@ -83,4 +90,5 @@
             </MudSimpleTable>
         }
     </SerginEntityListView>
+    </div>
 }
