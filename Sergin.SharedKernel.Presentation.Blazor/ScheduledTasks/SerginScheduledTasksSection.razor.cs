@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Components;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using MudBlazor;
 using Sergin.SharedKernel.Application.Commands;
@@ -44,6 +45,7 @@ public sealed partial class SerginScheduledTasksSection : IDisposable
     private Timer? poller;
     private int polling;
     private volatile bool disposed;
+    private (string Schema, Guid TargetId)? loadedFor;
 
     /// <summary>The owning module's schema.</summary>
     [Parameter]
@@ -61,6 +63,9 @@ public sealed partial class SerginScheduledTasksSection : IDisposable
     /// </summary>
     [Parameter]
     public TimeSpan PollInterval { get; set; } = TimeSpan.FromSeconds(2);
+
+    [Inject]
+    private ILogger<SerginScheduledTasksSection> Logger { get; set; } = default!;
 
     [Inject]
     private IScopeAuthorization ScopeAuthorization { get; set; } = default!;
@@ -108,18 +113,19 @@ public sealed partial class SerginScheduledTasksSection : IDisposable
     /// <summary>Reads the schedules and the one-off runs again — after the host saved a schedule.</summary>
     public async Task ReloadAsync()
     {
-        await LoadAsync();
-        UpdatePolling();
+        bool loaded = await LoadAsync();
+        // A read that failed stops the timer: its error is shown once, not again on every tick.
+        UpdatePolling(keep: loaded);
         // The host calls this from its own handler, so this component is not re-rendered by anything else (the parent skips
         // a child whose parameters did not change).
         await InvokeAsync(StateHasChanged);
     }
 
-    private async Task LoadAsync()
+    private async Task<bool> LoadAsync()
     {
         if (!visible)
         {
-            return;
+            return true;
         }
 
         ErrorOr<IReadOnlyCollection<ScheduledTaskListItem>> loaded =
@@ -128,7 +134,7 @@ public sealed partial class SerginScheduledTasksSection : IDisposable
         if (loaded.IsError)
         {
             problem = ErrorPresenter.Present(loaded.FirstError);
-            return;
+            return false;
         }
 
         problem = null;
@@ -140,11 +146,13 @@ public sealed partial class SerginScheduledTasksSection : IDisposable
         if (oneOff.IsError)
         {
             ErrorPresenter.Notify(oneOff.Errors);
-            return;
+            return false;
         }
 
         oneOffRuns = oneOff.Value;
         names = await Users.GetDisplayNamesAsync([.. oneOffRuns.Select(run => run.ActingUserId).Distinct()]);
+
+        return true;
     }
 
     protected override async Task OnInitializedAsync()
@@ -158,6 +166,21 @@ public sealed partial class SerginScheduledTasksSection : IDisposable
 
         // Interop is closed while prerendering: the app's zone until the first render, then the viewer's own.
         timeZone = ScheduledTaskUiFormat.ZoneOf(TimeZoneOptions.Value.TimeZone);
+    }
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (!visible || loadedFor == (Schema, TargetId))
+        {
+            return;
+        }
+
+        // A new record (or the first one): the previous record's lists and timer go, and this record's are read.
+        loadedFor = (Schema, TargetId);
+        StopPolling();
+        tasks = [];
+        oneOffRuns = [];
+        names = new Dictionary<Guid, string>();
         await ReloadAsync();
     }
 
@@ -193,17 +216,22 @@ public sealed partial class SerginScheduledTasksSection : IDisposable
         || tasks.Any(task => task.LastRunStatus == ScheduledRunStatus.Running);
 
     // A timer owned by the section: on only while a listed run is Running, off again once none is, and gone with the section.
-    private void UpdatePolling()
+    private void UpdatePolling(bool keep = true)
     {
-        if (AnyRunning && !disposed)
+        if (keep && AnyRunning && !disposed)
         {
             poller ??= new Timer(tick => InvokeAsync(PollAsync), null, PollInterval, PollInterval);
         }
         else
         {
-            poller?.Dispose();
-            poller = null;
+            StopPolling();
         }
+    }
+
+    private void StopPolling()
+    {
+        poller?.Dispose();
+        poller = null;
     }
 
     private async Task PollAsync()
@@ -218,11 +246,20 @@ public sealed partial class SerginScheduledTasksSection : IDisposable
         {
             await ReloadAsync();
         }
+        catch (Exception exception) when (exception is not OperationCanceledException)
+        {
+            // A tick has no caller to observe its failure: it is logged, and the timer stops rather than fail again every tick.
+            LogPollFailed(Logger, exception, Schema, TargetId);
+            StopPolling();
+        }
         finally
         {
             Interlocked.Exchange(ref polling, 0);
         }
     }
+
+    [LoggerMessage(Level = LogLevel.Error, Message = "The scheduled tasks section of {Schema} record {TargetId} failed to read its runs; it stopped polling.")]
+    private static partial void LogPollFailed(ILogger logger, Exception exception, string schema, Guid targetId);
 
     private string NextRunText(ScheduledTaskListItem task)
     {
