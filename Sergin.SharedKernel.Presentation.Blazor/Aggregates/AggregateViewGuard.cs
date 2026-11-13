@@ -150,6 +150,9 @@ public static class AggregateViewGuard
             throw Refuse(view, $"Form<{form.Name}>() names {form.FullName}, which is not {builder.Root.Name}'s create or update command.");
         }
 
+        // Before the routes: a parented list's own route rule names the real mistake.
+        EnsureListParent(view, list);
+
         AggregateViewRoutes routes = builder.DeclaredRoutes;
 
         if ((routes.Detail is not null || routes.Edit is not null) && getOne is null)
@@ -170,6 +173,91 @@ public static class AggregateViewGuard
         if (routes.Edit is not null && update is null)
         {
             throw Refuse(view, $"its routes promise a {builder.Root.Name} edit form, but no IUpdateCommand<{builder.Root.Name}, …> exists to send.");
+        }
+    }
+
+    /// <summary>
+    /// A list query under a parent (<c>IUnderParent</c>) is routed with <c>ListUnder&lt;TParent&gt;</c> naming that parent, and
+    /// nothing else is: its list route needs the parent's id, which a plain list route cannot carry.
+    /// </summary>
+    private static void EnsureListParent(DeclaredView view, Type? list)
+    {
+        AggregateViewBuilder builder = view.Builder;
+        string root = builder.Root.Name;
+        Type? parent = list is null ? null : CommandTypes.TargetOf(list)?.Parent;
+        Type? declared = builder.ListParent;
+
+        if (parent is not null && declared is null)
+        {
+            throw Refuse(
+                view,
+                $"{root}'s list query {list!.FullName} is listed under a {parent.Name}, so its list route carries the parent's id: "
+                + $"declare it with ListUnder<{parent.Name}>(…){(builder.DeclaredRoutes.List is null ? string.Empty : ", not Routes(list: …)")}.");
+        }
+
+        if (declared is null)
+        {
+            return;
+        }
+
+        if (parent is null)
+        {
+            throw Refuse(
+                view,
+                $"ListUnder<{declared.Name}>() lists {root} under a parent, but {root}'s list query "
+                + $"{list?.FullName ?? "(there is none)"} is no IUnderParent<{declared.Name}, …>.");
+        }
+
+        if (parent != declared)
+        {
+            throw Refuse(
+                view,
+                $"ListUnder<{declared.Name}>() names {declared.FullName}, but {root}'s list query {list!.FullName} is listed under "
+                + $"{parent.FullName}. Declare ListUnder<{parent.Name}>(…).");
+        }
+
+        if (builder.DeclaredRoutes.List is not null)
+        {
+            throw Refuse(view, $"{root} is listed under a {parent.Name} with ListUnder<{parent.Name}>(…), so Routes(list: …) has no page to name.");
+        }
+
+        // Sampled with a distinct id: a route that drops it would list every parent's records under the same address.
+        var sample = Guid.Parse("33333333-3333-3333-3333-333333333333");
+        string route = builder.DeclaredRoutes.ListUnderParent!(sample);
+
+        if (!route.Contains(sample.ToString(), StringComparison.OrdinalIgnoreCase))
+        {
+            throw Refuse(view, $"ListUnder<{parent.Name}>(…) builds \"{route}\" from the parent id {sample}, and it must carry it.");
+        }
+    }
+
+    /// <summary>
+    /// A root listed under a parent shows the parent in its trail, loaded through the parent's own model: the parent needs a
+    /// view configuration and a GetOne query.
+    /// </summary>
+    internal static void EnsureParents(IReadOnlyDictionary<Type, AggregateViewModel> models)
+    {
+        foreach (AggregateViewModel model in models.Values)
+        {
+            if (model.Parent is not { } parent)
+            {
+                continue;
+            }
+
+            if (!models.TryGetValue(parent, out AggregateViewModel? parentModel))
+            {
+                throw new InvalidOperationException(
+                    $"Aggregate view configuration {model.Configuration.FullName}: ListUnder<{parent.Name}>() lists {model.Root.Name} under "
+                    + $"{parent.FullName}, which no aggregate view configuration declares; its list's trail shows the parent through the "
+                    + $"parent's own views. Add an IAggregateViewConfiguration<{parent.Name}>.");
+            }
+
+            if (parentModel.GetOne is null)
+            {
+                throw new InvalidOperationException(
+                    $"Aggregate view configuration {model.Configuration.FullName}: ListUnder<{parent.Name}>() lists {model.Root.Name} under "
+                    + $"{parent.FullName}, which has no IGetOneQuery<{parent.Name}, …> to load the parent record with.");
+            }
         }
     }
 
@@ -468,7 +556,7 @@ public static class AggregateViewGuard
 
     private static IEnumerable<string> RoutesOf(AggregateViewRoutes routes)
     {
-        string?[] all = [routes.List, routes.Create, routes.Detail?.Invoke(Guid.Empty), routes.Edit?.Invoke(Guid.Empty)];
+        string?[] all = [routes.List, routes.ListUnderParent?.Invoke(Guid.Empty), routes.Create, routes.Detail?.Invoke(Guid.Empty), routes.Edit?.Invoke(Guid.Empty)];
         return all.OfType<string>();
     }
 

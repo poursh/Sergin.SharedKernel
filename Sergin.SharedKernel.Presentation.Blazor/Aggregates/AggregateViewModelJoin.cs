@@ -89,7 +89,8 @@ internal sealed class AggregateViewModelJoin(
             create is null ? null : builder.Forms.GetValueOrDefault(create)?.DeclaredTitle,
             update is null ? null : builder.Forms.GetValueOrDefault(update)?.DeclaredTitle,
             builder.DetailOverviewIsCollapsed,
-            [.. builder.Links]);
+            [.. builder.Links],
+            builder.ListParent);
     }
 
     // ---- Children ----

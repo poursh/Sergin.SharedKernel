@@ -15,6 +15,9 @@ public abstract class AggregateViewBuilder : ViewDeclarationBuilder
 
     internal AggregateViewRoutes DeclaredRoutes { get; private protected set; } = AggregateViewRoutes.None;
 
+    /// <summary>The parent root a <c>ListUnder&lt;TParent&gt;</c> named, or null.</summary>
+    internal Type? ListParent { get; private protected set; }
+
     internal Dictionary<SerginViewSlot, Type> Slots { get; } = [];
 
     internal bool DetailOverviewIsCollapsed { get; private protected set; }
@@ -52,7 +55,20 @@ public sealed class AggregateViewBuilder<TRoot> : AggregateViewBuilder
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(list);
         ArgumentNullException.ThrowIfNull(detail);
-        DeclaredRoutes = new AggregateViewRoutes(list, detail, create, edit);
+        DeclaredRoutes = new AggregateViewRoutes(list, detail, create, edit, DeclaredRoutes.ListUnderParent);
+        return this;
+    }
+
+    /// <summary>
+    /// The list route of a root whose list query is <c>IUnderParent&lt;TParent, …&gt;</c>, built from the parent's id. Its
+    /// detail, create and edit routes stay optional; declare them with <see cref="Routes"/> only if the root has them.
+    /// </summary>
+    public AggregateViewBuilder<TRoot> ListUnder<TParent>(Func<Guid, string> list)
+        where TParent : class, IAggregateRoot
+    {
+        ArgumentNullException.ThrowIfNull(list);
+        ListParent = typeof(TParent);
+        DeclaredRoutes = DeclaredRoutes with { ListUnderParent = list };
         return this;
     }
 

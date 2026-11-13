@@ -2,15 +2,20 @@ using System.Linq.Expressions;
 using System.Reflection;
 using System.Text.Json;
 using Sergin.SharedKernel.Application.Commands.Queries;
+using Sergin.SharedKernel.Application.Commands.Types;
 
 namespace Sergin.SharedKernel.Presentation.Blazor.Aggregates;
 
-/// <summary>What a list page asks of a list query: paging, the quick-search term, the applied filters, the sort.</summary>
+/// <summary>
+/// What a list page asks of a list query: paging, the quick-search term, the applied filters, the sort, and the parent's
+/// id for a list query under a parent (<c>IUnderParent</c>).
+/// </summary>
 public sealed record ListQueryInput(
     Paggination Paggination,
     string? Term,
     IReadOnlyList<FilterData> Filtering,
-    IReadOnlyList<SortingData> Sorting);
+    IReadOnlyList<SortingData> Sorting,
+    Guid? ParentId = null);
 
 /// <summary>
 /// Builds a request record from what a view has: an id, form values by parameter name, or a list input. The
@@ -149,13 +154,33 @@ public static class RequestFactory
         return (rootId, values) => build(rootId, Guid.Empty, values);
     }
 
-    /// <summary>A list query built from a page's <see cref="ListQueryInput"/>.</summary>
+    /// <summary>
+    /// A list query built from a page's <see cref="ListQueryInput"/>. A query under a parent (<c>IUnderParent</c>) takes the
+    /// parent's id from <see cref="ListQueryInput.ParentId"/>, which it then requires.
+    /// </summary>
     public static Func<ListQueryInput, object> ForList(Type listQueryType)
     {
-        Func<Guid, ListQueryInput, object> build = ForListCore(listQueryType, rootIdType: null);
+        ArgumentNullException.ThrowIfNull(listQueryType);
 
-        return input => build(Guid.Empty, input);
+        Type? parentIdType = ParentIdTypeOf(listQueryType);
+        Func<Guid, ListQueryInput, object> build = ForListCore(listQueryType, parentIdType);
+
+        if (parentIdType is null)
+        {
+            return input => build(Guid.Empty, input);
+        }
+
+        return input => build(
+            input.ParentId ?? throw new InvalidOperationException(
+                $"{listQueryType.FullName} is listed under a parent, so it is built with the parent's id; the list input carries none."),
+            input);
     }
+
+    /// <summary>The parent id type of a request under a parent (<c>IUnderParent&lt;TParent, TParentId&gt;</c>), or null.</summary>
+    internal static Type? ParentIdTypeOf(Type requestType) =>
+        requestType.GetInterfaces()
+            .FirstOrDefault(contract => contract.IsGenericType && contract.GetGenericTypeDefinition() == typeof(IUnderParent<,>))
+            ?.GetGenericArguments()[1];
 
     /// <summary>
     /// A child list query (<c>IChildListOf</c>) built from its root's id and a <see cref="ListQueryInput"/>: its

@@ -60,6 +60,10 @@ public sealed partial class GeneratedListBody<TItem> : IGeneratedListBody
     [EditorRequired]
     public AggregateViewModel Model { get; set; } = default!;
 
+    /// <summary>The parent's id of a list under a parent: every list query is sent with it.</summary>
+    [Parameter]
+    public Guid? ParentId { get; set; }
+
     /// <summary>Raised after a command changed records, so the view can refresh what else it shows (the overview).</summary>
     [Parameter]
     public EventCallback OnChanged { get; set; }
@@ -155,7 +159,8 @@ public sealed partial class GeneratedListBody<TItem> : IGeneratedListBody
             request.Paggination,
             request.Term?.Value,
             [.. request.Filtering?.Filters ?? []],
-            [.. request.Sorting?.Sorts ?? []]);
+            [.. request.Sorting?.Sorts ?? []],
+            ParentId);
 
         ViewSendResult result = await Model.List!.Invoker.SendAsync(Dispatcher, Model.List.Build(input), cancellationToken);
 
