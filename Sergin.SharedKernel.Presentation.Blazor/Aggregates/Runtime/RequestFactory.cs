@@ -200,16 +200,19 @@ public static class RequestFactory
         ParameterInfo[] parameters = constructor.GetParameters();
         int rootIds = rootIdType is null ? 0 : parameters.Count(parameter => parameter.ParameterType == rootIdType);
 
+        // An optional parameter beyond these (a filter of the query's own, which a list body slot may send) takes its default.
         if (!parameters.Any(parameter => parameter.ParameterType == typeof(Paggination))
-            || parameters.Any(parameter => !supported.Contains(parameter.ParameterType) && parameter.ParameterType != rootIdType)
+            || parameters.Any(parameter => !supported.Contains(parameter.ParameterType) && parameter.ParameterType != rootIdType && !parameter.IsOptional)
             || rootIdType is not null && rootIds != 1)
         {
             string rootId = rootIdType is null ? string.Empty : $"its root's {rootIdType.Name} and ";
 
             throw new InvalidOperationException(
                 $"{listQueryType.FullName} is not a list query a view can build: its constructor is ({Describe(constructor)}), "
-                + $"which must take {rootId}a Paggination and may take a Term, Filtering and Sorting.");
+                + $"which must take {rootId}a Paggination and may take a Term, Filtering, Sorting and optional parameters of its own.");
         }
+
+        object?[] defaults = [.. parameters.Select(DefaultOf)];
 
         Func<object?, object?> toRootId = rootIdType is null ? _ => null : ValueObjects.Converter(rootIdType, neverNull: true);
         Func<object?[], object> build = Compile(constructor);
@@ -225,16 +228,29 @@ public static class RequestFactory
 
             return build(
             [
-                .. parameters.Select(parameter => parameter.ParameterType switch
+                .. parameters.Select((parameter, index) => parameter.ParameterType switch
                 {
                     _ when parameter.ParameterType == typeof(Paggination) => input.Paggination,
                     _ when parameter.ParameterType == typeof(Term) => term,
                     _ when parameter.ParameterType == typeof(Filtering) => filtering,
                     _ when parameter.ParameterType == typeof(Sorting) => sorting,
-                    _ => toRootId(rootId),
+                    _ when parameter.ParameterType == rootIdType => toRootId(rootId),
+                    _ => defaults[index],
                 }),
             ]);
         };
+    }
+
+    // An optional parameter's declared default, or the type's default when it declares none (a value type's DefaultValue
+    // is then DBNull or Missing).
+    private static object? DefaultOf(ParameterInfo parameter)
+    {
+        if (parameter.HasDefaultValue && parameter.DefaultValue is not DBNull)
+        {
+            return parameter.DefaultValue;
+        }
+
+        return parameter.ParameterType.IsValueType ? Activator.CreateInstance(parameter.ParameterType) : null;
     }
 
     // Decided once per parameter: a parameter declared nullable whose primitive is a string takes blank text as null (a
