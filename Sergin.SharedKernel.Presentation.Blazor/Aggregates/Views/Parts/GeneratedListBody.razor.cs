@@ -137,24 +137,15 @@ public sealed partial class GeneratedListBody<TItem> : IGeneratedListBody
         commands = new GeneratedCommandActions(this, _ => Task.CompletedTask, _ => Task.CompletedTask);
         filters = new GeneratedFilterState(Model, new GeneratedFilterServices(Dispatcher, ErrorPresenter, Localizer, Formatter, TimeZones));
         titleField = GeneratedViewSupport.TitleFieldOf(Model.ListFields, Model.ListTitleField);
-        columns = [.. Model.ListFields.Where(field => !field.Hidden).Select(field => new ListColumn(field, SortIdOf(field), field == titleField))];
+        columns = GeneratedViewSupport.ColumnsOf(Model.ListFields, Model.ListFieldSet, titleField);
 
         canManageSchedules = Model.HasSchedulableCommand && await ScopeAuthorization.CurrentUserHasAsync(ScheduledTaskPermissions.Manage);
         BulkActions = [.. BulkActionsOf()];
     }
 
-    private static Guid IdOf(TItem item) =>
-        idReader?.Invoke(item!) is Guid id
-            ? id
-            : throw new InvalidOperationException($"{typeof(TItem).FullName} has no Guid Id, so a generated list cannot link or act on its rows.");
+    private static Guid IdOf(TItem item) => GeneratedViewSupport.IdOf(idReader, item!);
 
-    // A column sorts by the list field named after its property, when the list field set declares it sortable.
-    private string? SortIdOf(FieldView field) =>
-        Model.ListFieldSet?.Fields
-            .FirstOrDefault(candidate => candidate.Sortable && string.Equals(candidate.Id, field.Name, StringComparison.OrdinalIgnoreCase))
-            ?.Id;
-
-    private string? TextOf(ListColumn column, TItem item) => FieldValueText.Format(column.Field.Get(item!), Formatter);
+    private string? TextOf(ListColumn column, TItem item) => FieldValueText.Render(column.Field, column.Field.Get(item!), Formatter, Localizer);
 
     private async Task<ErrorOr<ListQueryResponse<TItem>>> LoadAsync(SerginListRequest request, CancellationToken cancellationToken)
     {
@@ -362,7 +353,4 @@ public sealed partial class GeneratedListBody<TItem> : IGeneratedListBody
         outcome.Report(ErrorPresenter, Snackbar, Localizer, Formatter, command.BulkSucceededText ?? CommonTexts.BulkDeleted);
         await ChangedAsync();
     }
-
-    /// <summary>One column: the list field, the list field id it sorts by (or null), and whether it links to the record.</summary>
-    private sealed record ListColumn(FieldView Field, string? SortId, bool Links);
 }

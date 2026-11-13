@@ -49,7 +49,7 @@ public sealed partial class SerginGeneratedDetailView<TRoot>
     private GeneratedCommandActions commands = default!;
     private FieldView? titleField;
     private object? overview;
-    private int generation;
+    private readonly Dictionary<Type, SerginGeneratedChildSection> childSections = [];
 
     [Parameter]
     public Guid Id { get; set; }
@@ -94,6 +94,23 @@ public sealed partial class SerginGeneratedDetailView<TRoot>
 
     // A child entity with a list query is a section of the detail, after the entities slot and before the scheduled tasks.
     private IEnumerable<ChildViewModel> Sections => Model.Children.Where(child => child.List is not null);
+
+    // Each section is kept by its child type, so a reload asks each to load its rows again without remounting it.
+    private RenderFragment SectionsFragment => builder =>
+    {
+        foreach (ChildViewModel child in Sections)
+        {
+            builder.OpenComponent<SerginGeneratedChildSection>(0);
+            builder.SetKey($"{Id}:{child.Child.FullName}");
+            builder.AddAttribute(1, nameof(SerginGeneratedChildSection.Model), Model);
+            builder.AddAttribute(2, nameof(SerginGeneratedChildSection.Child), child);
+            builder.AddAttribute(3, nameof(SerginGeneratedChildSection.RootId), Id);
+            builder.AddAttribute(4, nameof(SerginGeneratedChildSection.Version), (object?)version);
+            builder.AddAttribute(5, nameof(SerginGeneratedChildSection.OnChanged), ChildChanged);
+            builder.AddComponentReferenceCapture(6, section => childSections[child.Child] = (SerginGeneratedChildSection)section);
+            builder.CloseComponent();
+        }
+    };
 
     // A child command moved the root's version (or found it stale): the record is read again, and the section reloads its own rows.
     private EventCallback ChildChanged => EventCallback.Factory.Create(this, LoadAsync);
@@ -173,17 +190,16 @@ public sealed partial class SerginGeneratedDetailView<TRoot>
             : null;
     }
 
-    // The header's reload: the record again, and every section anew (a new key renders each, so each loads its rows again).
-    private async Task ReloadAllAsync()
-    {
-        await LoadAsync();
-        generation++;
-    }
-
     // What a slot component or a configured menu item calls: it runs outside this view's own handlers, so it re-renders.
     private async Task ReloadAsync()
     {
         await LoadAsync();
+
+        foreach (SerginGeneratedChildSection childSection in childSections.Values)
+        {
+            await childSection.ReloadAsync();
+        }
+
         await InvokeAsync(StateHasChanged);
     }
 

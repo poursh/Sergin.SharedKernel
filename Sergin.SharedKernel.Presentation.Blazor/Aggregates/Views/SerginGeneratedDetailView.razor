@@ -4,7 +4,7 @@
                            FieldsTitleData="@(record is null ? null : DisplayText)"
                            Overview="OverviewFragment" OverviewSummary="OverviewSummaryFragment" OverviewCollapsed="Model.DetailOverviewCollapsed">
     <HeaderActions>
-        <SerginReloadButton OnReload="ReloadAllAsync" />
+        <SerginReloadButton OnReload="ReloadAsync" />
         <SerginCopyLinkButton />
         @if (record is not null && Model.Audit is not null)
         {
@@ -34,11 +34,7 @@
         }
         @if (record is not null)
         {
-            @foreach (ChildViewModel child in Sections)
-            {
-                <SerginGeneratedChildSection @key="@($"{Id}:{generation}:{child.Child.FullName}")" Model="Model" Child="child" RootId="Id" Version="version"
-                                             OnChanged="ChildChanged" />
-            }
+            @SectionsFragment
         }
         @if (Model.HasSchedulableCommand)
         {

@@ -121,7 +121,7 @@ public sealed partial class GeneratedChildListBody<TItem> : IGeneratedChildListB
         }
 
         titleField = GeneratedViewSupport.TitleFieldOf(Child.ListFields, Child.ListTitleField);
-        columns = [.. Child.ListFields.Where(field => !field.Hidden).Select(field => new ListColumn(field, SortIdOf(field), field == titleField))];
+        columns = GeneratedViewSupport.ColumnsOf(Child.ListFields, Child.ListFieldSet, titleField);
         BulkActions = [.. BulkActionsOf()];
     }
 
@@ -132,16 +132,7 @@ public sealed partial class GeneratedChildListBody<TItem> : IGeneratedChildListB
         return new ChildRowAction(command, href, version is null || refused, refused ? command.DisabledReason : null);
     }
 
-    private static Guid IdOf(TItem item) =>
-        idReader?.Invoke(item!) is Guid id
-            ? id
-            : throw new InvalidOperationException($"{typeof(TItem).FullName} has no Guid Id, so a generated child list cannot link or act on its rows.");
-
-    // A column sorts by the list field named after its property, when the list field set declares it sortable.
-    private string? SortIdOf(FieldView field) =>
-        Child.ListFieldSet?.Fields
-            .FirstOrDefault(candidate => candidate.Sortable && string.Equals(candidate.Id, field.Name, StringComparison.OrdinalIgnoreCase))
-            ?.Id;
+    private static Guid IdOf(TItem item) => GeneratedViewSupport.IdOf(idReader, item!);
 
     private string? TextOf(ListColumn column, TItem item) => FieldValueText.Render(column.Field, column.Field.Get(item!), Formatter, Localizer);
 
@@ -249,7 +240,4 @@ public sealed partial class GeneratedChildListBody<TItem> : IGeneratedChildListB
 
         await list.ReloadAsync();
     }
-
-    /// <summary>One column: the list field, the list field id it sorts by (or null), and whether it links to the child.</summary>
-    private sealed record ListColumn(FieldView Field, string? SortId, bool Links);
 }

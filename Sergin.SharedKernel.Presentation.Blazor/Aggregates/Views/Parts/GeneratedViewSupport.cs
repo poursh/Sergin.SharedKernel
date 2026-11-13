@@ -9,6 +9,9 @@ using Sergin.SharedKernel.Presentation.Blazor.Navigation;
 
 namespace Sergin.SharedKernel.Presentation.Blazor.Aggregates.Views.Parts;
 
+/// <summary>One list column: the list field, the list field id it sorts by (or null), and whether it links to the record.</summary>
+internal sealed record ListColumn(FieldView Field, string? SortId, bool Links);
+
 /// <summary>What the three generated views and the list body share, written once.</summary>
 internal static class GeneratedViewSupport
 {
@@ -50,6 +53,30 @@ internal static class GeneratedViewSupport
         ArgumentNullException.ThrowIfNull(item);
 
         return item.GetProperty("Id", BindingFlags.Public | BindingFlags.Instance) is { } id ? ValueObjects.UnwrappedGetter(id) : null;
+    }
+
+    /// <summary>A list item's Guid id, read by <paramref name="reader"/> (from <see cref="IdReaderOf"/>); refuses an item with none.</summary>
+    public static Guid IdOf(Func<object, object?>? reader, object item) =>
+        reader?.Invoke(item) is Guid id
+            ? id
+            : throw new InvalidOperationException($"{item.GetType().FullName} has no Guid Id, so a generated list cannot link or act on its rows.");
+
+    /// <summary>The list field id a field sorts by: the one named after its property that the list field set declares sortable, else null.</summary>
+    public static string? SortIdOf(ListFieldSet? fieldSet, FieldView field)
+    {
+        ArgumentNullException.ThrowIfNull(field);
+
+        return fieldSet?.Fields
+            .FirstOrDefault(candidate => candidate.Sortable && string.Equals(candidate.Id, field.Name, StringComparison.OrdinalIgnoreCase))
+            ?.Id;
+    }
+
+    /// <summary>A column per visible list field, sortable as the field set declares, the display field linking.</summary>
+    public static IReadOnlyList<ListColumn> ColumnsOf(IReadOnlyList<FieldView> fields, ListFieldSet? fieldSet, FieldView? titleField)
+    {
+        ArgumentNullException.ThrowIfNull(fields);
+
+        return [.. fields.Where(field => !field.Hidden).Select(field => new ListColumn(field, SortIdOf(fieldSet, field), field == titleField))];
     }
 
     /// <summary>The field named <paramref name="titleField"/>, or null.</summary>
