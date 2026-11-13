@@ -1,3 +1,4 @@
+using System.Reflection;
 using Sergin.SharedKernel.Application.Concurrency;
 using Sergin.SharedKernel.Modules;
 using Sergin.SharedKernel.Domain;
@@ -41,6 +42,14 @@ internal static class GeneratedViewSupport
         ViewSendResult result = await invoker.SendAsync(dispatcher, request);
 
         return result.IsError ? null : result.Value;
+    }
+
+    /// <summary>The compiled reader of a list item's <c>Id</c> (a value object read through to its Guid), or null when it has none.</summary>
+    public static Func<object, object?>? IdReaderOf(Type item)
+    {
+        ArgumentNullException.ThrowIfNull(item);
+
+        return item.GetProperty("Id", BindingFlags.Public | BindingFlags.Instance) is { } id ? ValueObjects.UnwrappedGetter(id) : null;
     }
 
     /// <summary>The field named <paramref name="titleField"/>, or null.</summary>

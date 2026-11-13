@@ -1,4 +1,3 @@
-using System.Reflection;
 using Microsoft.AspNetCore.Components;
 using MudBlazor;
 using Sergin.SharedKernel.Application.Commands;
@@ -47,8 +46,7 @@ public sealed partial class GeneratedListBody<TItem> : IGeneratedListBody
 {
     // Compiled once per item type, which is the point of the field being per closed type.
 #pragma warning disable S2743
-    private static readonly Func<object, object?>? idReader =
-        typeof(TItem).GetProperty("Id", BindingFlags.Public | BindingFlags.Instance) is { } id ? ValueObjects.UnwrappedGetter(id) : null;
+    private static readonly Func<object, object?>? idReader = GeneratedViewSupport.IdReaderOf(typeof(TItem));
 #pragma warning restore S2743
 
     private SerginAggregateList<TItem> list = default!;

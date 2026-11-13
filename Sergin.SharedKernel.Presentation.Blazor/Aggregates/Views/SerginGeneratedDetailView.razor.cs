@@ -24,7 +24,8 @@ namespace Sergin.SharedKernel.Presentation.Blazor.Aggregates.Views;
 /// loaded through its GetOne query (at its version when the root is <c>Versioned()</c>), the header's reload, copy-link and (with an audit query) information
 /// buttons, a field per visible response property, an action per offered command, and, when a command is schedulable,
 /// the record's scheduled tasks. A configuration's <see cref="SerginViewSlot.DetailFields"/> component replaces the
-/// fields, and its <see cref="SerginViewSlot.DetailEntities"/> component renders above the scheduled tasks; the
+/// fields, and its <see cref="SerginViewSlot.DetailEntities"/> component renders above the child sections (<see cref="SerginGeneratedChildSection"/>,
+/// one per child entity with a list query, given the record's version) and the scheduled tasks; the
 /// <see cref="SerginViewSlot.DetailOverview"/> and <see cref="SerginViewSlot.DetailOverviewSummary"/> components fill the
 /// overview (the entity overview query read once per load, in <c>Context.Overview</c>); all get
 /// <c>Context</c>, an <see cref="AggregateViewContext"/>.
@@ -48,6 +49,7 @@ public sealed partial class SerginGeneratedDetailView<TRoot>
     private GeneratedCommandActions commands = default!;
     private FieldView? titleField;
     private object? overview;
+    private int generation;
 
     [Parameter]
     public Guid Id { get; set; }
@@ -89,6 +91,12 @@ public sealed partial class SerginGeneratedDetailView<TRoot>
     private Type? EntitiesSlot => Model.Slots.GetValueOrDefault(SerginViewSlot.DetailEntities);
 
     private IEnumerable<FieldView> VisibleFields => Model.DetailFields.Where(candidate => !candidate.Hidden);
+
+    // A child entity with a list query is a section of the detail, after the entities slot and before the scheduled tasks.
+    private IEnumerable<ChildViewModel> Sections => Model.Children.Where(child => child.List is not null);
+
+    // A child command moved the root's version (or found it stale): the record is read again, and the section reloads its own rows.
+    private EventCallback ChildChanged => EventCallback.Factory.Create(this, LoadAsync);
 
     private AggregateViewContext Context => new(record, version, ReloadAsync, [Id], overview);
 
@@ -163,6 +171,13 @@ public sealed partial class SerginGeneratedDetailView<TRoot>
         overview = Model.EntityOverview is { } entityOverview
             ? await GeneratedViewSupport.LoadOverviewAsync(Dispatcher, entityOverview.Invoker, entityOverview.Build(Id))
             : null;
+    }
+
+    // The header's reload: the record again, and every section anew (a new key renders each, so each loads its rows again).
+    private async Task ReloadAllAsync()
+    {
+        await LoadAsync();
+        generation++;
     }
 
     // What a slot component or a configured menu item calls: it runs outside this view's own handlers, so it re-renders.

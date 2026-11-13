@@ -1,4 +1,5 @@
 using Sergin.SharedKernel.Application.Commands.Types;
+using Sergin.SharedKernel.Presentation.Blazor.Aggregates.Views.Parts;
 
 namespace Sergin.SharedKernel.Presentation.Blazor.Aggregates;
 
@@ -65,7 +66,8 @@ internal sealed class ChildViewModelJoin(AggregateViewModelJoin join, Type? root
             join.FormFields(editCommand?.Request, declared, getOneResponse),
             editCommand is null ? null : declared.Forms.GetValueOrDefault(editCommand.Request)?.DeclaredTitle,
             editCommand,
-            commands);
+            commands,
+            listItem is null ? null : typeof(GeneratedChildListBody<>).MakeGenericType(listItem));
     }
 
     /// <summary>The child's edit command: its update, or the command declared <c>Edit(SerginEditMode.Page)</c> (the guard refuses a second).</summary>
