@@ -2,13 +2,11 @@ using Microsoft.AspNetCore.Components;
 using MudBlazor;
 using Sergin.SharedKernel.Application.Aggregates;
 using Sergin.SharedKernel.Application.Commands;
-using Sergin.SharedKernel.Application.Concurrency;
 using Sergin.SharedKernel.Application.ScheduledTasks;
 using Sergin.SharedKernel.Application.Securities.Authorization;
 using Sergin.SharedKernel.Domain;
 using Sergin.SharedKernel.Domain.ScheduledTasks;
 using Sergin.SharedKernel.Domain.Securities;
-using Sergin.SharedKernel.Modules;
 using Sergin.SharedKernel.Presentation.Blazor.Aggregates.Views.Parts;
 using Sergin.SharedKernel.Presentation.Blazor.Dispatching;
 using Sergin.SharedKernel.Presentation.Blazor.Errors;
@@ -94,15 +92,7 @@ public sealed partial class SerginGeneratedDetailView<TRoot>
     private Dictionary<string, object?> SlotParameters => new(StringComparer.Ordinal) { ["Context"] = Context };
 
     // The record's display field as stored, or its id when it has none.
-    private string DisplayText
-    {
-        get
-        {
-            object? value = record is null || titleField is null ? null : titleField.Get(record);
-
-            return value?.ToString() ?? Id.ToString();
-        }
-    }
+    private string DisplayText => GeneratedViewSupport.DisplayOf(record, titleField, Id);
 
     // The list section step — the nav entry naming the list route, else the list's title — then the record, or the
     // root's name until it loads and beside the problem panel.
@@ -118,31 +108,22 @@ public sealed partial class SerginGeneratedDetailView<TRoot>
     {
         Model = Views.For<TRoot>();
 
-        if (Model.GetOneInvoker is null || Model.BuildGetOne is null)
+        if (Model.GetOne is null)
         {
             throw new InvalidOperationException(
                 $"{typeof(TRoot).FullName} has no GetOne query, so its detail view has nothing to load. Add an IGetOneQuery<{typeof(TRoot).Name}, …>.");
         }
 
         commands = new GeneratedCommandActions(this, RunAsync, DeleteAsync);
-        titleField = Model.DetailFields.FirstOrDefault(candidate => candidate.Name == Model.DetailTitleField);
+        titleField = GeneratedViewSupport.TitleFieldOf(Model.DetailFields, Model.DetailTitleField);
 
         canManageSchedules = Model.HasSchedulableCommand && await ScopeAuthorization.CurrentUserHasAsync(ScheduledTaskPermissions.Manage);
     }
 
     protected override Task OnParametersSetAsync() => LoadAsync();
 
-    private IEnumerable<SerginBreadcrumb> ListStep()
-    {
-        if (Model.Routes.List is not { } list)
-        {
-            return [];
-        }
-
-        SerginNavItem? item = Catalog.NavItems.FirstOrDefault(candidate => string.Equals(candidate.Href, list, StringComparison.OrdinalIgnoreCase));
-
-        return [item is null ? new SerginBreadcrumb(Model.Title, list) : SerginBreadcrumb.Of(item)];
-    }
+    private IEnumerable<SerginBreadcrumb> ListStep() =>
+        GeneratedViewSupport.ListStep(Model, Catalog) is { } step ? [step] : [];
 
     // Keeps the version the record was read at (a Versioned() root's), so a guarded write can say which record it means.
     private async Task LoadAsync()
@@ -172,7 +153,7 @@ public sealed partial class SerginGeneratedDetailView<TRoot>
 
     private async Task<ErrorOr<AuditInfo>> LoadAuditAsync()
     {
-        ViewSendResult result = await Model.AuditInvoker!.SendAsync(Dispatcher, Model.BuildAudit!(Id));
+        ViewSendResult result = await Model.Audit!.Invoker.SendAsync(Dispatcher, Model.Audit.Build(Id));
 
         if (result.IsError)
         {
@@ -183,20 +164,14 @@ public sealed partial class SerginGeneratedDetailView<TRoot>
         return (AuditInfo)result.Value!;
     }
 
-    private Task<ViewSendResult> SendAsync(CommandView command)
-    {
-        object request = command.BuildFromId!(Id);
-
-        return command.RequiresVersion
-            ? command.Invoker.SendVersionedAsync(Dispatcher, request, version)
-            : command.Invoker.SendAsync(Dispatcher, request);
-    }
+    private Task<ViewSendResult> SendAsync(CommandView command) =>
+        GeneratedViewSupport.SendFromIdAsync(Dispatcher, command, Id, version);
 
     private async Task RunAsync(CommandView command)
     {
         ViewSendResult result = await commands.WhileRunningAsync(command, () => SendAsync(command));
 
-        if (await FailedAsync(result))
+        if (await GeneratedViewSupport.FailedAsync(result, ErrorPresenter, LoadAsync))
         {
             return;
         }
@@ -219,7 +194,7 @@ public sealed partial class SerginGeneratedDetailView<TRoot>
 
         ViewSendResult result = await commands.WhileRunningAsync(command, () => SendAsync(command));
 
-        if (await FailedAsync(result))
+        if (await GeneratedViewSupport.FailedAsync(result, ErrorPresenter, LoadAsync))
         {
             return;
         }
@@ -230,36 +205,10 @@ public sealed partial class SerginGeneratedDetailView<TRoot>
         }
     }
 
-    // Shows every error; on a stale answer, reads the record again so the next write carries the version it now has.
-    private async Task<bool> FailedAsync(ViewSendResult result)
-    {
-        if (!result.IsError)
-        {
-            return false;
-        }
-
-        ErrorPresenter.Notify(result.Errors);
-
-        if (result.Errors.Any(VersionErrors.IsStale))
-        {
-            await LoadAsync();
-        }
-
-        return true;
-    }
-
     // The record's properties (value objects read through, by the model's compiled reader) fill a text's placeholders,
     // plus {Name} — its display field — unless the record has a Name of its own.
-    private Dictionary<string, object?> PlaceholderArguments()
-    {
-        Dictionary<string, object?> arguments = record is null || Model.DetailArguments is null
-            ? new(StringComparer.Ordinal)
-            : new(Model.DetailArguments(record), StringComparer.Ordinal);
-
-        arguments.TryAdd("Name", DisplayText);
-
-        return arguments;
-    }
+    private Dictionary<string, object?> PlaceholderArguments() =>
+        GeneratedViewSupport.ArgumentsOf(Model.DetailArguments, record, DisplayText);
 
     // Schedule… and View schedules for a schedulable command (to a user who may manage scheduled tasks), then the
     // configuration's own entries.

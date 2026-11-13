@@ -6,7 +6,7 @@
         <MudButton StartIcon="@Action.Icon" Href="@Action.Href" OnClick="Action.OnClick" Disabled="Action.Disabled">
             @Localizer.Text(Action.Label)
         </MudButton>
-        <MudMenu Icon="@Icons.Material.Filled.ArrowDropDown" AriaLabel="@Localizer.Text(CommonTexts.More)"
+        <MudMenu Icon="@Icons.Material.Filled.ArrowDropDown" AriaLabel="@Localizer.Text(ShellTexts.CommandActions.More)"
                  Disabled="Action.Disabled" Dense="true">
             @foreach (SerginMenuItem item in Action.MenuItems)
             {

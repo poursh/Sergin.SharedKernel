@@ -1,0 +1,97 @@
+using Sergin.SharedKernel.Application.Concurrency;
+using Sergin.SharedKernel.Modules;
+using Sergin.SharedKernel.Domain;
+using Sergin.SharedKernel.Presentation.Blazor.Dispatching;
+using Sergin.SharedKernel.Presentation.Blazor.Errors;
+using Sergin.SharedKernel.Presentation.Blazor.Modules;
+using Sergin.SharedKernel.Presentation.Blazor.Navigation;
+
+namespace Sergin.SharedKernel.Presentation.Blazor.Aggregates.Views.Parts;
+
+/// <summary>What the three generated views and the list body share, written once.</summary>
+internal static class GeneratedViewSupport
+{
+    /// <summary>
+    /// The list section step: the nav entry naming the list route, else a step titled as the list; null when the root
+    /// has no list route.
+    /// </summary>
+    public static SerginBreadcrumb? ListStep(AggregateViewModel model, SerginUiModuleCatalog catalog)
+    {
+        ArgumentNullException.ThrowIfNull(model);
+        ArgumentNullException.ThrowIfNull(catalog);
+
+        if (model.Routes.List is not { } list)
+        {
+            return null;
+        }
+
+        SerginNavItem? item = catalog.NavItems.FirstOrDefault(candidate => string.Equals(candidate.Href, list, StringComparison.OrdinalIgnoreCase));
+
+        return item is null ? new SerginBreadcrumb(model.Title, list) : SerginBreadcrumb.Of(item);
+    }
+
+    /// <summary>The field named <paramref name="titleField"/>, or null.</summary>
+    public static FieldView? TitleFieldOf(IReadOnlyList<FieldView> fields, string? titleField)
+    {
+        ArgumentNullException.ThrowIfNull(fields);
+
+        return fields.FirstOrDefault(candidate => candidate.Name == titleField);
+    }
+
+    /// <summary>The record's display field as stored, or <paramref name="fallback"/> (its id) when it has none.</summary>
+    public static string DisplayOf(object? record, FieldView? titleField, Guid fallback) =>
+        (record is null || titleField is null ? null : titleField.Get(record))?.ToString() ?? fallback.ToString();
+
+    /// <summary>Sends a command built from the record's id, at <paramref name="version"/> only when the command is version-guarded.</summary>
+    public static Task<ViewSendResult> SendFromIdAsync(ISerginDispatcher dispatcher, CommandView command, Guid id, RowVersion? version)
+    {
+        ArgumentNullException.ThrowIfNull(command);
+
+        object request = command.BuildFromId!(id);
+
+        return command.RequiresVersion
+            ? command.Invoker.SendVersionedAsync(dispatcher, request, version)
+            : command.Invoker.SendAsync(dispatcher, request);
+    }
+
+    /// <summary>
+    /// Shows every error of a failed send, and on a stale answer runs <paramref name="reloadAsync"/> so the next write
+    /// carries the version now there. Returns whether the send failed.
+    /// </summary>
+    public static async Task<bool> FailedAsync(ViewSendResult result, IUiErrorPresenter presenter, Func<Task> reloadAsync)
+    {
+        ArgumentNullException.ThrowIfNull(result);
+        ArgumentNullException.ThrowIfNull(presenter);
+        ArgumentNullException.ThrowIfNull(reloadAsync);
+
+        if (!result.IsError)
+        {
+            return false;
+        }
+
+        presenter.Notify(result.Errors);
+
+        if (result.Errors.Any(VersionErrors.IsStale))
+        {
+            await reloadAsync();
+        }
+
+        return true;
+    }
+
+    /// <summary>
+    /// A text's placeholder arguments: the record's properties (read through by the model's compiled reader), plus
+    /// <c>{Name}</c>, its display field, unless the record has a <c>Name</c> of its own.
+    /// </summary>
+    public static Dictionary<string, object?> ArgumentsOf(
+        Func<object, IReadOnlyDictionary<string, object?>>? reader, object? record, string display)
+    {
+        Dictionary<string, object?> arguments = record is null || reader is null
+            ? new(StringComparer.Ordinal)
+            : new(reader(record), StringComparer.Ordinal);
+
+        arguments.TryAdd("Name", display);
+
+        return arguments;
+    }
+}

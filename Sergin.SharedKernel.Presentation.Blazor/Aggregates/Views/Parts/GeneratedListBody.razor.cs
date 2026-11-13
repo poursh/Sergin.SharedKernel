@@ -117,44 +117,38 @@ public sealed partial class GeneratedListBody<TItem> : IGeneratedListBody
 
         Func<Guid, object> build = command.BuildFromId
             ?? throw new InvalidOperationException($"{command.Request.FullName} cannot be scheduled from a list: its constructor is not id-only.");
-        FieldView? title = TitleFieldOf(model);
+        FieldView? title = GeneratedViewSupport.TitleFieldOf(model.ListFields, model.ListTitleField);
 
         return new SerginScheduleRequest(
             model.Schema,
             command.Label,
             () => (IBaseCommand)build(Guid.Empty),
             [.. items.Select(item => new ScheduledTaskTarget(IdOf(item), null))],
-            [.. items.Select(item => DisplayOf(title, item))]);
+            [.. items.Select(item => GeneratedViewSupport.DisplayOf(item, title, IdOf(item)))]);
     }
 
     public Task ReloadAsync() => list.ReloadAsync();
 
     protected override async Task OnInitializedAsync()
     {
-        if (Model.ListInvoker is null || Model.BuildList is null)
+        if (Model.List is null)
         {
             throw new InvalidOperationException($"{Model.Root.FullName} has no list query, so its list view has nothing to load. Add an IListOf<{Model.Root.Name}>.");
         }
 
         commands = new GeneratedCommandActions(this, _ => Task.CompletedTask, _ => Task.CompletedTask);
         filters = new GeneratedFilterState(Model, new GeneratedFilterServices(Dispatcher, ErrorPresenter, Localizer, Formatter, TimeZones));
-        titleField = TitleFieldOf(Model);
+        titleField = GeneratedViewSupport.TitleFieldOf(Model.ListFields, Model.ListTitleField);
         columns = [.. Model.ListFields.Where(field => !field.Hidden).Select(field => new ListColumn(field, SortIdOf(field), field == titleField))];
 
         canManageSchedules = Model.HasSchedulableCommand && await ScopeAuthorization.CurrentUserHasAsync(ScheduledTaskPermissions.Manage);
         BulkActions = [.. BulkActionsOf()];
     }
 
-    private static FieldView? TitleFieldOf(AggregateViewModel model) =>
-        model.ListFields.FirstOrDefault(field => field.Name == model.ListTitleField);
-
     private static Guid IdOf(TItem item) =>
         idReader?.Invoke(item!) is Guid id
             ? id
             : throw new InvalidOperationException($"{typeof(TItem).FullName} has no Guid Id, so a generated list cannot link or act on its rows.");
-
-    private static string DisplayOf(FieldView? title, TItem item) =>
-        title?.Get(item!)?.ToString() ?? IdOf(item).ToString();
 
     // A column sorts by the list field named after its property, when the list field set declares it sortable.
     private string? SortIdOf(FieldView field) =>
@@ -174,7 +168,7 @@ public sealed partial class GeneratedListBody<TItem> : IGeneratedListBody
             [.. request.Filtering?.Filters ?? []],
             [.. request.Sorting?.Sorts ?? []]);
 
-        ViewSendResult result = await Model.ListInvoker!.SendAsync(Dispatcher, Model.BuildList!(input), cancellationToken);
+        ViewSendResult result = await Model.List!.Invoker.SendAsync(Dispatcher, Model.List.Build(input), cancellationToken);
 
         if (result.IsError)
         {
@@ -209,16 +203,8 @@ public sealed partial class GeneratedListBody<TItem> : IGeneratedListBody
         new(items.Count == 1 ? items[0] : null, Version: null, ChangedAsync, [.. items.Select(IdOf)]);
 
     // The item's properties (value objects read through) fill a text's placeholders, plus {Name}, its display field.
-    private Dictionary<string, object?> ArgumentsOf(TItem item)
-    {
-        Dictionary<string, object?> arguments = Model.ListItemArguments is null
-            ? new(StringComparer.Ordinal)
-            : new(Model.ListItemArguments(item!), StringComparer.Ordinal);
-
-        arguments.TryAdd("Name", DisplayOf(titleField, item));
-
-        return arguments;
-    }
+    private Dictionary<string, object?> ArgumentsOf(TItem item) =>
+        GeneratedViewSupport.ArgumentsOf(Model.ListItemArguments, item, GeneratedViewSupport.DisplayOf(item, titleField, IdOf(item)));
 
     private List<SerginMenuItem> RowMenuItemsOf(CommandView command, TItem item)
     {
@@ -296,9 +282,9 @@ public sealed partial class GeneratedListBody<TItem> : IGeneratedListBody
 
         RowVersion? version = null;
 
-        if (Model.GetOneInvoker is { } getOne && Model.BuildGetOne is { } buildGetOne)
+        if (Model.GetOne is { } getOne)
         {
-            ViewSendResult loaded = await getOne.SendVersionedAsync(Dispatcher, buildGetOne(id), expected: null);
+            ViewSendResult loaded = await getOne.Invoker.SendVersionedAsync(Dispatcher, getOne.Build(id), expected: null);
 
             if (loaded.IsError)
             {

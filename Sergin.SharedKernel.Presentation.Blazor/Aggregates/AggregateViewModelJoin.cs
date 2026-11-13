@@ -59,12 +59,12 @@ internal sealed class AggregateViewModelJoin(
             singular,
             builder.DeclaredRoutes,
             aggregates.For(root),
-            getOne,
-            list,
-            overview,
-            audit,
-            create,
-            update,
+            Request(getOne, RequestFactory.ForId),
+            Request(list, RequestFactory.ForList),
+            Request(overview, RequestFactory.ForNone),
+            Request(audit, RequestFactory.ForId),
+            Request(create, RequestFactory.ForForm),
+            Request(update, RequestFactory.ForForm),
             commandViews,
             detailFields,
             listFields,
@@ -76,18 +76,6 @@ internal sealed class AggregateViewModelJoin(
             detailTitle,
             listTitle,
             filters,
-            Invoker(getOne),
-            getOne is null ? null : RequestFactory.ForId(getOne),
-            Invoker(list),
-            list is null ? null : RequestFactory.ForList(list),
-            Invoker(overview),
-            overview is null ? null : RequestFactory.ForNone(overview),
-            Invoker(audit),
-            audit is null ? null : RequestFactory.ForId(audit),
-            Invoker(create),
-            create is null ? null : RequestFactory.ForForm(create),
-            Invoker(update),
-            update is null ? null : RequestFactory.ForForm(update),
             getOneResponse is null ? null : ArgumentsReader(getOneResponse),
             (builder.ListFields as IListFilterDeclarations)?.SearchPlaceholder,
             ListFieldLabels(listFieldSet, list),
@@ -121,7 +109,9 @@ internal sealed class AggregateViewModelJoin(
         };
     }
 
-    private static RequestInvoker? Invoker(Type? request) => request is null ? null : RequestInvoker.For(request);
+    private static ViewRequest<TBuild>? Request<TBuild>(Type? request, Func<Type, TBuild> build)
+        where TBuild : Delegate =>
+        request is null ? null : new ViewRequest<TBuild>(request, RequestInvoker.For(request), build(request));
 
     private InvalidOperationException Refuse(string problem) =>
         new($"Aggregate view configuration {view.Configuration.FullName}: {problem}");

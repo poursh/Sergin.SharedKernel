@@ -1,8 +1,6 @@
 using Microsoft.AspNetCore.Components;
 using Sergin.SharedKernel.Application.Commands.Types;
-using Sergin.SharedKernel.Application.Concurrency;
 using Sergin.SharedKernel.Domain;
-using Sergin.SharedKernel.Modules;
 using Sergin.SharedKernel.Presentation.Blazor.Aggregates.Views.Parts;
 using Sergin.SharedKernel.Presentation.Blazor.Dispatching;
 using Sergin.SharedKernel.Presentation.Blazor.Errors;
@@ -70,7 +68,7 @@ public sealed partial class SerginGeneratedFormView<TRoot>
 
     private IReadOnlyList<FormFieldView> Fields => IsEdit ? Model.UpdateFields : Model.CreateFields;
 
-    private RequestInvoker Invoker => (IsEdit ? Model.UpdateInvoker : Model.CreateInvoker)!;
+    private RequestInvoker Invoker => (IsEdit ? Model.Update : Model.Create)!.Invoker;
 
     // An edit form waits for the record; its version is held only for a Versioned() root, so it is not what gates.
     private bool Ready => !IsEdit || record is not null;
@@ -100,8 +98,8 @@ public sealed partial class SerginGeneratedFormView<TRoot>
         Model = Views.For<TRoot>();
 
         bool missing = IsEdit
-            ? Model.UpdateInvoker is null || Model.BuildUpdate is null || Model.GetOneInvoker is null || Model.BuildGetOne is null
-            : Model.CreateInvoker is null || Model.BuildCreate is null;
+            ? Model.Update is null || Model.GetOne is null
+            : Model.Create is null;
 
         if (missing)
         {
@@ -110,7 +108,7 @@ public sealed partial class SerginGeneratedFormView<TRoot>
                 : $"{typeof(TRoot).FullName} has no ICreateCommand, so its create form has nothing to send.");
         }
 
-        titleField = Model.DetailFields.FirstOrDefault(candidate => candidate.Name == Model.DetailTitleField);
+        titleField = GeneratedViewSupport.TitleFieldOf(Model.DetailFields, Model.DetailTitleField);
 
         // MudForm's form-level rule, for an input with a For (a child picker's parent select): the field by its path.
         validation = async (_, propertyName) => await ValidateAsync(propertyName);
@@ -118,17 +116,8 @@ public sealed partial class SerginGeneratedFormView<TRoot>
 
     protected override Task OnParametersSetAsync() => IsEdit ? LoadAsync() : Task.CompletedTask;
 
-    private IEnumerable<SerginBreadcrumb> ListStep()
-    {
-        if (Model.Routes.List is not { } list)
-        {
-            return [];
-        }
-
-        SerginNavItem? item = Catalog.NavItems.FirstOrDefault(candidate => string.Equals(candidate.Href, list, StringComparison.OrdinalIgnoreCase));
-
-        return [item is null ? new SerginBreadcrumb(Model.Title, list) : SerginBreadcrumb.Of(item)];
-    }
+    private IEnumerable<SerginBreadcrumb> ListStep() =>
+        GeneratedViewSupport.ListStep(Model, Catalog) is { } step ? [step] : [];
 
     // Links by the route id, so it is a link on the not-found path too.
     private IEnumerable<SerginBreadcrumb> RecordStep()
@@ -198,17 +187,10 @@ public sealed partial class SerginGeneratedFormView<TRoot>
 
         submitting = false;
 
-        if (result.IsError)
+        // Every error, not the first: validation yields one per broken rule. A stale edit means someone changed the
+        // record after this view loaded it: show what is there now, with its version.
+        if (await GeneratedViewSupport.FailedAsync(result, ErrorPresenter, () => IsEdit ? LoadAsync() : Task.CompletedTask))
         {
-            // Every error, not the first: validation yields one per broken rule.
-            ErrorPresenter.Notify(result.Errors);
-
-            // Someone changed the record after this view loaded it: show what is there now, with its version.
-            if (IsEdit && result.Errors.Any(VersionErrors.IsStale))
-            {
-                await LoadAsync();
-            }
-
             return;
         }
 

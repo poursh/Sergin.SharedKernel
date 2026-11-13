@@ -1,6 +1,5 @@
 using Microsoft.AspNetCore.Components;
 using Sergin.SharedKernel.Domain;
-using Sergin.SharedKernel.Modules;
 using Sergin.SharedKernel.Presentation.Blazor.Aggregates.Views.Parts;
 using Sergin.SharedKernel.Presentation.Blazor.Modules;
 using Sergin.SharedKernel.Presentation.Blazor.Navigation;
@@ -59,20 +58,8 @@ public sealed partial class SerginGeneratedListView<TRoot>
 
         bodyType = Model.ListBodyType ?? throw new InvalidOperationException(
             $"{typeof(TRoot).FullName} has no list query, so its list view has nothing to load. Add an IListOf<{typeof(TRoot).Name}>.");
-        Trail = [ListStep()];
+        Trail = [GeneratedViewSupport.ListStep(Model, Catalog) ?? new SerginBreadcrumb(Model.Title)];
         Actions = [.. CreateAction()];
-    }
-
-    private SerginBreadcrumb ListStep()
-    {
-        if (Model.Routes.List is not { } list)
-        {
-            return new SerginBreadcrumb(Model.Title);
-        }
-
-        SerginNavItem? item = Catalog.NavItems.FirstOrDefault(candidate => string.Equals(candidate.Href, list, StringComparison.OrdinalIgnoreCase));
-
-        return item is null ? new SerginBreadcrumb(Model.Title, list) : SerginBreadcrumb.Of(item);
     }
 
     // The create command, linking to the create route: its permission is the one the new record is checked on.

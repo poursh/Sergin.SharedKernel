@@ -49,9 +49,6 @@ public static class CommonTexts
 
     public static TextDefinition Reload { get; } = actions.Text("Reload", "Reload");
 
-    /// <summary>The split button's drop-down toggle (its accessible name).</summary>
-    public static TextDefinition More { get; } = actions.Text("More", "More actions");
-
     public static TextDefinition Refresh { get; } = actions.Text("Refresh", "Refresh");
 
     public static TextDefinition Open { get; } = actions.Text("Open", "Open");

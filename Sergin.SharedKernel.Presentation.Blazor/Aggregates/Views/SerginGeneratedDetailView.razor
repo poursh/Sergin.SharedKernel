@@ -5,7 +5,7 @@
     <HeaderActions>
         <SerginReloadButton OnReload="LoadAsync" />
         <SerginCopyLinkButton />
-        @if (record is not null && Model.AuditInvoker is not null && Model.BuildAudit is not null)
+        @if (record is not null && Model.Audit is not null)
         {
             <SerginInfoButton Load="LoadAuditAsync" Version="version" />
         }
