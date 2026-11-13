@@ -39,12 +39,13 @@ internal sealed class AggregateViewModelJoin(
         Type? update = Single(requests, typeof(IUpdateCommand<,>));
         Type? getOneResponse = getOne is null ? null : ResponseOf(getOne);
         Type? listItem = list is null ? null : ListItemOf(list);
-        CommandView[] commandViews = [.. Commands(requests)];
+        CommandView[] commandViews = [.. Commands(requests, builder, singular, child: false, [getOneResponse, listItem])];
 
         Type? overview = Single(requests, typeof(IOverviewQuery<>));
+        Type? entityOverview = Single(requests, typeof(IEntityOverviewQuery<,>));
         Type? audit = Single(requests, typeof(IAuditQuery<,>));
 
-        AggregateViewGuard.EnsureConfigured(view, commandViews, getOne, getOneResponse, list, listItem, create, update, overview, audit);
+        AggregateViewGuard.EnsureConfigured(view, commandViews, getOne, getOneResponse, list, listItem, create, update, overview, entityOverview, audit);
 
         IReadOnlyList<FieldView> detailFields = Fields(getOneResponse, CategoryOf(getOne), builder.DetailFields, out string? detailTitle);
         IReadOnlyList<FieldView> listFields = Fields(listItem, CategoryOf(list), builder.ListFields, out string? listTitle);
@@ -59,35 +60,25 @@ internal sealed class AggregateViewModelJoin(
             singular,
             builder.DeclaredRoutes,
             aggregates.For(root),
-            getOne,
-            list,
-            overview,
-            audit,
-            create,
-            update,
+            Request(getOne, RequestFactory.ForId),
+            Request(list, RequestFactory.ForList),
+            Request(overview, RequestFactory.ForNone),
+            Request(entityOverview, RequestFactory.ForId),
+            Request(audit, RequestFactory.ForId),
+            Request(create, RequestFactory.ForForm),
+            Request(update, RequestFactory.ForForm),
             commandViews,
             detailFields,
             listFields,
             listFieldSet,
-            FormFields(create, getOneResponse),
-            FormFields(update, getOneResponse),
+            FormFields(create, builder, getOneResponse),
+            FormFields(update, builder, getOneResponse),
             new Dictionary<SerginViewSlot, Type>(builder.Slots),
             commandViews.Any(command => command.ScheduleName is not null),
             detailTitle,
             listTitle,
             filters,
-            Invoker(getOne),
-            getOne is null ? null : RequestFactory.ForId(getOne),
-            Invoker(list),
-            list is null ? null : RequestFactory.ForList(list),
-            Invoker(overview),
-            overview is null ? null : RequestFactory.ForNone(overview),
-            Invoker(audit),
-            audit is null ? null : RequestFactory.ForId(audit),
-            Invoker(create),
-            create is null ? null : RequestFactory.ForForm(create),
-            Invoker(update),
-            update is null ? null : RequestFactory.ForForm(update),
+            Children(requests, getOneResponse, listItem),
             getOneResponse is null ? null : ArgumentsReader(getOneResponse),
             (builder.ListFields as IListFilterDeclarations)?.SearchPlaceholder,
             ListFieldLabels(listFieldSet, list),
@@ -95,11 +86,44 @@ internal sealed class AggregateViewModelJoin(
             listItem,
             listItem is null ? null : typeof(GeneratedListBody<>).MakeGenericType(listItem),
             create is null ? null : builder.Forms.GetValueOrDefault(create)?.DeclaredTitle,
-            update is null ? null : builder.Forms.GetValueOrDefault(update)?.DeclaredTitle);
+            update is null ? null : builder.Forms.GetValueOrDefault(update)?.DeclaredTitle,
+            builder.DetailOverviewIsCollapsed);
+    }
+
+    // ---- Children ----
+
+    /// <summary>One view model per child entity the root's typed requests name, by type name; a declared child no request names is refused.</summary>
+    private IReadOnlyList<ChildViewModel> Children(Type[] requests, Type? getOneResponse, Type? listItem)
+    {
+        Dictionary<Type, List<Type>> byChild = [];
+
+        foreach (Type request in requests)
+        {
+            foreach (Type child in AggregateTargets.ChildrenNamedBy(request, CommandTypes.TargetOf(request)!).Distinct())
+            {
+                if (!byChild.TryGetValue(child, out List<Type>? named))
+                {
+                    byChild[child] = named = [];
+                }
+
+                named.Add(request);
+            }
+        }
+
+        if (builder.Children.Keys.FirstOrDefault(child => !byChild.ContainsKey(child)) is { } unknown)
+        {
+            throw Refuse(
+                $"Child<{unknown.Name}>() names {unknown.FullName}, which is no child entity of {root.Name}: "
+                + $"none of {root.Name}'s typed requests names it as its child.");
+        }
+
+        ChildViewModelJoin join = new(this, getOneResponse, listItem);
+
+        return [.. byChild.Keys.OrderBy(child => child.FullName, StringComparer.Ordinal).Select(child => join.Build(child, [.. byChild[child]]))];
     }
 
     // Every public property's compiled, unwrapping reader, made once; a read fills a fresh bag.
-    private static Func<object, IReadOnlyDictionary<string, object?>> ArgumentsReader(Type record)
+    internal static Func<object, IReadOnlyDictionary<string, object?>> ArgumentsReader(Type record)
     {
         (string Name, Func<object, object?> Get)[] readers =
         [
@@ -121,12 +145,16 @@ internal sealed class AggregateViewModelJoin(
         };
     }
 
-    private static RequestInvoker? Invoker(Type? request) => request is null ? null : RequestInvoker.For(request);
+    internal static ViewRequest<TBuild>? Request<TBuild>(Type? request, Func<Type, TBuild> build)
+        where TBuild : Delegate =>
+        request is null ? null : new ViewRequest<TBuild>(request, RequestInvoker.For(request), build(request));
 
-    private InvalidOperationException Refuse(string problem) =>
+    internal DeclaredView View => view;
+
+    internal InvalidOperationException Refuse(string problem) =>
         new($"Aggregate view configuration {view.Configuration.FullName}: {problem}");
 
-    private Type? Single(Type[] requests, Type openInterface)
+    internal Type? Single(Type[] requests, Type openInterface)
     {
         Type[] found = [.. requests.Where(request => Implements(request, openInterface))];
 
@@ -140,23 +168,36 @@ internal sealed class AggregateViewModelJoin(
         return found.FirstOrDefault();
     }
 
-    private TextCategory? CategoryOf(Type? request) =>
+    internal TextCategory? CategoryOf(Type? request) =>
         (request is null ? null : commands.CategoryOf(request)) ?? aggregates.TextsOf(root);
 
     // ---- Commands ----
 
-    private IEnumerable<CommandView> Commands(Type[] requests)
+    /// <summary>
+    /// The actions among <paramref name="requests"/>: the commands whose role is the root's, or a child's when
+    /// <paramref name="child"/>. <paramref name="records"/> are the records a <c>DisabledWhen</c> may read.
+    /// </summary>
+    internal IEnumerable<CommandView> Commands(
+        IEnumerable<Type> requests, ViewDeclarationBuilder declarations, TextDefinition singular, bool child, IReadOnlyCollection<Type?> records)
     {
         foreach (Type request in requests.Where(type => !CommandTypes.IsSystem(type) && IsCommand(type)))
         {
-            if (RoleOf(request) is not { } role)
+            if (RoleOf(request, child) is not { } role)
             {
                 continue;
             }
 
             // Refused here, naming the configuration, before RequestFactory would refuse it without.
             _ = ConstructorOf(request);
-            builder.Commands.TryGetValue(request, out CommandViewBuilder? declared);
+            declarations.Commands.TryGetValue(request, out CommandViewBuilder? declared);
+            SerginEditMode mode = declared?.DeclaredEditMode ?? SerginEditMode.Dialog;
+            AggregateViewGuard.EnsureEditable(view, request, role, child, mode);
+
+            if (declared?.DisabledRecord is { } disabledRecord)
+            {
+                AggregateViewGuard.EnsureDisabledRecord(view, request, disabledRecord, records);
+            }
+
             CommandSettings settings = commands.For(request);
             (TextDefinition? defaultLabel, string? defaultIcon) = DefaultsOf(role);
             TextDefinition? label = declared?.DeclaredLabel ?? defaultLabel;
@@ -171,7 +212,7 @@ internal sealed class AggregateViewModelJoin(
             yield return new CommandView(
                 request,
                 role,
-                label ?? aggregates.NameOf(root)!,
+                label ?? singular,
                 declared?.DeclaredIcon ?? defaultIcon,
                 KindOf(role),
                 settings.RequiredPermissions,
@@ -185,28 +226,42 @@ internal sealed class AggregateViewModelJoin(
                 declared?.IsHidden ?? false,
                 [.. declared?.MenuItems ?? []],
                 RequestInvoker.For(request),
-                RequestFactory.IsIdOnly(request) ? RequestFactory.ForId(request) : null,
+                !child && RequestFactory.IsIdOnly(request) ? RequestFactory.ForId(request) : null,
                 declared?.DeclaredBulkSucceededText,
                 declared?.ConfirmManyTitle,
-                declared?.ConfirmManyText);
+                declared?.ConfirmManyText,
+                mode,
+                declared?.DeclaredDisabledWhen,
+                declared?.DeclaredDisabledReason,
+                child && RequestFactory.IsChildIdOnly(request) ? RequestFactory.ForChildId(request) : null);
         }
     }
 
-    /// <summary>The role of a command on the root itself; null for a child, collection or unlisted effect.</summary>
-    private static CommandRole? RoleOf(Type request)
+    /// <summary>The role of a command on the root itself or, when <paramref name="child"/>, on a child entity; null for another effect.</summary>
+    private static CommandRole? RoleOf(Type request, bool child)
     {
         IReadOnlyList<Type> effects = CommandTypes.EffectsOf(request);
 
-        return effects switch
-        {
-            _ when effects.Contains(typeof(ICreateCommand<,>)) => CommandRole.Create,
-            _ when effects.Contains(typeof(IUpdateCommand<,>)) => CommandRole.Update,
-            _ when effects.Contains(typeof(IDeleteCommand<,>)) => CommandRole.Delete,
-            _ when effects.Contains(typeof(ITransitionCommand<,>)) => CommandRole.Transition,
-            _ when effects.Contains(typeof(ISetPropertyCommand<,>)) => CommandRole.SetProperty,
-            _ when effects.Contains(typeof(IMoveCommand<,>)) => CommandRole.Move,
-            _ => null,
-        };
+        return child
+            ? effects switch
+            {
+                _ when effects.Contains(typeof(IAddChildCommand<,,,>)) => CommandRole.AddChild,
+                _ when effects.Contains(typeof(IRemoveChildCommand<,,,>)) => CommandRole.RemoveChild,
+                _ when effects.Contains(typeof(IUpdateCommand<,,,>)) => CommandRole.Update,
+                _ when effects.Contains(typeof(ITransitionCommand<,,,>)) => CommandRole.Transition,
+                _ when effects.Contains(typeof(ISetPropertyCommand<,,,>)) => CommandRole.SetProperty,
+                _ => null,
+            }
+            : effects switch
+            {
+                _ when effects.Contains(typeof(ICreateCommand<,>)) => CommandRole.Create,
+                _ when effects.Contains(typeof(IUpdateCommand<,>)) => CommandRole.Update,
+                _ when effects.Contains(typeof(IDeleteCommand<,>)) => CommandRole.Delete,
+                _ when effects.Contains(typeof(ITransitionCommand<,>)) => CommandRole.Transition,
+                _ when effects.Contains(typeof(ISetPropertyCommand<,>)) => CommandRole.SetProperty,
+                _ when effects.Contains(typeof(IMoveCommand<,>)) => CommandRole.Move,
+                _ => null,
+            };
     }
 
     private static (TextDefinition? Label, string? Icon) DefaultsOf(CommandRole role) => role switch
@@ -214,19 +269,21 @@ internal sealed class AggregateViewModelJoin(
         CommandRole.Create => (CommonTexts.Create, Icons.Material.Filled.Add),
         CommandRole.Update => (CommonTexts.Edit, Icons.Material.Outlined.Edit),
         CommandRole.Delete => (CommonTexts.Delete, Icons.Material.Outlined.Delete),
+        CommandRole.AddChild => (CommonTexts.Add, Icons.Material.Filled.Add),
+        CommandRole.RemoveChild => (CommonTexts.Remove, Icons.Material.Outlined.Delete),
         _ => (null, null),
     };
 
     private static SerginActionKind KindOf(CommandRole role) => role switch
     {
-        CommandRole.Create => SerginActionKind.Primary,
-        CommandRole.Delete => SerginActionKind.Danger,
+        CommandRole.Create or CommandRole.AddChild => SerginActionKind.Primary,
+        CommandRole.Delete or CommandRole.RemoveChild => SerginActionKind.Danger,
         _ => SerginActionKind.Secondary,
     };
 
     // ---- Fields ----
 
-    private IReadOnlyList<FieldView> Fields(Type? record, TextCategory? category, FieldSetBuilder? declared, out string? title)
+    internal IReadOnlyList<FieldView> Fields(Type? record, TextCategory? category, FieldSetBuilder? declared, out string? title)
     {
         title = declared?.TitleProperty;
 
@@ -261,7 +318,9 @@ internal sealed class AggregateViewModelJoin(
                 named?.Href,
                 named?.Component,
                 named?.Hidden ?? (IsGuid(property.PropertyType) || property.Name == "Id"),
-                named?.Order ?? index));
+                named?.Order ?? index,
+                named?.Format,
+                named?.FormatPlaceholder ?? "Value"));
 
             // A string, or a value object wrapping one: the record's name as stored.
             title ??= ValueObjects.PrimitiveOf(property.PropertyType) == typeof(string) ? property.Name : null;
@@ -270,16 +329,16 @@ internal sealed class AggregateViewModelJoin(
         return [.. fields.OrderBy(field => field.Order)];
     }
 
-    /// <summary>The property's field text; a property the configuration names to show must have one.</summary>
-    private FieldText? LabelOf(Type record, string property, TextCategory? category, FieldOverride? named)
+    /// <summary>The property's label: the one the configuration declared, else its field text's; a property the configuration names to show must have one.</summary>
+    private TextDefinition? LabelOf(Type record, string property, TextCategory? category, FieldOverride? named)
     {
-        FieldText? label = category is null ? null : texts.FindField(category, property);
+        TextDefinition? label = named?.Label ?? (category is null ? null : texts.FindField(category, property))?.Label;
 
         if (label is null && named is { Hidden: false })
         {
             throw Refuse(
                 $"Field(x => x.{property}) on {record.FullName} names a property with no FieldText in "
-                + $"{category?.Prefix ?? "any category (the root declares no Texts(...))"}; declare one, or Hidden() it.");
+                + $"{category?.Prefix ?? "any category (the root declares no Texts(...))"}; declare one, give it Label(...), or Hidden() it.");
         }
 
         return label;
@@ -287,7 +346,7 @@ internal sealed class AggregateViewModelJoin(
 
     private static bool IsGuid(Type type) => (Nullable.GetUnderlyingType(type) ?? type) == typeof(Guid);
 
-    private static ListFieldSet? ListFieldSetOf(Type listQuery)
+    internal static ListFieldSet? ListFieldSetOf(Type listQuery)
     {
         const BindingFlags members = BindingFlags.Public | BindingFlags.Static;
 
@@ -408,14 +467,14 @@ internal sealed class AggregateViewModelJoin(
 
     // ---- Forms ----
 
-    private IReadOnlyList<FormFieldView> FormFields(Type? command, Type? getOneResponse)
+    internal IReadOnlyList<FormFieldView> FormFields(Type? command, ViewDeclarationBuilder declarations, Type? getOneResponse)
     {
         if (command is null)
         {
             return [];
         }
 
-        FormViewBuilder? declared = builder.Forms.GetValueOrDefault(command);
+        FormViewBuilder? declared = declarations.Forms.GetValueOrDefault(command);
         IReadOnlySet<string> declaredByType = CommandTypes.InterfaceMemberNames(command);
         IReadOnlySet<string> hidden = commands.HiddenProperties(command);
 
@@ -616,7 +675,7 @@ internal sealed class AggregateViewModelJoin(
     // ---- Request shapes ----
 
     /// <summary>The one public constructor a view builds <paramref name="request"/> with; refused, naming it, when it has none or several.</summary>
-    private ConstructorInfo ConstructorOf(Type request)
+    internal ConstructorInfo ConstructorOf(Type request)
     {
         ConstructorInfo[] constructors = request.GetConstructors();
 
@@ -630,9 +689,9 @@ internal sealed class AggregateViewModelJoin(
     internal static bool Implements(Type request, Type openInterface) =>
         request.GetInterfaces().Any(contract => contract.IsGenericType && contract.GetGenericTypeDefinition() == openInterface);
 
-    private static bool IsCommand(Type request) => Implements(request, typeof(ICommand<>));
+    internal static bool IsCommand(Type request) => Implements(request, typeof(ICommand<>));
 
-    private static Type? ResponseOf(Type query) => GenericArgumentOf(query, typeof(IQuery<>));
+    internal static Type? ResponseOf(Type query) => GenericArgumentOf(query, typeof(IQuery<>));
 
     /// <summary>The <c>TItem</c> of the <c>IListQuery&lt;TItem&gt;</c> <paramref name="query"/> implements, or null.</summary>
     internal static Type? ListItemOf(Type query) => GenericArgumentOf(query, typeof(IListQuery<>));

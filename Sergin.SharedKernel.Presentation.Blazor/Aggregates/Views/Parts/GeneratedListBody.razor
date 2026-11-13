@@ -9,11 +9,11 @@
             <MudTh @key="column.Field.Name">
                 @if (column.SortId is not null)
                 {
-                    <MudTableSortLabel T="TItem" SortLabel="@column.SortId">@Localizer.Text(column.Field.Label.Label)</MudTableSortLabel>
+                    <MudTableSortLabel T="TItem" SortLabel="@column.SortId">@Localizer.Text(column.Field.Label)</MudTableSortLabel>
                 }
                 else
                 {
-                    @Localizer.Text(column.Field.Label.Label)
+                    @Localizer.Text(column.Field.Label)
                 }
             </MudTh>
         }
@@ -21,7 +21,7 @@
     <RowTemplate>
         @foreach (ListColumn column in columns)
         {
-            <MudTd @key="column.Field.Name" DataLabel="@Localizer.Text(column.Field.Label.Label)">
+            <MudTd @key="column.Field.Name" DataLabel="@Localizer.Text(column.Field.Label)">
                 @if (column.Links && Model.Routes.Detail is { } detail)
                 {
                     <MudLink Href="@detail(IdOf(context))">@TextOf(column, context)</MudLink>

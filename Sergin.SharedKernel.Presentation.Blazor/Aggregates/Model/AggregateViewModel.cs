@@ -16,12 +16,13 @@ namespace Sergin.SharedKernel.Presentation.Blazor.Aggregates;
 /// <param name="Singular">The root's name, from its feature configuration's <c>Named(...)</c>: detail and form titles.</param>
 /// <param name="Routes">Where its pages live.</param>
 /// <param name="Features">The root's aggregate features.</param>
-/// <param name="GetOne">The <c>IGetOneQuery</c>, or null.</param>
-/// <param name="List">The <c>IListOf</c> query, or null.</param>
-/// <param name="Overview">The <c>IOverviewQuery</c>, or null.</param>
-/// <param name="Audit">The <c>IAuditQuery</c>, or null.</param>
-/// <param name="Create">The <c>ICreateCommand</c>, or null.</param>
-/// <param name="Update">The <c>IUpdateCommand</c> on the root, or null.</param>
+/// <param name="GetOne">The <c>IGetOneQuery</c>, its invoker and its build from the record's id, or null.</param>
+/// <param name="List">The <c>IListOf</c> query, its invoker and its build from a page's paging, term, filters and sort, or null.</param>
+/// <param name="Overview">The <c>IOverviewQuery</c>, its invoker and its build (it targets the whole collection and takes no arguments), or null.</param>
+/// <param name="EntityOverview">The <c>IEntityOverviewQuery</c>, its invoker and its build from the record's id, or null.</param>
+/// <param name="Audit">The <c>IAuditQuery</c> with its invoker, built from the record's id, or null.</param>
+/// <param name="Create">The <c>ICreateCommand</c>, its invoker and its build from form values, or null.</param>
+/// <param name="Update">The <c>IUpdateCommand</c> on the root, its invoker and its build from the record's id and form values, or null.</param>
 /// <param name="Commands">Every command on the root that is an action, in the order of their request types' full names.</param>
 /// <param name="DetailFields">The GetOne response's fields, hidden ones included, in order.</param>
 /// <param name="ListFields">The list item's fields, hidden ones included, in order.</param>
@@ -33,18 +34,7 @@ namespace Sergin.SharedKernel.Presentation.Blazor.Aggregates;
 /// <param name="DetailTitleField">The GetOne response's display property: breadcrumb tail, fields title, schedule target label.</param>
 /// <param name="ListTitleField">The list item's display property.</param>
 /// <param name="ListFilters">The list's identifier filters and where their options come from.</param>
-/// <param name="GetOneInvoker">Sends the GetOne query; null with no GetOne.</param>
-/// <param name="BuildGetOne">Builds the GetOne query from the record's id.</param>
-/// <param name="ListInvoker">Sends the list query; null with no list.</param>
-/// <param name="BuildList">Builds the list query from a page's paging, term, filters and sort.</param>
-/// <param name="OverviewInvoker">Sends the overview query; null with no overview.</param>
-/// <param name="BuildOverview">Builds the overview query (it targets the whole collection and takes no arguments); null with no overview.</param>
-/// <param name="AuditInvoker">Sends the audit query; null with no audit query.</param>
-/// <param name="BuildAudit">Builds the audit query from the record's id, or null when it is not id-only.</param>
-/// <param name="CreateInvoker">Sends the create command; null with none.</param>
-/// <param name="BuildCreate">Builds the create command from form values.</param>
-/// <param name="UpdateInvoker">Sends the update command; null with none.</param>
-/// <param name="BuildUpdate">Builds the update command from the record's id and form values.</param>
+/// <param name="Children">The root's child entities, by type name: one for each child the root's typed requests name.</param>
 /// <param name="DetailArguments">
 /// Reads every public property of a GetOne response into a name-to-value bag, value objects read through to their
 /// primitive: what fills a text's placeholders from the loaded record. Compiled once; null with no GetOne.
@@ -59,6 +49,7 @@ namespace Sergin.SharedKernel.Presentation.Blazor.Aggregates;
 /// <param name="ListBodyType">The list view's body closed over <paramref name="ListItem"/>, made at registry build; null with no list.</param>
 /// <param name="CreateTitle">The create form's title, from <c>Form&lt;T&gt;(form => form.Title(...))</c>; null for the shell's "New {Name}".</param>
 /// <param name="UpdateTitle">The edit form's title, likewise; null for the shell's "Edit {Name}".</param>
+/// <param name="DetailOverviewCollapsed">Whether the detail overview starts collapsed, from <c>DetailOverviewCollapsed()</c>.</param>
 public sealed record AggregateViewModel(
     Type Root,
     Type Configuration,
@@ -67,12 +58,13 @@ public sealed record AggregateViewModel(
     TextDefinition Singular,
     AggregateViewRoutes Routes,
     AggregateFeatures Features,
-    Type? GetOne,
-    Type? List,
-    Type? Overview,
-    Type? Audit,
-    Type? Create,
-    Type? Update,
+    ViewRequest<Func<Guid, object>>? GetOne,
+    ViewRequest<Func<ListQueryInput, object>>? List,
+    ViewRequest<Func<object>>? Overview,
+    ViewRequest<Func<Guid, object>>? EntityOverview,
+    ViewRequest<Func<Guid, object>>? Audit,
+    ViewRequest<Func<Guid, IReadOnlyDictionary<string, object?>, object>>? Create,
+    ViewRequest<Func<Guid, IReadOnlyDictionary<string, object?>, object>>? Update,
     IReadOnlyList<CommandView> Commands,
     IReadOnlyList<FieldView> DetailFields,
     IReadOnlyList<FieldView> ListFields,
@@ -84,18 +76,7 @@ public sealed record AggregateViewModel(
     string? DetailTitleField,
     string? ListTitleField,
     IReadOnlyList<ListFilterView> ListFilters,
-    RequestInvoker? GetOneInvoker,
-    Func<Guid, object>? BuildGetOne,
-    RequestInvoker? ListInvoker,
-    Func<ListQueryInput, object>? BuildList,
-    RequestInvoker? OverviewInvoker,
-    Func<object>? BuildOverview,
-    RequestInvoker? AuditInvoker,
-    Func<Guid, object>? BuildAudit,
-    RequestInvoker? CreateInvoker,
-    Func<Guid, IReadOnlyDictionary<string, object?>, object>? BuildCreate,
-    RequestInvoker? UpdateInvoker,
-    Func<Guid, IReadOnlyDictionary<string, object?>, object>? BuildUpdate,
+    IReadOnlyList<ChildViewModel> Children,
     Func<object, IReadOnlyDictionary<string, object?>>? DetailArguments,
     TextDefinition? ListSearchPlaceholder = null,
     IReadOnlyDictionary<string, FieldText>? ListFieldLabels = null,
@@ -103,7 +84,8 @@ public sealed record AggregateViewModel(
     Type? ListItem = null,
     Type? ListBodyType = null,
     TextDefinition? CreateTitle = null,
-    TextDefinition? UpdateTitle = null)
+    TextDefinition? UpdateTitle = null,
+    bool DetailOverviewCollapsed = false)
 {
     /// <summary>
     /// Loads the record <paramref name="id"/> through the GetOne query: at its version for a <c>Versioned()</c> root, plainly
@@ -111,23 +93,20 @@ public sealed record AggregateViewModel(
     /// </summary>
     internal Task<ViewSendResult> LoadRecordAsync(ISerginDispatcher dispatcher, Guid id, CancellationToken cancellationToken = default)
     {
-        if (GetOneInvoker is null || BuildGetOne is null)
-        {
-            throw new InvalidOperationException($"{Root.FullName} has no GetOne query to load a record with.");
-        }
-
-        object query = BuildGetOne(id);
+        ViewRequest<Func<Guid, object>> getOne = GetOne
+            ?? throw new InvalidOperationException($"{Root.FullName} has no GetOne query to load a record with.");
+        object query = getOne.Build(id);
 
         return Features.Versioned
-            ? GetOneInvoker.SendVersionedAsync(dispatcher, query, expected: null, cancellationToken)
-            : GetOneInvoker.SendAsync(dispatcher, query, cancellationToken);
+            ? getOne.Invoker.SendVersionedAsync(dispatcher, query, expected: null, cancellationToken)
+            : getOne.Invoker.SendAsync(dispatcher, query, cancellationToken);
     }
 
     /// <summary>The create command (no <paramref name="id"/>) or the update command of <paramref name="id"/>, built from a form's values.</summary>
     internal object BuildForm(Guid? id, IReadOnlyDictionary<string, object?> values) =>
         id is { } target
-            ? (BuildUpdate ?? throw new InvalidOperationException($"{Root.FullName} has no update command.")).Invoke(target, values)
-            : (BuildCreate ?? throw new InvalidOperationException($"{Root.FullName} has no create command.")).Invoke(Guid.Empty, values);
+            ? (Update ?? throw new InvalidOperationException($"{Root.FullName} has no update command.")).Build(target, values)
+            : (Create ?? throw new InvalidOperationException($"{Root.FullName} has no create command.")).Build(Guid.Empty, values);
 
     /// <summary>
     /// Sends a form's create or update command, the update at <paramref name="version"/> when it is version-guarded.
@@ -136,9 +115,9 @@ public sealed record AggregateViewModel(
         ISerginDispatcher dispatcher, Guid? id, IReadOnlyDictionary<string, object?> values, RowVersion? version, CancellationToken cancellationToken = default)
     {
         object request = BuildForm(id, values);
-        RequestInvoker invoker = (id is null ? CreateInvoker : UpdateInvoker)
+        RequestInvoker invoker = (id is null ? Create : Update)?.Invoker
             ?? throw new InvalidOperationException($"{Root.FullName} has no {(id is null ? "create" : "update")} command.");
-        bool versioned = id is not null && Commands.Any(command => command.Request == Update && command.RequiresVersion);
+        bool versioned = id is not null && Commands.Any(command => command.Request == Update?.Type && command.RequiresVersion);
 
         return versioned
             ? invoker.SendVersionedAsync(dispatcher, request, version, cancellationToken)

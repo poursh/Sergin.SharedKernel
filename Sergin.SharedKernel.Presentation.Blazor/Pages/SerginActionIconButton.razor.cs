@@ -16,6 +16,10 @@ public sealed partial class SerginActionIconButton
     [EditorRequired]
     public SerginPageAction Action { get; set; } = default!;
 
+    /// <summary>What the tooltip says while the action is disabled (why it is), in place of its label; the accessible name stays the label.</summary>
+    [Parameter]
+    public TextDefinition? DisabledTooltip { get; set; }
+
     [Inject]
     private IScopeAuthorization ScopeAuthorization { get; set; } = default!;
 

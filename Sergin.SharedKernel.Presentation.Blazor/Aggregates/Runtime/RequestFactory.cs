@@ -19,12 +19,20 @@ public sealed record ListQueryInput(
 public static class RequestFactory
 {
     private const string IdParameter = "Id";
+    private const string RootIdParameter = "RootId";
+
+    private static readonly Dictionary<string, object?> noValues = [];
 
     private static readonly JsonSerializerOptions camelCase = new() { PropertyNamingPolicy = JsonNamingPolicy.CamelCase };
 
     /// <summary>Whether the request's one constructor takes only the target's <c>Id</c>.</summary>
     public static bool IsIdOnly(Type requestType) =>
         ConstructorOf(requestType).GetParameters() is [{ } only] && string.Equals(only.Name, IdParameter, StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>Whether the request's one constructor takes only a child's <c>RootId</c> and <c>Id</c>, in either order.</summary>
+    public static bool IsChildIdOnly(Type requestType) =>
+        ConstructorOf(requestType).GetParameters() is [{ } first, { } second]
+        && (IsNamed(first, RootIdParameter) && IsNamed(second, IdParameter) || IsNamed(first, IdParameter) && IsNamed(second, RootIdParameter));
 
     /// <summary>Whether the request's one constructor takes nothing (an overview query).</summary>
     public static bool IsParameterless(Type requestType) => ConstructorOf(requestType).GetParameters().Length == 0;
@@ -62,6 +70,22 @@ public static class RequestFactory
         return guid => build([id(guid)]);
     }
 
+    /// <summary>A request whose constructor takes exactly a child's <c>RootId</c> and <c>Id</c>, built from the two Guids (root first).</summary>
+    public static Func<Guid, Guid, object> ForChildId(Type requestType)
+    {
+        ConstructorInfo constructor = ConstructorOf(requestType);
+
+        if (!IsChildIdOnly(requestType))
+        {
+            throw new InvalidOperationException(
+                $"{requestType.FullName} cannot be built from a root and child id alone: its constructor is ({Describe(constructor)}), not (RootId, Id).");
+        }
+
+        Func<Guid, Guid, IReadOnlyDictionary<string, object?>, object> build = ForChildForm(requestType);
+
+        return (rootId, id) => build(rootId, id, noValues);
+    }
+
     /// <summary>
     /// A request built from the target id (ignored when the request has no <c>Id</c>, as a create) and form values keyed by
     /// parameter name; a primitive is wrapped into the parameter's type. A missing value becomes the primitive's default
@@ -70,30 +94,59 @@ public static class RequestFactory
     /// </summary>
     public static Func<Guid, IReadOnlyDictionary<string, object?>, object> ForForm(Type requestType)
     {
+        Func<Guid, Guid, IReadOnlyDictionary<string, object?>, object> build = ForChildForm(requestType);
+
+        return (id, values) => build(Guid.Empty, id, values);
+    }
+
+    /// <summary>
+    /// A request of a child entity built like <see cref="ForForm"/>, from the root's id (the <c>RootId</c> parameter), the
+    /// child's id (the <c>Id</c> parameter, ignored when the request has none, as an add) and form values.
+    /// </summary>
+    public static Func<Guid, Guid, IReadOnlyDictionary<string, object?>, object> ForChildForm(Type requestType)
+    {
         ConstructorInfo constructor = ConstructorOf(requestType);
         ParameterInfo[] parameters = constructor.GetParameters();
         NullabilityInfoContext nullability = new();
         Func<object?, object?>[] converters =
         [
-            .. parameters.Select(parameter => ValueObjects.Converter(
-                parameter.ParameterType,
-                neverNull: !IsNullable(parameter, nullability))),
+            .. parameters.Select(parameter => BlankAware(parameter, nullability)),
         ];
-        bool[] isId = [.. parameters.Select(parameter => string.Equals(parameter.Name, IdParameter, StringComparison.OrdinalIgnoreCase))];
+        bool[] isId = [.. parameters.Select(parameter => IsNamed(parameter, IdParameter))];
+        bool[] isRootId = [.. parameters.Select(parameter => IsNamed(parameter, RootIdParameter))];
         string[] names = [.. parameters.Select(parameter => parameter.Name!)];
         Func<object?[], object> build = Compile(constructor);
 
-        return (id, values) =>
+        return (rootId, id, values) =>
         {
             object?[] arguments = new object?[names.Length];
 
             for (int index = 0; index < names.Length; index++)
             {
-                arguments[index] = converters[index](isId[index] ? id : ValueOf(values, names[index]));
+                object? value = ValueOf(values, names[index]);
+
+                if (isId[index])
+                {
+                    value = id;
+                }
+                else if (isRootId[index])
+                {
+                    value = rootId;
+                }
+
+                arguments[index] = converters[index](value);
             }
 
             return build(arguments);
         };
+    }
+
+    /// <summary>A request of a child built from the root's id and form values, as an add command whose constructor takes the <c>RootId</c>.</summary>
+    public static Func<Guid, IReadOnlyDictionary<string, object?>, object> ForRootForm(Type requestType)
+    {
+        Func<Guid, Guid, IReadOnlyDictionary<string, object?>, object> build = ForChildForm(requestType);
+
+        return (rootId, values) => build(rootId, Guid.Empty, values);
     }
 
     /// <summary>A list query built from a page's <see cref="ListQueryInput"/>.</summary>
@@ -158,6 +211,20 @@ public static class RequestFactory
             ]);
         };
     }
+
+    // Decided once per parameter: a parameter declared nullable whose primitive is a string takes blank text as null (a
+    // cleared optional field is "not given"); a non-nullable one keeps its text so the validators see it.
+    private static Func<object?, object?> BlankAware(ParameterInfo parameter, NullabilityInfoContext nullability)
+    {
+        bool nullable = IsNullable(parameter, nullability);
+        Func<object?, object?> convert = ValueObjects.Converter(parameter.ParameterType, neverNull: !nullable);
+
+        return nullable && ValueObjects.PrimitiveOf(parameter.ParameterType) == typeof(string)
+            ? value => value is string text && string.IsNullOrWhiteSpace(text) ? null : convert(value)
+            : convert;
+    }
+
+    private static bool IsNamed(ParameterInfo parameter, string name) => string.Equals(parameter.Name, name, StringComparison.OrdinalIgnoreCase);
 
     private static object? ValueOf(IReadOnlyDictionary<string, object?> values, string name)
     {

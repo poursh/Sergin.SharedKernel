@@ -28,6 +28,9 @@ public sealed partial class GeneratedField
     [Inject]
     private ICultureFormatter Formatter { get; set; } = default!;
 
+    [Inject]
+    private IStringLocalizer Localizer { get; set; } = default!;
+
     private object? Value => Field.Get(Record);
 
     private string? Href => Field.Href?.Invoke(Record);
@@ -38,6 +41,6 @@ public sealed partial class GeneratedField
         ["Value"] = Value,
     };
 
-    // The field reader already read a value object through to its primitive.
-    private string? Text => FieldValueText.Format(Value, Formatter);
+    // The field reader already read a value object through to its primitive; Format(...) applies here as in a list row.
+    private string? Text => FieldValueText.Render(Field, Value, Formatter, Localizer);
 }

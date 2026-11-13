@@ -1,0 +1,41 @@
+@typeparam TItem
+@* The table of a generated child section, closed over the child list item type: see the code-behind. *@
+<SerginEntityList @ref="list" TItem="TItem" Load="LoadAsync" TotalChanged="OnTotalChanged" Searchable="Searchable"
+                  SearchPlaceholderText="Child.ListSearchPlaceholder" EmptyMessage="Child.EmptyText" BulkActions="BulkActions">
+    <HeaderContent>
+        @foreach (ListColumn column in columns)
+        {
+            <MudTh @key="column.Field.Name">
+                @if (column.SortId is not null)
+                {
+                    <MudTableSortLabel T="TItem" SortLabel="@column.SortId">@Localizer.Text(column.Field.Label)</MudTableSortLabel>
+                }
+                else
+                {
+                    @Localizer.Text(column.Field.Label)
+                }
+            </MudTh>
+        }
+    </HeaderContent>
+    <RowTemplate>
+        @foreach (ListColumn column in columns)
+        {
+            <MudTd @key="column.Field.Name" DataLabel="@Localizer.Text(column.Field.Label)">
+                @if (column.Links && Child.Routes.Detail is { } detail)
+                {
+                    <SerginEntityLink Href="@detail(RootId, IdOf(context))">@TextOf(column, context)</SerginEntityLink>
+                }
+                else
+                {
+                    @TextOf(column, context)
+                }
+            </MudTd>
+        }
+    </RowTemplate>
+    <RowCommands>
+        @foreach (ChildRowAction row in RowActionsFor(Child, RootId, Version, context))
+        {
+            <SerginActionIconButton Action="PageActionOf(row, context)" DisabledTooltip="row.DisabledReason" />
+        }
+    </RowCommands>
+</SerginEntityList>

@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Components;
 using MudBlazor;
+using Sergin.SharedKernel.Application.Securities.Authorization;
 using Sergin.SharedKernel.Presentation.Blazor.Errors;
 
 namespace Sergin.SharedKernel.Presentation.Blazor.Pages;
@@ -87,7 +88,20 @@ public sealed partial class SerginEntityList<TItem>
     /// <summary>Loads the current page again — after a row command, or when the owning page reloads.</summary>
     public Task ReloadAsync() => table.ReloadServerData();
 
-    private bool Selectable => BulkActions.Count > 0;
+    // The checkbox column is for a user who may run at least one bulk action; answered once per parameter set, not per row.
+    private bool Selectable { get; set; }
+
+    [Inject]
+    private IScopeAuthorization ScopeAuthorization { get; set; } = default!;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        var visibility = new SerginActionVisibility(ScopeAuthorization);
+        IReadOnlyList<SerginPageAction> visible = await visibility.VisibleAsync(
+            [.. BulkActions.Select(action => new SerginPageAction(action.Label, action.Icon, action.Kind, Permission: action.Permission, AnyScope: action.AnyScope))]);
+
+        Selectable = visible.Count > 0;
+    }
 
     // Rebuilt on each render, so a running action disables every button of the bar.
     private IReadOnlyList<SerginPageAction> SelectionActions =>

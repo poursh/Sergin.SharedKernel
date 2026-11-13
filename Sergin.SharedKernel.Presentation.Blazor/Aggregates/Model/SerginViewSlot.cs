@@ -9,6 +9,12 @@ public enum SerginViewSlot
     /// <summary>Rendered below the detail view's fields, where entity sections go.</summary>
     DetailEntities,
 
+    /// <summary>The detail view's overview figures (the entity overview, in <c>Context.Overview</c>).</summary>
+    DetailOverview,
+
+    /// <summary>The detail view's overview line when collapsed.</summary>
+    DetailOverviewSummary,
+
     /// <summary>The list view's overview figures.</summary>
     ListOverview,
 

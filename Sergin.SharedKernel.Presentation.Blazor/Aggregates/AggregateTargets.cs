@@ -121,7 +121,7 @@ internal sealed class AggregateTargets
     }
 
     // A child-target request names its child; so do an add-child command and a child list query, whose target is the root.
-    private static IEnumerable<Type> ChildrenNamedBy(Type request, CommandTarget target)
+    internal static IEnumerable<Type> ChildrenNamedBy(Type request, CommandTarget target)
     {
         if (target.Child is { } child)
         {

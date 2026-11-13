@@ -2,13 +2,11 @@ using Microsoft.AspNetCore.Components;
 using MudBlazor;
 using Sergin.SharedKernel.Application.Aggregates;
 using Sergin.SharedKernel.Application.Commands;
-using Sergin.SharedKernel.Application.Concurrency;
 using Sergin.SharedKernel.Application.ScheduledTasks;
 using Sergin.SharedKernel.Application.Securities.Authorization;
 using Sergin.SharedKernel.Domain;
 using Sergin.SharedKernel.Domain.ScheduledTasks;
 using Sergin.SharedKernel.Domain.Securities;
-using Sergin.SharedKernel.Modules;
 using Sergin.SharedKernel.Presentation.Blazor.Aggregates.Views.Parts;
 using Sergin.SharedKernel.Presentation.Blazor.Dispatching;
 using Sergin.SharedKernel.Presentation.Blazor.Errors;
@@ -26,7 +24,10 @@ namespace Sergin.SharedKernel.Presentation.Blazor.Aggregates.Views;
 /// loaded through its GetOne query (at its version when the root is <c>Versioned()</c>), the header's reload, copy-link and (with an audit query) information
 /// buttons, a field per visible response property, an action per offered command, and, when a command is schedulable,
 /// the record's scheduled tasks. A configuration's <see cref="SerginViewSlot.DetailFields"/> component replaces the
-/// fields, and its <see cref="SerginViewSlot.DetailEntities"/> component renders above the scheduled tasks; both get
+/// fields, and its <see cref="SerginViewSlot.DetailEntities"/> component renders above the child sections (<see cref="SerginGeneratedChildSection"/>,
+/// one per child entity with a list query, given the record's version) and the scheduled tasks; the
+/// <see cref="SerginViewSlot.DetailOverview"/> and <see cref="SerginViewSlot.DetailOverviewSummary"/> components fill the
+/// overview (the entity overview query read once per load, in <c>Context.Overview</c>); all get
 /// <c>Context</c>, an <see cref="AggregateViewContext"/>.
 /// </summary>
 /// <remarks>
@@ -47,6 +48,8 @@ public sealed partial class SerginGeneratedDetailView<TRoot>
     private SerginScheduledTasksSection? section;
     private GeneratedCommandActions commands = default!;
     private FieldView? titleField;
+    private object? overview;
+    private readonly Dictionary<Type, SerginGeneratedChildSection> childSections = [];
 
     [Parameter]
     public Guid Id { get; set; }
@@ -89,20 +92,39 @@ public sealed partial class SerginGeneratedDetailView<TRoot>
 
     private IEnumerable<FieldView> VisibleFields => Model.DetailFields.Where(candidate => !candidate.Hidden);
 
-    private AggregateViewContext Context => new(record, version, ReloadAsync, [Id]);
+    // A child entity with a list query is a section of the detail, after the entities slot and before the scheduled tasks.
+    private IEnumerable<ChildViewModel> Sections => Model.Children.Where(child => child.List is not null);
+
+    // Each section is kept by its child type, so a reload asks each to load its rows again without remounting it.
+    private RenderFragment SectionsFragment => builder =>
+    {
+        foreach (ChildViewModel child in Sections)
+        {
+            builder.OpenComponent<SerginGeneratedChildSection>(0);
+            builder.SetKey($"{Id}:{child.Child.FullName}");
+            builder.AddAttribute(1, nameof(SerginGeneratedChildSection.Model), Model);
+            builder.AddAttribute(2, nameof(SerginGeneratedChildSection.Child), child);
+            builder.AddAttribute(3, nameof(SerginGeneratedChildSection.RootId), Id);
+            builder.AddAttribute(4, nameof(SerginGeneratedChildSection.Version), (object?)version);
+            builder.AddAttribute(5, nameof(SerginGeneratedChildSection.OnChanged), ChildChanged);
+            builder.AddComponentReferenceCapture(6, section => childSections[child.Child] = (SerginGeneratedChildSection)section);
+            builder.CloseComponent();
+        }
+    };
+
+    // A child command moved the root's version (or found it stale): the record is read again, and the section reloads its own rows.
+    private EventCallback ChildChanged => EventCallback.Factory.Create(this, LoadAsync);
+
+    private AggregateViewContext Context => new(record, version, ReloadAsync, [Id], overview);
+
+    private RenderFragment? OverviewFragment => record is null ? null : SlotOf(SerginViewSlot.DetailOverview);
+
+    private RenderFragment? OverviewSummaryFragment => record is null ? null : SlotOf(SerginViewSlot.DetailOverviewSummary);
 
     private Dictionary<string, object?> SlotParameters => new(StringComparer.Ordinal) { ["Context"] = Context };
 
     // The record's display field as stored, or its id when it has none.
-    private string DisplayText
-    {
-        get
-        {
-            object? value = record is null || titleField is null ? null : titleField.Get(record);
-
-            return value?.ToString() ?? Id.ToString();
-        }
-    }
+    private string DisplayText => GeneratedViewSupport.DisplayOf(record, titleField, Id);
 
     // The list section step — the nav entry naming the list route, else the list's title — then the record, or the
     // root's name until it loads and beside the problem panel.
@@ -118,31 +140,32 @@ public sealed partial class SerginGeneratedDetailView<TRoot>
     {
         Model = Views.For<TRoot>();
 
-        if (Model.GetOneInvoker is null || Model.BuildGetOne is null)
+        if (Model.GetOne is null)
         {
             throw new InvalidOperationException(
                 $"{typeof(TRoot).FullName} has no GetOne query, so its detail view has nothing to load. Add an IGetOneQuery<{typeof(TRoot).Name}, …>.");
         }
 
         commands = new GeneratedCommandActions(this, RunAsync, DeleteAsync);
-        titleField = Model.DetailFields.FirstOrDefault(candidate => candidate.Name == Model.DetailTitleField);
+        titleField = GeneratedViewSupport.TitleFieldOf(Model.DetailFields, Model.DetailTitleField);
 
         canManageSchedules = Model.HasSchedulableCommand && await ScopeAuthorization.CurrentUserHasAsync(ScheduledTaskPermissions.Manage);
     }
 
     protected override Task OnParametersSetAsync() => LoadAsync();
 
-    private IEnumerable<SerginBreadcrumb> ListStep()
-    {
-        if (Model.Routes.List is not { } list)
-        {
-            return [];
-        }
+    private RenderFragment? SlotOf(SerginViewSlot slot) =>
+        Model.Slots.GetValueOrDefault(slot) is { } component
+            ? builder =>
+            {
+                builder.OpenComponent(0, component);
+                builder.AddAttribute(1, "Context", Context);
+                builder.CloseComponent();
+            }
+            : null;
 
-        SerginNavItem? item = Catalog.NavItems.FirstOrDefault(candidate => string.Equals(candidate.Href, list, StringComparison.OrdinalIgnoreCase));
-
-        return [item is null ? new SerginBreadcrumb(Model.Title, list) : SerginBreadcrumb.Of(item)];
-    }
+    private IEnumerable<SerginBreadcrumb> ListStep() =>
+        GeneratedViewSupport.ListStep(Model, Catalog) is { } step ? [step] : [];
 
     // Keeps the version the record was read at (a Versioned() root's), so a guarded write can say which record it means.
     private async Task LoadAsync()
@@ -153,6 +176,7 @@ public sealed partial class SerginGeneratedDetailView<TRoot>
         {
             record = null;
             version = null;
+            overview = null;
             problem = ErrorPresenter.Present(loaded.Errors[0]);
 
             return;
@@ -161,18 +185,28 @@ public sealed partial class SerginGeneratedDetailView<TRoot>
         problem = null;
         record = loaded.Value;
         version = loaded.Version;
+        overview = Model.EntityOverview is { } entityOverview
+            && (Model.Slots.ContainsKey(SerginViewSlot.DetailOverview) || Model.Slots.ContainsKey(SerginViewSlot.DetailOverviewSummary))
+            ? await GeneratedViewSupport.LoadOverviewAsync(Dispatcher, entityOverview.Invoker, entityOverview.Build(Id))
+            : null;
     }
 
     // What a slot component or a configured menu item calls: it runs outside this view's own handlers, so it re-renders.
     private async Task ReloadAsync()
     {
         await LoadAsync();
+
+        foreach (SerginGeneratedChildSection childSection in childSections.Values)
+        {
+            await childSection.ReloadAsync();
+        }
+
         await InvokeAsync(StateHasChanged);
     }
 
     private async Task<ErrorOr<AuditInfo>> LoadAuditAsync()
     {
-        ViewSendResult result = await Model.AuditInvoker!.SendAsync(Dispatcher, Model.BuildAudit!(Id));
+        ViewSendResult result = await Model.Audit!.Invoker.SendAsync(Dispatcher, Model.Audit.Build(Id));
 
         if (result.IsError)
         {
@@ -183,20 +217,14 @@ public sealed partial class SerginGeneratedDetailView<TRoot>
         return (AuditInfo)result.Value!;
     }
 
-    private Task<ViewSendResult> SendAsync(CommandView command)
-    {
-        object request = command.BuildFromId!(Id);
-
-        return command.RequiresVersion
-            ? command.Invoker.SendVersionedAsync(Dispatcher, request, version)
-            : command.Invoker.SendAsync(Dispatcher, request);
-    }
+    private Task<ViewSendResult> SendAsync(CommandView command) =>
+        GeneratedViewSupport.SendFromIdAsync(Dispatcher, command, Id, version);
 
     private async Task RunAsync(CommandView command)
     {
         ViewSendResult result = await commands.WhileRunningAsync(command, () => SendAsync(command));
 
-        if (await FailedAsync(result))
+        if (await GeneratedViewSupport.FailedAsync(result, ErrorPresenter, LoadAsync))
         {
             return;
         }
@@ -219,7 +247,7 @@ public sealed partial class SerginGeneratedDetailView<TRoot>
 
         ViewSendResult result = await commands.WhileRunningAsync(command, () => SendAsync(command));
 
-        if (await FailedAsync(result))
+        if (await GeneratedViewSupport.FailedAsync(result, ErrorPresenter, LoadAsync))
         {
             return;
         }
@@ -230,36 +258,10 @@ public sealed partial class SerginGeneratedDetailView<TRoot>
         }
     }
 
-    // Shows every error; on a stale answer, reads the record again so the next write carries the version it now has.
-    private async Task<bool> FailedAsync(ViewSendResult result)
-    {
-        if (!result.IsError)
-        {
-            return false;
-        }
-
-        ErrorPresenter.Notify(result.Errors);
-
-        if (result.Errors.Any(VersionErrors.IsStale))
-        {
-            await LoadAsync();
-        }
-
-        return true;
-    }
-
     // The record's properties (value objects read through, by the model's compiled reader) fill a text's placeholders,
     // plus {Name} — its display field — unless the record has a Name of its own.
-    private Dictionary<string, object?> PlaceholderArguments()
-    {
-        Dictionary<string, object?> arguments = record is null || Model.DetailArguments is null
-            ? new(StringComparer.Ordinal)
-            : new(Model.DetailArguments(record), StringComparer.Ordinal);
-
-        arguments.TryAdd("Name", DisplayText);
-
-        return arguments;
-    }
+    private Dictionary<string, object?> PlaceholderArguments() =>
+        GeneratedViewSupport.ArgumentsOf(Model.DetailArguments, record, DisplayText);
 
     // Schedule… and View schedules for a schedulable command (to a user who may manage scheduled tasks), then the
     // configuration's own entries.

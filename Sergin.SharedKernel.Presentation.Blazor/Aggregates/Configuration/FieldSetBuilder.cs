@@ -66,6 +66,27 @@ public sealed class FieldBuilder<T>
         return this;
     }
 
+    /// <summary>Shows a property that has no <see cref="FieldText"/>, or replaces the label its field text declares.</summary>
+    public FieldBuilder<T> Label(TextDefinition label)
+    {
+        ArgumentNullException.ThrowIfNull(label);
+        field.Label = label;
+        return this;
+    }
+
+    /// <summary>
+    /// Renders the value through <paramref name="text"/>, the value in <c>{<paramref name="placeholder"/>}</c> (a number
+    /// formatted for the culture).
+    /// </summary>
+    public FieldBuilder<T> Format(TextDefinition text, string placeholder = "Value")
+    {
+        ArgumentNullException.ThrowIfNull(text);
+        ArgumentException.ThrowIfNullOrWhiteSpace(placeholder);
+        field.Format = text;
+        field.FormatPlaceholder = placeholder;
+        return this;
+    }
+
     /// <summary>Not shown.</summary>
     public FieldBuilder<T> Hidden()
     {
@@ -101,6 +122,12 @@ internal sealed class FieldOverride(string name)
     public int? Order { get; set; }
 
     public Type? Component { get; set; }
+
+    public TextDefinition? Label { get; set; }
+
+    public TextDefinition? Format { get; set; }
+
+    public string FormatPlaceholder { get; set; } = "Value";
 }
 
 internal static class ViewExpressions

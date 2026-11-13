@@ -44,6 +44,9 @@ public static class ShellTexts
     {
         private static readonly TextCategory category = common.Child("Actions");
 
+        /// <summary>The split button's drop-down toggle (its accessible name).</summary>
+        public static TextDefinition More { get; } = category.Text("More", "More actions");
+
         /// <summary>A generated delete's confirm; <c>{Name}</c> is the record's display field.</summary>
         public static TextDefinition DeleteConfirm { get; } =
             category.Text("DeleteConfirm", "Delete {Name}? It disappears from every list and page.");

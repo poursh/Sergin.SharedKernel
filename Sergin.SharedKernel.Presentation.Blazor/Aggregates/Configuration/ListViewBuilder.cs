@@ -1,3 +1,4 @@
+using System.Linq.Expressions;
 using Microsoft.AspNetCore.Components;
 
 namespace Sergin.SharedKernel.Presentation.Blazor.Aggregates;
@@ -18,6 +19,26 @@ public sealed class ListViewBuilder<TItem> : FieldSetBuilder<TItem>, IListFilter
     internal TextDefinition? DeclaredSearchPlaceholder { get; private set; }
 
     TextDefinition? IListFilterDeclarations.SearchPlaceholder => DeclaredSearchPlaceholder;
+
+    /// <summary>What the list says with no rows, or null for the shell's.</summary>
+    internal TextDefinition? DeclaredEmpty { get; private set; }
+
+    TextDefinition? IListFilterDeclarations.EmptyText => DeclaredEmpty;
+
+    /// <summary>The list item's display field, as <see cref="FieldSetBuilder{T}.Title"/>, returning this builder so list calls chain.</summary>
+    public new ListViewBuilder<TItem> Title(Expression<Func<TItem, object?>> property)
+    {
+        base.Title(property);
+        return this;
+    }
+
+    /// <summary>What the list says when it has no rows.</summary>
+    public ListViewBuilder<TItem> Empty(TextDefinition text)
+    {
+        ArgumentNullException.ThrowIfNull(text);
+        DeclaredEmpty = text;
+        return this;
+    }
 
     /// <summary>The quick search's placeholder, naming what it searches, replacing the shell's <c>Quick search…</c>.</summary>
     public ListViewBuilder<TItem> SearchPlaceholder(TextDefinition placeholder)
@@ -53,4 +74,6 @@ internal interface IListFilterDeclarations
     IReadOnlyDictionary<string, Type> FilterComponents { get; }
 
     TextDefinition? SearchPlaceholder { get; }
+
+    TextDefinition? EmptyText { get; }
 }
