@@ -1,5 +1,7 @@
 using Sergin.SharedKernel.Application.Aggregates;
 using Sergin.SharedKernel.Application.Commands.Queries;
+using Sergin.SharedKernel.Domain;
+using Sergin.SharedKernel.Presentation.Blazor.Dispatching;
 
 namespace Sergin.SharedKernel.Presentation.Blazor.Aggregates;
 
@@ -20,7 +22,7 @@ namespace Sergin.SharedKernel.Presentation.Blazor.Aggregates;
 /// <param name="Audit">The <c>IAuditQuery</c>, or null.</param>
 /// <param name="Create">The <c>ICreateCommand</c>, or null.</param>
 /// <param name="Update">The <c>IUpdateCommand</c> on the root, or null.</param>
-/// <param name="Commands">Every command on the root that is an action, by role then name.</param>
+/// <param name="Commands">Every command on the root that is an action, in the order of their request types' full names.</param>
 /// <param name="DetailFields">The GetOne response's fields, hidden ones included, in order.</param>
 /// <param name="ListFields">The list item's fields, hidden ones included, in order.</param>
 /// <param name="ListFieldSet">The list query's declared sort and filter fields, or null.</param>
@@ -101,4 +103,45 @@ public sealed record AggregateViewModel(
     Type? ListItem = null,
     Type? ListBodyType = null,
     TextDefinition? CreateTitle = null,
-    TextDefinition? UpdateTitle = null);
+    TextDefinition? UpdateTitle = null)
+{
+    /// <summary>
+    /// Loads the record <paramref name="id"/> through the GetOne query: at its version for a <c>Versioned()</c> root, plainly
+    /// for any other (which publishes no version, so a versioned send would answer <c>VersionErrors.NotPublished</c>).
+    /// </summary>
+    internal Task<ViewSendResult> LoadRecordAsync(ISerginDispatcher dispatcher, Guid id, CancellationToken cancellationToken = default)
+    {
+        if (GetOneInvoker is null || BuildGetOne is null)
+        {
+            throw new InvalidOperationException($"{Root.FullName} has no GetOne query to load a record with.");
+        }
+
+        object query = BuildGetOne(id);
+
+        return Features.Versioned
+            ? GetOneInvoker.SendVersionedAsync(dispatcher, query, expected: null, cancellationToken)
+            : GetOneInvoker.SendAsync(dispatcher, query, cancellationToken);
+    }
+
+    /// <summary>The create command (no <paramref name="id"/>) or the update command of <paramref name="id"/>, built from a form's values.</summary>
+    internal object BuildForm(Guid? id, IReadOnlyDictionary<string, object?> values) =>
+        id is { } target
+            ? (BuildUpdate ?? throw new InvalidOperationException($"{Root.FullName} has no update command.")).Invoke(target, values)
+            : (BuildCreate ?? throw new InvalidOperationException($"{Root.FullName} has no create command.")).Invoke(Guid.Empty, values);
+
+    /// <summary>
+    /// Sends a form's create or update command, the update at <paramref name="version"/> when it is version-guarded.
+    /// </summary>
+    internal Task<ViewSendResult> SubmitFormAsync(
+        ISerginDispatcher dispatcher, Guid? id, IReadOnlyDictionary<string, object?> values, RowVersion? version, CancellationToken cancellationToken = default)
+    {
+        object request = BuildForm(id, values);
+        RequestInvoker invoker = (id is null ? CreateInvoker : UpdateInvoker)
+            ?? throw new InvalidOperationException($"{Root.FullName} has no {(id is null ? "create" : "update")} command.");
+        bool versioned = id is not null && Commands.Any(command => command.Request == Update && command.RequiresVersion);
+
+        return versioned
+            ? invoker.SendVersionedAsync(dispatcher, request, version, cancellationToken)
+            : invoker.SendAsync(dispatcher, request, cancellationToken);
+    }
+}

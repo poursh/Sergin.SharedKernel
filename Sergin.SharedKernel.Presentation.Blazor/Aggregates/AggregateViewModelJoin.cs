@@ -154,6 +154,8 @@ internal sealed class AggregateViewModelJoin(
                 continue;
             }
 
+            // Refused here, naming the configuration, before RequestFactory would refuse it without.
+            _ = ConstructorOf(request);
             builder.Commands.TryGetValue(request, out CommandViewBuilder? declared);
             CommandSettings settings = commands.For(request);
             (TextDefinition? defaultLabel, string? defaultIcon) = DefaultsOf(role);
@@ -419,9 +421,7 @@ internal sealed class AggregateViewModelJoin(
 
         ParameterInfo[] shown =
         [
-            .. command.GetConstructors()
-                .OrderByDescending(constructor => constructor.GetParameters().Length)
-                .First()
+            .. ConstructorOf(command)
                 .GetParameters()
                 .Where(parameter => !declaredByType.Contains(parameter.Name!) && !hidden.Contains(parameter.Name!)),
         ];
@@ -614,6 +614,18 @@ internal sealed class AggregateViewModelJoin(
     }
 
     // ---- Request shapes ----
+
+    /// <summary>The one public constructor a view builds <paramref name="request"/> with; refused, naming it, when it has none or several.</summary>
+    private ConstructorInfo ConstructorOf(Type request)
+    {
+        ConstructorInfo[] constructors = request.GetConstructors();
+
+        return constructors.Length == 1
+            ? constructors[0]
+            : throw Refuse(
+                $"{request.FullName} has {constructors.Length} public constructors; a generated view builds a command with its one "
+                + "public constructor, so give it exactly one.");
+    }
 
     internal static bool Implements(Type request, Type openInterface) =>
         request.GetInterfaces().Any(contract => contract.IsGenericType && contract.GetGenericTypeDefinition() == openInterface);

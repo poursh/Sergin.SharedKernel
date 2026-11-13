@@ -64,6 +64,13 @@ public sealed partial class SerginScheduledTasksSection : IDisposable
     [Parameter]
     public string? CommandName { get; set; }
 
+    /// <summary>
+    /// The filtered command's label, which the filter chip names it by; without one the chip shows <see cref="CommandName"/>,
+    /// the schedule name, as stored.
+    /// </summary>
+    [Parameter]
+    public TextDefinition? CommandLabel { get; set; }
+
     /// <summary>Raised with <see langword="null"/> when the filter chip is closed.</summary>
     [Parameter]
     public EventCallback<string?> CommandNameChanged { get; set; }
@@ -130,6 +137,8 @@ public sealed partial class SerginScheduledTasksSection : IDisposable
 
     private IReadOnlyCollection<ScheduledTaskListItem> shownTasks =>
         CommandName is null ? tasks : [.. tasks.Where(task => task.CommandName == CommandName)];
+
+    private string? FilteredCommandText => CommandLabel is { } label ? Localizer.Text(label) : CommandName;
 
     private Task ClearFilterAsync() => CommandNameChanged.InvokeAsync(null);
 

@@ -9,7 +9,8 @@ namespace Sergin.SharedKernel.Presentation.Blazor.Aggregates;
 /// The view configuration mistakes that refuse host start, each naming the configuration and the offending type,
 /// property or route. <see cref="AggregateViewRegistry.Build"/> runs every check its requests can answer (two
 /// configurations for one root; a command, detail, list or form naming a request not the root's; routes promising a
-/// page with no query behind it; a field override on an unknown property); <see cref="Ensure"/> checks the configured
+/// page with no query or command behind it; a schedulable command a detail view cannot build from the id; a field
+/// override on an unknown property); <see cref="Ensure"/> checks the configured
 /// routes against the routable components, once the UI assemblies are known.
 /// </summary>
 public static class AggregateViewGuard
@@ -59,6 +60,24 @@ public static class AggregateViewGuard
                 view,
                 $"{offender.Request.FullName} is a {offender.Role} command, which a generated view sends from the record's id alone, but its "
                 + "constructor takes more than the id. Give it a constructor of only the id, or model it as an update or set-property command.");
+        }
+    }
+
+    /// <summary>
+    /// A schedulable command's Schedule… and View schedules entries build the command from the record's id, so a shown one
+    /// must be id-only (a list's bulk schedule already skips one that is not).
+    /// </summary>
+    private static void EnsureSchedulableFromId(DeclaredView view, IReadOnlyCollection<CommandView> commands)
+    {
+        CommandView? offender = commands.FirstOrDefault(command => command is { ScheduleName: not null, BuildFromId: null, Hidden: false });
+
+        if (offender is not null)
+        {
+            throw Refuse(
+                view,
+                $"{offender.Request.FullName} is Schedulable(\"{offender.ScheduleName}\"), and a generated detail view schedules it from the "
+                + "record's id alone, but its constructor takes more than the id. Give it a constructor of only the id, or "
+                + $"Command<{offender.Request.Name}>().Hidden() it.");
         }
     }
 
@@ -113,6 +132,7 @@ public static class AggregateViewGuard
 
         EnsureCommandsOfRoot(view, commands);
         EnsureIdOnly(view, commands);
+        EnsureSchedulableFromId(view, commands);
         EnsureQueryShapes(view, getOne, overview, audit);
         EnsureRecord(view, builder.DetailFields?.Record, getOneResponse, "Detail", "GetOne query's response");
         EnsureRecord(view, builder.ListFields?.Record, listItem, "List", "list query's item");
@@ -132,6 +152,16 @@ public static class AggregateViewGuard
         if (routes.List is not null && list is null)
         {
             throw Refuse(view, $"its routes promise a {builder.Root.Name} list page, but no IListOf<{builder.Root.Name}> query exists to fill it.");
+        }
+
+        if (routes.Create is not null && create is null)
+        {
+            throw Refuse(view, $"its routes promise a {builder.Root.Name} create form, but no ICreateCommand<{builder.Root.Name}, …> exists to send.");
+        }
+
+        if (routes.Edit is not null && update is null)
+        {
+            throw Refuse(view, $"its routes promise a {builder.Root.Name} edit form, but no IUpdateCommand<{builder.Root.Name}, …> exists to send.");
         }
     }
 

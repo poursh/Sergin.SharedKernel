@@ -21,8 +21,8 @@ namespace Sergin.SharedKernel.Presentation.Blazor.Aggregates.Views;
 /// same build the submit sends, so the two cannot drift).
 /// </summary>
 /// <remarks>
-/// An edit form loads the record through the GetOne query at its version and renders only once a version is held, each
-/// field prefilled from the record's property of the same name and a child picker's parent from its
+/// An edit form loads the record through the GetOne query (at its version when the root is <c>Versioned()</c>) and renders
+/// only once the record is loaded, each field prefilled from the record's property of the same name and a child picker's parent from its
 /// <c>ParentFromRecord</c>. A create is sent and leaves for the new record's detail page; an edit is sent at the held
 /// version when the update is version-guarded, leaves for the detail page, and on a stale answer reads the record again.
 /// The title is the form's configured <c>Title(...)</c>, else "New {Name}" / "Edit {Name}" with the root's name.
@@ -72,7 +72,8 @@ public sealed partial class SerginGeneratedFormView<TRoot>
 
     private RequestInvoker Invoker => (IsEdit ? Model.UpdateInvoker : Model.CreateInvoker)!;
 
-    private bool Ready => !IsEdit || version is not null;
+    // An edit form waits for the record; its version is held only for a Versioned() root, so it is not what gates.
+    private bool Ready => !IsEdit || record is not null;
 
     private TextDefinition TitleText =>
         (IsEdit ? Model.UpdateTitle : Model.CreateTitle) ?? (IsEdit ? ShellTexts.Forms.EditTitle : ShellTexts.Forms.NewTitle);
@@ -146,8 +147,7 @@ public sealed partial class SerginGeneratedFormView<TRoot>
     private string DetailHref(Guid id) => Model.Routes.Detail?.Invoke(id) ?? Model.Routes.List ?? "/";
 
     // The command the form's values build: the one the field validation reads and the submit sends.
-    private object ToCommand() =>
-        Id is { } id ? Model.BuildUpdate!(id, values.Values) : Model.BuildCreate!(Guid.Empty, values.Values);
+    private object ToCommand() => Model.BuildForm(Id, values.Values);
 
     private async Task<IEnumerable<string>> ValidateAsync(string propertyName) =>
         await Invoker.ValidateAsync(FormValidator, ToCommand(), propertyName);
@@ -156,7 +156,7 @@ public sealed partial class SerginGeneratedFormView<TRoot>
     // the next submit is against what is there now.
     private async Task LoadAsync()
     {
-        ViewSendResult loaded = await Model.GetOneInvoker!.SendVersionedAsync(Dispatcher, Model.BuildGetOne!(Id!.Value), expected: null);
+        ViewSendResult loaded = await Model.LoadRecordAsync(Dispatcher, Id!.Value);
 
         if (loaded.IsError)
         {
@@ -187,19 +187,14 @@ public sealed partial class SerginGeneratedFormView<TRoot>
 
     private async Task SubmitAsync()
     {
-        if (IsEdit && version is null)
+        if (IsEdit && record is null)
         {
             return;
         }
 
-        bool versioned = IsEdit && Model.Commands.Any(command => command.Request == Model.Update && command.RequiresVersion);
-
         submitting = true;
 
-        object request = ToCommand();
-        ViewSendResult result = versioned
-            ? await Invoker.SendVersionedAsync(Dispatcher, request, version)
-            : await Invoker.SendAsync(Dispatcher, request);
+        ViewSendResult result = await Model.SubmitFormAsync(Dispatcher, Id, values.Values, version);
 
         submitting = false;
 

@@ -23,7 +23,7 @@ namespace Sergin.SharedKernel.Presentation.Blazor.Aggregates.Views;
 
 /// <summary>
 /// The detail view of <typeparamref name="TRoot"/>, generated from its <see cref="AggregateViewModel"/>: the record
-/// loaded through its GetOne query at its version, the header's reload, copy-link and (with an audit query) information
+/// loaded through its GetOne query (at its version when the root is <c>Versioned()</c>), the header's reload, copy-link and (with an audit query) information
 /// buttons, a field per visible response property, an action per offered command, and, when a command is schedulable,
 /// the record's scheduled tasks. A configuration's <see cref="SerginViewSlot.DetailFields"/> component replaces the
 /// fields, and its <see cref="SerginViewSlot.DetailEntities"/> component renders above the scheduled tasks; both get
@@ -43,6 +43,7 @@ public sealed partial class SerginGeneratedDetailView<TRoot>
     private SerginProblem? problem;
     private bool canManageSchedules;
     private string? commandName;
+    private TextDefinition? commandLabel;
     private SerginScheduledTasksSection? section;
     private GeneratedCommandActions commands = default!;
     private FieldView? titleField;
@@ -143,10 +144,10 @@ public sealed partial class SerginGeneratedDetailView<TRoot>
         return [item is null ? new SerginBreadcrumb(Model.Title, list) : SerginBreadcrumb.Of(item)];
     }
 
-    // Keeps the version the record was read at, so a guarded write can say which record it means.
+    // Keeps the version the record was read at (a Versioned() root's), so a guarded write can say which record it means.
     private async Task LoadAsync()
     {
-        ViewSendResult loaded = await Model.GetOneInvoker!.SendVersionedAsync(Dispatcher, Model.BuildGetOne!(Id), expected: null);
+        ViewSendResult loaded = await Model.LoadRecordAsync(Dispatcher, Id);
 
         if (loaded.IsError)
         {
@@ -278,7 +279,7 @@ public sealed partial class SerginGeneratedDetailView<TRoot>
             items.Add(new SerginMenuItem(
                 ScheduledTaskUiTexts.ViewSchedules,
                 Icons.Material.Outlined.EventNote,
-                EventCallback.Factory.Create(this, () => ViewSchedulesAsync(name)),
+                EventCallback.Factory.Create(this, () => ViewSchedulesAsync(name, command.Label)),
                 permission,
                 command.AnyScope,
                 new { Count = section?.CountOf(name) ?? 0 }));
@@ -315,10 +316,11 @@ public sealed partial class SerginGeneratedDetailView<TRoot>
         }
     }
 
-    // Narrows the section to the command's schedules and brings it into view.
-    private async Task ViewSchedulesAsync(string name)
+    // Narrows the section to the command's schedules (its chip naming the command by its label) and brings it into view.
+    private async Task ViewSchedulesAsync(string name, TextDefinition label)
     {
         commandName = name;
+        commandLabel = label;
         StateHasChanged();
 
         await ScrollManager.ScrollIntoViewAsync($"#{SerginScheduledTasksSection.ElementId}", ScrollBehavior.Smooth);

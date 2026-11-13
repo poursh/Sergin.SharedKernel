@@ -8,7 +8,7 @@
         @if (CommandName is not null)
         {
             <MudChip T="string" Size="Size.Small" OnClose="ClearFilterAsync" Class="mb-2 sergin-scheduled-filter">
-                @Localizer.Text(ScheduledTaskUiTexts.FilteredTo, new { Command = CommandName })
+                @Localizer.Text(ScheduledTaskUiTexts.FilteredTo, new { Command = FilteredCommandText })
             </MudChip>
         }
         @if (!Engine.FiresTriggers)
