@@ -7,6 +7,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
 using Sergin.SharedKernel.Application;
+using Sergin.SharedKernel.Application.Aggregates;
 using Sergin.SharedKernel.Application.Commands.Configuration;
 using Sergin.SharedKernel.Application.Localizations;
 using Sergin.SharedKernel.Application.ScheduledTasks;
@@ -21,6 +22,7 @@ using Sergin.SharedKernel.Hosts.WebUi.Users;
 using Sergin.SharedKernel.Infrastructure.Data.EFCore.Aggregates;
 using Sergin.SharedKernel.Modules;
 using Sergin.SharedKernel.Presentation;
+using Sergin.SharedKernel.Presentation.Blazor.Aggregates;
 using Sergin.SharedKernel.Presentation.Blazor.Home;
 using Sergin.SharedKernel.Presentation.Blazor.Modules;
 using Sergin.SharedKernel.Presentation.Blazor.Security;
@@ -109,7 +111,18 @@ public static class SerginWebUiExtensions
         foreach (ISerginWebUiModule module in modules.OfType<ISerginWebUiModule>())
         {
             builder.Services.AddSingleton(TextSource.FromAssembly(module.UiAssembly, module.Name, TextOrigin.Ui));
+
+            // The module's aggregate view configurations live beside its pages.
+            builder.Services.AddSingleton(AggregateViewSource.FromAssembly(module.UiAssembly, module.Schema));
         }
+
+        // Every root a view configuration declares, joined with its typed requests; resolved at start so a bad
+        // configuration fails host start rather than the first render.
+        builder.Services.AddSingleton(provider => AggregateViewRegistry.Build(
+            provider.GetServices<AggregateViewSource>(),
+            provider.GetRequiredService<CommandConfigurationRegistry>(),
+            provider.GetRequiredService<AggregateFeatureRegistry>(),
+            provider.GetRequiredService<TextCatalog>()));
 
         AddSerginRequestLocalization(builder.Services);
 
@@ -179,6 +192,10 @@ public static class SerginWebUiExtensions
         CommandConfigurationRegistry registry = app.Services.GetRequiredService<CommandConfigurationRegistry>();
 
         EnsureCommandTypes(app.Services, registry);
+
+        // Builds the aggregate view models now, and checks every configured route against the routable components.
+        AggregateViewGuard.Ensure(
+            app.Services.GetRequiredService<AggregateViewRegistry>(), catalog.Modules.Select(module => module.UiAssembly));
 
         // Builds the scheduled command catalogue now, so a bad Schedulable() fails start.
         app.Services.GetRequiredService<ScheduledCommandCatalog>();

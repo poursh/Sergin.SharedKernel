@@ -1,0 +1,56 @@
+@* One field of a generated form, by its kind. Each input runs the pipeline's validator for its field (Validate); a child
+   picker's parent select is view state, not on the command: its For only gives the form-level validation a member path,
+   which finds no rule. *@
+@switch (Field.Kind)
+{
+    case FormInputKind.Text:
+        <MudTextField T="string" Variant="Variant.Outlined" Margin="Margin.Dense" Value="@(Values.ValueOf(Field.Name) as string)"
+                      ValueChanged="OnTextChanged" Label="@LabelShown" Placeholder="@PlaceholderShown" Validation="textValidation" Immediate="true" />
+        break;
+    case FormInputKind.Number:
+        <MudNumericField T="decimal?" Variant="Variant.Outlined" Margin="Margin.Dense" Value="NumberValue" ValueChanged="OnNumberChanged"
+                         Label="@LabelShown" Placeholder="@PlaceholderShown" Validation="numberValidation" Immediate="true" />
+        break;
+    case FormInputKind.Switch:
+        <MudSwitch T="bool" Value="SwitchValue" ValueChanged="OnSwitchChanged" Label="@LabelShown" Color="Color.Primary" Validation="switchValidation" />
+        break;
+    case FormInputKind.Date:
+        <MudDatePicker Variant="Variant.Outlined" Margin="Margin.Dense" Date="DateValue" DateChanged="OnDateChanged" Culture="@Formatter.Culture"
+                       Label="@LabelShown" Placeholder="@PlaceholderShown" Validation="dateValidation" />
+        break;
+    case FormInputKind.Select:
+        <MudSelect T="object" Variant="Variant.Outlined" Margin="Margin.Dense" Value="@Values.ValueOf(Field.Name)" ValueChanged="OnSelectChanged"
+                   Label="@LabelShown" Placeholder="@PlaceholderShown" Validation="selectValidation">
+            @foreach (object value in Field.EnumValues ?? [])
+            {
+                <MudSelectItem T="object" Value="@value">@value</MudSelectItem>
+            }
+        </MudSelect>
+        break;
+    case FormInputKind.Picker:
+        <MudSelect T="Guid" Variant="Variant.Outlined" Margin="Margin.Dense" Value="GuidValue" ValueChanged="OnGuidChanged"
+                   Label="@LabelShown" Placeholder="@PlaceholderShown" Validation="guidValidation">
+            @foreach (PickerOption option in options)
+            {
+                <MudSelectItem T="Guid" Value="@option.Id">@option.Label</MudSelectItem>
+            }
+        </MudSelect>
+        break;
+    case FormInputKind.ChildPicker:
+        <MudSelect T="Guid" Variant="Variant.Outlined" Margin="Margin.Dense" Value="ParentSelection" ValueChanged="OnParentChangedAsync"
+                   Label="@ParentLabelShown" Placeholder="@ParentPlaceholderShown" For="@(() => ParentSelection)">
+            @foreach (PickerOption option in parentOptions)
+            {
+                <MudSelectItem T="Guid" Value="@option.Id">@option.Label</MudSelectItem>
+            }
+        </MudSelect>
+
+        <MudSelect T="Guid" Variant="Variant.Outlined" Margin="Margin.Dense" Value="GuidValue" ValueChanged="OnGuidChanged"
+                   Label="@LabelShown" Placeholder="@ChildPlaceholderShown" Validation="guidValidation" Disabled="@(ParentSelection == Guid.Empty)">
+            @foreach (PickerOption option in options)
+            {
+                <MudSelectItem T="Guid" Value="@option.Id">@option.Label</MudSelectItem>
+            }
+        </MudSelect>
+        break;
+}

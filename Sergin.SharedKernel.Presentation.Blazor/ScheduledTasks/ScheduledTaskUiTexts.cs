@@ -13,6 +13,10 @@ public static class ScheduledTaskUiTexts
 
     public static TextDefinition Title { get; } = category.Text("Title", "Scheduled tasks");
 
+    public static TextDefinition ViewSchedules { get; } = category.Text("ViewSchedules", "View schedules ({Count})");
+
+    public static TextDefinition FilteredTo { get; } = category.Text("FilteredTo", "Showing {Command}");
+
     public static TextDefinition ScheduleAction { get; } = category.Text("ScheduleAction", "Schedule…");
 
     public static TextDefinition RunNow { get; } = category.Text("RunNow", "Run now");

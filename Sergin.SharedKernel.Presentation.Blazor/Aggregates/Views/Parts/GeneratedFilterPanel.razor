@@ -1,0 +1,30 @@
+@* A generated list's advanced filter fields: a picker per identifier filter (configured, or generated from its target's
+   list; a child's disabled until its root is chosen), a date range per instant filter. The values live in State. *@
+<MudGrid Spacing="3">
+    @foreach (GeneratedFilterEntry entry in State.Entries)
+    {
+        <MudItem @key="entry.Field.Id" xs="12" sm="6" md="3">
+            @if (entry.Identifier is { Component: not null } configured)
+            {
+                @ConfiguredFilter(configured)
+            }
+            else if (entry.Identifier is { } generated)
+            {
+                <MudSelect T="Guid?" Label="@Localizer.Text(entry.Label.Label)" Value="State.ValueOf(entry.Field.Id)"
+                           ValueChanged="@(value => OnValueChangedAsync(entry.Field.Id, value))" Disabled="State.IsDisabled(generated)"
+                           Clearable="true" Variant="Variant.Outlined" Margin="Margin.Dense">
+                    @foreach (PickerOption option in State.OptionsOf(entry.Field.Id))
+                    {
+                        <MudSelectItem T="Guid?" Value="@((Guid?)option.Id)">@option.Label</MudSelectItem>
+                    }
+                </MudSelect>
+            }
+            else
+            {
+                <MudDateRangePicker Label="@Localizer.Text(entry.Label.Label)" Culture="@Formatter.Culture" DateRange="State.RangeOf(entry.Field.Id)"
+                                    DateRangeChanged="@(range => State.SetRange(entry.Field.Id, range))" Clearable="true"
+                                    Variant="Variant.Outlined" Margin="Margin.Dense" />
+            }
+        </MudItem>
+    }
+</MudGrid>

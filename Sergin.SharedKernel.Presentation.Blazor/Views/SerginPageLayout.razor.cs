@@ -4,7 +4,7 @@ namespace Sergin.SharedKernel.Presentation.Blazor.Views;
 
 /// <summary>
 /// The layout a routable page gives its view: <c>@page "/dm/devices/{Id:guid}"</c>, <c>@layout SerginPageLayout</c>,
-/// then <c>&lt;DeviceDetailView Id="Id" /&gt;</c>.
+/// then <c>&lt;SerginGeneratedDetailView TRoot="Device" Id="Id" /&gt;</c>.
 /// </summary>
 /// <remarks>
 /// It nests in <c>SerginMainLayout</c> and cascades a <see cref="SerginViewHostKind.Page"/> <see cref="SerginViewHost"/>

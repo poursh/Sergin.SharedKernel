@@ -1,0 +1,26 @@
+@* One button of the actions bar. With menu items it is a split button — the action, then a drop-down of further
+   commands; without, the plain button the bar always drew. *@
+@if (Action.MenuItems is { Count: > 0 })
+{
+    <MudButtonGroup Variant="Variant" Color="Color">
+        <MudButton StartIcon="@Action.Icon" Href="@Action.Href" OnClick="Action.OnClick" Disabled="Action.Disabled">
+            @Localizer.Text(Action.Label)
+        </MudButton>
+        <MudMenu Icon="@Icons.Material.Filled.ArrowDropDown" AriaLabel="@Localizer.Text(CommonTexts.More)"
+                 Disabled="Action.Disabled" Dense="true">
+            @foreach (SerginMenuItem item in Action.MenuItems)
+            {
+                <MudMenuItem Icon="@item.Icon" OnClick="item.OnClick">
+                    @(item.LabelArguments is null ? Localizer.Text(item.Label) : Localizer.Text(item.Label, item.LabelArguments))
+                </MudMenuItem>
+            }
+        </MudMenu>
+    </MudButtonGroup>
+}
+else
+{
+    <MudButton Variant="Variant" Color="Color" StartIcon="@Action.Icon" Href="@Action.Href" OnClick="Action.OnClick"
+               Disabled="Action.Disabled">
+        @Localizer.Text(Action.Label)
+    </MudButton>
+}

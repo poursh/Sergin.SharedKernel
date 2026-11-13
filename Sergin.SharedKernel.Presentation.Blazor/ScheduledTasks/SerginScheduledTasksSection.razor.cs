@@ -34,6 +34,9 @@ namespace Sergin.SharedKernel.Presentation.Blazor.ScheduledTasks;
 /// </remarks>
 public sealed partial class SerginScheduledTasksSection : IDisposable
 {
+    /// <summary>The id of the section's root element, so a view can scroll to it or link to it.</summary>
+    public const string ElementId = "sergin-scheduled-tasks";
+
     private const int OneOffTake = 5;
 
     private IReadOnlyCollection<ScheduledTaskListItem> tasks = [];
@@ -56,6 +59,25 @@ public sealed partial class SerginScheduledTasksSection : IDisposable
     [Parameter]
     [EditorRequired]
     public Guid TargetId { get; set; }
+
+    /// <summary>When set, only the schedules of that command show; the count of each command still reads the full load.</summary>
+    [Parameter]
+    public string? CommandName { get; set; }
+
+    /// <summary>
+    /// The filtered command's label, which the filter chip names it by; without one the chip shows <see cref="CommandName"/>,
+    /// the schedule name, as stored.
+    /// </summary>
+    [Parameter]
+    public TextDefinition? CommandLabel { get; set; }
+
+    /// <summary>Raised with <see langword="null"/> when the filter chip is closed.</summary>
+    [Parameter]
+    public EventCallback<string?> CommandNameChanged { get; set; }
+
+    /// <summary>Raised after every successful load, so a host can read <see cref="CountOf"/>.</summary>
+    [Parameter]
+    public EventCallback Loaded { get; set; }
 
     /// <summary>
     /// How often the section reads its runs again while one it lists is still Running; two seconds by default. It is a
@@ -110,12 +132,28 @@ public sealed partial class SerginScheduledTasksSection : IDisposable
     [Inject]
     private IScheduledTaskEngine Engine { get; set; } = default!;
 
+    /// <summary>The scheduled tasks (not one-off runs) of a command in the last load; 0 before the first.</summary>
+    public int CountOf(string commandName) => tasks.Count(task => task.CommandName == commandName);
+
+    private IReadOnlyCollection<ScheduledTaskListItem> shownTasks =>
+        CommandName is null ? tasks : [.. tasks.Where(task => task.CommandName == CommandName)];
+
+    private string? FilteredCommandText => CommandLabel is { } label ? Localizer.Text(label) : CommandName;
+
+    private Task ClearFilterAsync() => CommandNameChanged.InvokeAsync(null);
+
     /// <summary>Reads the schedules and the one-off runs again — after the host saved a schedule.</summary>
     public async Task ReloadAsync()
     {
         bool loaded = await LoadAsync();
         // A read that failed stops the timer: its error is shown once, not again on every tick.
         UpdatePolling(keep: loaded);
+
+        if (loaded)
+        {
+            await Loaded.InvokeAsync();
+        }
+
         // The host calls this from its own handler, so this component is not re-rendered by anything else (the parent skips
         // a child whose parameters did not change).
         await InvokeAsync(StateHasChanged);

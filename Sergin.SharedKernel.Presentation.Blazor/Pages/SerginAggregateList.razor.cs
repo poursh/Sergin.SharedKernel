@@ -131,10 +131,11 @@ public sealed partial class SerginAggregateList<TItem>
             action.Label,
             action.Icon,
             action.Kind,
-            OnClick: EventCallback.Factory.Create(this, () => RunBulkAsync(action)),
+            OnClick: EventCallback.Factory.Create(this, () => RunBulkAsync(action.OnRun)),
             Permission: action.Permission,
             AnyScope: action.AnyScope,
-            Disabled: bulkRunning)),
+            Disabled: bulkRunning,
+            MenuItems: BulkMenuItems(action))),
     ];
 
     private async Task<TableData<TItem>> LoadAsync(TableState state, CancellationToken cancellationToken)
@@ -235,14 +236,22 @@ public sealed partial class SerginAggregateList<TItem>
 
     private void ClearSelection() => selected = [];
 
-    private async Task RunBulkAsync(SerginBulkAction<TItem> action)
+    private List<SerginMenuItem>? BulkMenuItems(SerginBulkAction<TItem> action) =>
+        action.MenuItems?.Select(item => new SerginMenuItem(
+            item.Label,
+            item.Icon,
+            EventCallback.Factory.Create(this, () => RunBulkAsync(item.OnRun)),
+            item.Permission,
+            item.AnyScope)).ToList();
+
+    private async Task RunBulkAsync(Func<IReadOnlyList<TItem>, Task> run)
     {
         IReadOnlyList<TItem> items = [.. selected];
         bulkRunning = true;
 
         try
         {
-            await action.OnRun(items);
+            await run(items);
         }
         finally
         {

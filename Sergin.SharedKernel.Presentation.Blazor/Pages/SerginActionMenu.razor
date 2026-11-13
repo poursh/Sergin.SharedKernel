@@ -11,6 +11,12 @@
                          Href="@action.Href" OnClick="action.OnClick" Disabled="action.Disabled">
                 @Localizer.Text(action.Label)
             </MudMenuItem>
+            @foreach (SerginMenuItem item in action.MenuItems ?? [])
+            {
+                <MudMenuItem Icon="@item.Icon" OnClick="item.OnClick">
+                    @(item.LabelArguments is null ? Localizer.Text(item.Label) : Localizer.Text(item.Label, item.LabelArguments))
+                </MudMenuItem>
+            }
         }
     </MudMenu>
 }

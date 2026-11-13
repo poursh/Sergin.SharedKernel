@@ -1,0 +1,43 @@
+@typeparam TItem
+@* The table of a generated list, closed over the list item type: see the code-behind. *@
+<SerginAggregateList @ref="list" TItem="TItem" Load="LoadAsync" Searchable="Searchable" SearchPlaceholderText="Model.ListSearchPlaceholder"
+                     FilterPanel="FilterPanel" BuildFilters="BuildFilters" OnFilterRemoved="OnFilterRemoved" OnFiltersReset="OnFiltersReset"
+                     OnFilterPanelOpened="OnFilterPanelOpenedAsync" BulkActions="BulkActions">
+    <HeaderContent>
+        @foreach (ListColumn column in columns)
+        {
+            <MudTh @key="column.Field.Name">
+                @if (column.SortId is not null)
+                {
+                    <MudTableSortLabel T="TItem" SortLabel="@column.SortId">@Localizer.Text(column.Field.Label.Label)</MudTableSortLabel>
+                }
+                else
+                {
+                    @Localizer.Text(column.Field.Label.Label)
+                }
+            </MudTh>
+        }
+    </HeaderContent>
+    <RowTemplate>
+        @foreach (ListColumn column in columns)
+        {
+            <MudTd @key="column.Field.Name" DataLabel="@Localizer.Text(column.Field.Label.Label)">
+                @if (column.Links && Model.Routes.Detail is { } detail)
+                {
+                    <MudLink Href="@detail(IdOf(context))">@TextOf(column, context)</MudLink>
+                }
+                else
+                {
+                    @TextOf(column, context)
+                }
+            </MudTd>
+        }
+    </RowTemplate>
+    <RowCommands>
+        @foreach (SerginPageAction action in IconActionsOf(context))
+        {
+            <SerginActionIconButton Action="action" />
+        }
+        <SerginActionMenu Actions="MenuActionsOf(context)" />
+    </RowCommands>
+</SerginAggregateList>

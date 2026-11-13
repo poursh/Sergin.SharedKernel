@@ -1,0 +1,13 @@
+@* One field of a generated view: a configured component, a link, or the value as text. *@
+@if (Field.Component is not null)
+{
+    <SerginDetailField LabelText="Field.Label.Label"><DynamicComponent Type="Field.Component" Parameters="ComponentParameters" /></SerginDetailField>
+}
+else if (Href is not null)
+{
+    <SerginDetailField LabelText="Field.Label.Label"><MudLink Href="@Href">@Text</MudLink></SerginDetailField>
+}
+else
+{
+    <SerginDetailField LabelText="Field.Label.Label" Value="@Text" />
+}

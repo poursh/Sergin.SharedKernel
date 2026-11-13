@@ -1,0 +1,40 @@
+@typeparam TRoot
+@* The detail view of a configured root, generated from its model: see the code-behind. *@
+<SerginAggregateDetailView TitleText="Model.Singular" Trail="Trail" Problem="problem" Ready="@(record is not null)" Actions="Actions"
+                           FieldsTitleData="@(record is null ? null : DisplayText)">
+    <HeaderActions>
+        <SerginReloadButton OnReload="LoadAsync" />
+        <SerginCopyLinkButton />
+        @if (record is not null && Model.AuditInvoker is not null && Model.BuildAudit is not null)
+        {
+            <SerginInfoButton Load="LoadAuditAsync" Version="version" />
+        }
+    </HeaderActions>
+    <Fields>
+        @if (record is not null)
+        {
+            @if (FieldsSlot is not null)
+            {
+                <DynamicComponent Type="FieldsSlot" Parameters="SlotParameters" />
+            }
+            else
+            {
+                @foreach (FieldView field in VisibleFields)
+                {
+                    <GeneratedField @key="field.Name" Field="field" Record="record" Context="Context" />
+                }
+            }
+        }
+    </Fields>
+    <Entities>
+        @if (record is not null && EntitiesSlot is not null)
+        {
+            <DynamicComponent Type="EntitiesSlot" Parameters="SlotParameters" />
+        }
+        @if (Model.HasSchedulableCommand)
+        {
+            <SerginScheduledTasksSection @ref="section" Schema="@Model.Schema" TargetId="Id" @bind-CommandName="commandName" CommandLabel="commandLabel"
+                                         Loaded="OnSectionLoaded" />
+        }
+    </Entities>
+</SerginAggregateDetailView>

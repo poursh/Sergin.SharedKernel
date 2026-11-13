@@ -26,6 +26,10 @@ public sealed partial class SerginFormView
     [EditorRequired]
     public TextDefinition TitleText { get; set; } = default!;
 
+    /// <summary>The values of <see cref="TitleText"/>'s placeholders (<c>new { Name = … }</c>), or null.</summary>
+    [Parameter]
+    public object? TitleArguments { get; set; }
+
     /// <summary>The view's steps below home, first to last; shown only on a page.</summary>
     [Parameter]
     public IReadOnlyList<SerginBreadcrumb> Trail { get; set; } = [];
@@ -63,7 +67,7 @@ public sealed partial class SerginFormView
     [Inject]
     private IStringLocalizer Localizer { get; set; } = default!;
 
-    private string TitleShown => Localizer.Text(TitleText);
+    private string TitleShown => Localizer.Text(TitleText, TitleArguments);
 
     private string SubmitLabelShown => Localizer.Text(SubmitLabelText ?? CommonTexts.Save);
 

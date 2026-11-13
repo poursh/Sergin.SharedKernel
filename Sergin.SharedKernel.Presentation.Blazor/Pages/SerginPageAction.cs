@@ -34,6 +34,9 @@ public enum SerginActionKind
 /// that is not <c>Scoped()</c>, mirroring how the pipeline checks a request typed to it.
 /// </param>
 /// <param name="Disabled">Shown but not clickable, e.g. while a delete is running.</param>
+/// <param name="MenuItems">
+/// Further commands behind a drop-down on the button (a split button); the bar keeps only the ones the user may use.
+/// </param>
 public sealed record SerginPageAction(
     TextDefinition Label,
     string? Icon,
@@ -42,4 +45,5 @@ public sealed record SerginPageAction(
     EventCallback OnClick = default,
     PermissionDefinition? Permission = null,
     bool AnyScope = false,
-    bool Disabled = false);
+    bool Disabled = false,
+    IReadOnlyList<SerginMenuItem>? MenuItems = null);
