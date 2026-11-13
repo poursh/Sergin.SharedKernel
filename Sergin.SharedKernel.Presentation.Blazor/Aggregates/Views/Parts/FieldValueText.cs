@@ -8,14 +8,18 @@ internal static class FieldValueText
 {
     /// <summary>
     /// A field's value as a row or record shows it: through the text the configuration gave with <c>Format(...)</c> (the
-    /// value, as <see cref="Format(object?, ICultureFormatter)"/> prints it, in the placeholder it names), else as it is.
+    /// value, as <see cref="Format(object?, ICultureFormatter)"/> prints it, in the placeholder it names), else as it is. An
+    /// enum or bool value shows the text <see cref="FieldView.ValueTexts"/> holds for it.
     /// </summary>
     public static string? Render(FieldView field, object? value, ICultureFormatter formatter, IStringLocalizer localizer)
     {
         ArgumentNullException.ThrowIfNull(field);
         ArgumentNullException.ThrowIfNull(localizer);
 
-        string? text = Format(value, formatter);
+        // An enum or bool shows its declared text, never the member name; a null value stays null.
+        string? text = value is not null && field.ValueTexts is { } valueTexts && valueTexts.TryGetValue(value, out TextDefinition? valueText)
+            ? localizer.Text(valueText)
+            : Format(value, formatter);
 
         return field.Format is { } format && text is not null
             ? localizer.Text(format, new Dictionary<string, object?>(StringComparer.Ordinal) { [field.FormatPlaceholder] = text })

@@ -5,6 +5,7 @@ using Sergin.SharedKernel.Application.Commands;
 using Sergin.SharedKernel.Application.Commands.Configuration;
 using Sergin.SharedKernel.Application.Commands.Types;
 using Sergin.SharedKernel.Presentation.Blazor.Aggregates.Views.Parts;
+using Sergin.SharedKernel.Presentation.Blazor.Localizations;
 using Sergin.SharedKernel.Presentation.Blazor.Pages;
 
 namespace Sergin.SharedKernel.Presentation.Blazor.Aggregates;
@@ -311,22 +312,64 @@ internal sealed class AggregateViewModelJoin(
                 continue;
             }
 
+            bool hidden = named?.Hidden ?? (IsGuid(property.PropertyType) || property.Name == "Id");
+
             fields.Add(new FieldView(
                 property.Name,
                 label,
                 ValueObjects.UnwrappedGetter(property),
                 named?.Href,
                 named?.Component,
-                named?.Hidden ?? (IsGuid(property.PropertyType) || property.Name == "Id"),
+                hidden,
                 named?.Order ?? index,
                 named?.Format,
-                named?.FormatPlaceholder ?? "Value"));
+                named?.FormatPlaceholder ?? "Value",
+                ValueTextsOf(record, property, category, named, hidden)));
 
             // A string, or a value object wrapping one: the record's name as stored.
             title ??= ValueObjects.PrimitiveOf(property.PropertyType) == typeof(string) ? property.Name : null;
         }
 
         return [.. fields.OrderBy(field => field.Order)];
+    }
+
+    /// <summary>
+    /// What a shown enum or bool property's values read as: an enum's declared value texts, every member of which must
+    /// have one; a bool's <c>BoolTexts(...)</c>, else Yes and No. Null for any other property.
+    /// </summary>
+    private IReadOnlyDictionary<object, TextDefinition>? ValueTextsOf(Type record, PropertyInfo property, TextCategory? category, FieldOverride? named, bool hidden)
+    {
+        Type? primitive = ValueObjects.PrimitiveOf(property.PropertyType);
+        primitive = primitive is null ? null : Nullable.GetUnderlyingType(primitive) ?? primitive;
+
+        if (primitive == typeof(bool))
+        {
+            (TextDefinition whenTrue, TextDefinition whenFalse) = named?.BoolTexts ?? (ShellTexts.Values.Yes, ShellTexts.Values.No);
+
+            return new Dictionary<object, TextDefinition> { [true] = whenTrue, [false] = whenFalse };
+        }
+
+        if (primitive is not { IsEnum: true })
+        {
+            return null;
+        }
+
+        IReadOnlyDictionary<object, TextDefinition> declared = category is null ? new Dictionary<object, TextDefinition>() : texts.ValueTextsOf(category, primitive);
+
+        if (!hidden)
+        {
+            foreach (object member in Enum.GetValues(primitive))
+            {
+                if (!declared.ContainsKey(member))
+                {
+                    throw Refuse(
+                        $"{record.FullName}.{property.Name} is shown but {primitive.Name}.{member} has no value text in "
+                        + $"{category?.Prefix ?? "any category"}; declare one with Values(...) in the texts class, or hide the field.");
+                }
+            }
+        }
+
+        return declared;
     }
 
     /// <summary>The property's label: the one the configuration declared, else its field text's; a property the configuration names to show must have one.</summary>
@@ -523,8 +566,11 @@ internal sealed class AggregateViewModelJoin(
         if (kind is { } simple)
         {
             IReadOnlyList<object>? values = simple == FormInputKind.Select ? [.. Enum.GetValues(primitive).Cast<object>()] : null;
+            IReadOnlyDictionary<object, TextDefinition>? valueTexts = simple == FormInputKind.Select && category is not null && texts.ValueTextsOf(category, primitive) is { Count: > 0 } declared
+                ? declared
+                : null;
 
-            return new FormFieldView(name, label, parameter.ParameterType, simple, null, null, null, primitive, EnumValues: values);
+            return new FormFieldView(name, label, parameter.ParameterType, simple, null, null, null, primitive, EnumValues: values, ValueTexts: valueTexts);
         }
 
         if (primitive != typeof(Guid))
