@@ -16,8 +16,8 @@ namespace Sergin.SharedKernel.Presentation.Blazor.Aggregates.Views;
 /// closed over the list item type).
 /// </summary>
 /// <remarks>
-/// Reload reads the table again and renders the overview slots anew, so they load again; so does a row or bulk command
-/// that changed records.
+/// The view sends the overview query once per load (and again on reload, or after a row or bulk command that changed
+/// records) and hands the response to both overview slots in <c>Context.Overview</c>; a slot never sends it itself.
 /// </remarks>
 public sealed partial class SerginGeneratedListView<TRoot>
     where TRoot : class, IAggregateRoot
