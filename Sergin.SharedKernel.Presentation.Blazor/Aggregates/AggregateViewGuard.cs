@@ -82,9 +82,9 @@ public static class AggregateViewGuard
     }
 
     /// <summary>GetOne and audit queries are sent from the record's id alone; an overview takes no arguments.</summary>
-    private static void EnsureQueryShapes(DeclaredView view, Type? getOne, Type? overview, Type? audit)
+    private static void EnsureQueryShapes(DeclaredView view, Type? getOne, Type? overview, Type? entityOverview, Type? audit)
     {
-        if (new[] { getOne, audit }.OfType<Type>().FirstOrDefault(query => !RequestFactory.IsIdOnly(query)) is { } query)
+        if (new[] { getOne, entityOverview, audit }.OfType<Type>().FirstOrDefault(query => !RequestFactory.IsIdOnly(query)) is { } query)
         {
             throw Refuse(
                 view,
@@ -126,6 +126,7 @@ public static class AggregateViewGuard
         Type? create,
         Type? update,
         Type? overview,
+        Type? entityOverview,
         Type? audit)
     {
         AggregateViewBuilder builder = view.Builder;
@@ -133,7 +134,7 @@ public static class AggregateViewGuard
         EnsureCommandsOfRoot(view, commands);
         EnsureIdOnly(view, commands);
         EnsureSchedulableFromId(view, commands);
-        EnsureQueryShapes(view, getOne, overview, audit);
+        EnsureQueryShapes(view, getOne, overview, entityOverview, audit);
         EnsureRecord(view, builder.DetailFields?.Record, getOneResponse, "Detail", "GetOne query's response");
         EnsureRecord(view, builder.ListFields?.Record, listItem, "List", "list query's item");
 

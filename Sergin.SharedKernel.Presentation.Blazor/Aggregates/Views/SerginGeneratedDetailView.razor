@@ -1,7 +1,8 @@
 @typeparam TRoot
 @* The detail view of a configured root, generated from its model: see the code-behind. *@
 <SerginAggregateDetailView TitleText="Model.Singular" Trail="Trail" Problem="problem" Ready="@(record is not null)" Actions="Actions"
-                           FieldsTitleData="@(record is null ? null : DisplayText)">
+                           FieldsTitleData="@(record is null ? null : DisplayText)"
+                           Overview="OverviewFragment" OverviewSummary="OverviewSummaryFragment" OverviewCollapsed="Model.DetailOverviewCollapsed">
     <HeaderActions>
         <SerginReloadButton OnReload="LoadAsync" />
         <SerginCopyLinkButton />

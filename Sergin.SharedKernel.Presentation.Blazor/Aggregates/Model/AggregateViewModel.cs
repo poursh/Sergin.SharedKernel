@@ -19,6 +19,7 @@ namespace Sergin.SharedKernel.Presentation.Blazor.Aggregates;
 /// <param name="GetOne">The <c>IGetOneQuery</c>, its invoker and its build from the record's id, or null.</param>
 /// <param name="List">The <c>IListOf</c> query, its invoker and its build from a page's paging, term, filters and sort, or null.</param>
 /// <param name="Overview">The <c>IOverviewQuery</c>, its invoker and its build (it targets the whole collection and takes no arguments), or null.</param>
+/// <param name="EntityOverview">The <c>IEntityOverviewQuery</c>, its invoker and its build from the record's id, or null.</param>
 /// <param name="Audit">The <c>IAuditQuery</c> with its invoker, built from the record's id, or null.</param>
 /// <param name="Create">The <c>ICreateCommand</c>, its invoker and its build from form values, or null.</param>
 /// <param name="Update">The <c>IUpdateCommand</c> on the root, its invoker and its build from the record's id and form values, or null.</param>
@@ -47,6 +48,7 @@ namespace Sergin.SharedKernel.Presentation.Blazor.Aggregates;
 /// <param name="ListBodyType">The list view's body closed over <paramref name="ListItem"/>, made at registry build; null with no list.</param>
 /// <param name="CreateTitle">The create form's title, from <c>Form&lt;T&gt;(form => form.Title(...))</c>; null for the shell's "New {Name}".</param>
 /// <param name="UpdateTitle">The edit form's title, likewise; null for the shell's "Edit {Name}".</param>
+/// <param name="DetailOverviewCollapsed">Whether the detail overview starts collapsed, from <c>DetailOverviewCollapsed()</c>.</param>
 public sealed record AggregateViewModel(
     Type Root,
     Type Configuration,
@@ -58,6 +60,7 @@ public sealed record AggregateViewModel(
     ViewRequest<Func<Guid, object>>? GetOne,
     ViewRequest<Func<ListQueryInput, object>>? List,
     ViewRequest<Func<object>>? Overview,
+    ViewRequest<Func<Guid, object>>? EntityOverview,
     ViewRequest<Func<Guid, object>>? Audit,
     ViewRequest<Func<Guid, IReadOnlyDictionary<string, object?>, object>>? Create,
     ViewRequest<Func<Guid, IReadOnlyDictionary<string, object?>, object>>? Update,
@@ -79,7 +82,8 @@ public sealed record AggregateViewModel(
     Type? ListItem = null,
     Type? ListBodyType = null,
     TextDefinition? CreateTitle = null,
-    TextDefinition? UpdateTitle = null)
+    TextDefinition? UpdateTitle = null,
+    bool DetailOverviewCollapsed = false)
 {
     /// <summary>
     /// Loads the record <paramref name="id"/> through the GetOne query: at its version for a <c>Versioned()</c> root, plainly

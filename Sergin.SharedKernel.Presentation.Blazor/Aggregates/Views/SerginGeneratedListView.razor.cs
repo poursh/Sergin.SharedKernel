@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Components;
 using Sergin.SharedKernel.Domain;
 using Sergin.SharedKernel.Presentation.Blazor.Aggregates.Views.Parts;
+using Sergin.SharedKernel.Presentation.Blazor.Dispatching;
 using Sergin.SharedKernel.Presentation.Blazor.Modules;
 using Sergin.SharedKernel.Presentation.Blazor.Navigation;
 using Sergin.SharedKernel.Presentation.Blazor.Pages;
@@ -24,9 +25,13 @@ public sealed partial class SerginGeneratedListView<TRoot>
     private IGeneratedListBody? body;
     private Type bodyType = default!;
     private int generation;
+    private object? overview;
 
     [Inject]
     private AggregateViewRegistry Views { get; set; } = default!;
+
+    [Inject]
+    private ISerginDispatcher Dispatcher { get; set; } = default!;
 
     [Inject]
     private SerginUiModuleCatalog Catalog { get; set; } = default!;
@@ -41,18 +46,18 @@ public sealed partial class SerginGeneratedListView<TRoot>
 
     private RenderFragment? OverviewSummary => SlotOf(SerginViewSlot.ListOverviewSummary);
 
-    private AggregateViewContext Context => new(Record: null, Version: null, ReloadAsync, []);
+    private AggregateViewContext Context => new(Record: null, Version: null, ReloadAsync, [], overview);
 
     private RenderFragment Body => builder =>
     {
         builder.OpenComponent(0, bodyType);
         builder.AddAttribute(1, nameof(GeneratedListBody<object>.Model), Model);
-        builder.AddAttribute(2, nameof(GeneratedListBody<object>.OnChanged), EventCallback.Factory.Create(this, RefreshSlots));
+        builder.AddAttribute(2, nameof(GeneratedListBody<object>.OnChanged), EventCallback.Factory.Create(this, RefreshSlotsAsync));
         builder.AddComponentReferenceCapture(3, component => body = (IGeneratedListBody)component);
         builder.CloseComponent();
     };
 
-    protected override void OnInitialized()
+    protected override async Task OnInitializedAsync()
     {
         Model = Views.For<TRoot>();
 
@@ -60,7 +65,14 @@ public sealed partial class SerginGeneratedListView<TRoot>
             $"{typeof(TRoot).FullName} has no list query, so its list view has nothing to load. Add an IListOf<{typeof(TRoot).Name}>.");
         Trail = [GeneratedViewSupport.ListStep(Model, Catalog) ?? new SerginBreadcrumb(Model.Title)];
         Actions = [.. CreateAction()];
+        await LoadOverviewAsync();
     }
+
+    // Once per load: both overview slots read the result from Context.Overview.
+    private async Task LoadOverviewAsync() =>
+        overview = Model.Overview is { } request && (Model.Slots.ContainsKey(SerginViewSlot.ListOverview) || Model.Slots.ContainsKey(SerginViewSlot.ListOverviewSummary))
+            ? await GeneratedViewSupport.LoadOverviewAsync(Dispatcher, request.Invoker, request.Build())
+            : null;
 
     // The create command, linking to the create route: its permission is the one the new record is checked on.
     private IEnumerable<SerginPageAction> CreateAction()
@@ -97,11 +109,15 @@ public sealed partial class SerginGeneratedListView<TRoot>
     }
 
     // A new key renders the slots anew, so each loads its figures again.
-    private void RefreshSlots() => generation++;
+    private async Task RefreshSlotsAsync()
+    {
+        await LoadOverviewAsync();
+        generation++;
+    }
 
     private async Task ReloadAsync()
     {
-        RefreshSlots();
+        await RefreshSlotsAsync();
 
         if (body is not null)
         {

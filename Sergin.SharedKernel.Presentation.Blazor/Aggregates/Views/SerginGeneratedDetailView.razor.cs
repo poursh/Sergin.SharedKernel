@@ -24,7 +24,9 @@ namespace Sergin.SharedKernel.Presentation.Blazor.Aggregates.Views;
 /// loaded through its GetOne query (at its version when the root is <c>Versioned()</c>), the header's reload, copy-link and (with an audit query) information
 /// buttons, a field per visible response property, an action per offered command, and, when a command is schedulable,
 /// the record's scheduled tasks. A configuration's <see cref="SerginViewSlot.DetailFields"/> component replaces the
-/// fields, and its <see cref="SerginViewSlot.DetailEntities"/> component renders above the scheduled tasks; both get
+/// fields, and its <see cref="SerginViewSlot.DetailEntities"/> component renders above the scheduled tasks; the
+/// <see cref="SerginViewSlot.DetailOverview"/> and <see cref="SerginViewSlot.DetailOverviewSummary"/> components fill the
+/// overview (the entity overview query read once per load, in <c>Context.Overview</c>); all get
 /// <c>Context</c>, an <see cref="AggregateViewContext"/>.
 /// </summary>
 /// <remarks>
@@ -45,6 +47,7 @@ public sealed partial class SerginGeneratedDetailView<TRoot>
     private SerginScheduledTasksSection? section;
     private GeneratedCommandActions commands = default!;
     private FieldView? titleField;
+    private object? overview;
 
     [Parameter]
     public Guid Id { get; set; }
@@ -87,7 +90,11 @@ public sealed partial class SerginGeneratedDetailView<TRoot>
 
     private IEnumerable<FieldView> VisibleFields => Model.DetailFields.Where(candidate => !candidate.Hidden);
 
-    private AggregateViewContext Context => new(record, version, ReloadAsync, [Id]);
+    private AggregateViewContext Context => new(record, version, ReloadAsync, [Id], overview);
+
+    private RenderFragment? OverviewFragment => record is null ? null : SlotOf(SerginViewSlot.DetailOverview);
+
+    private RenderFragment? OverviewSummaryFragment => record is null ? null : SlotOf(SerginViewSlot.DetailOverviewSummary);
 
     private Dictionary<string, object?> SlotParameters => new(StringComparer.Ordinal) { ["Context"] = Context };
 
@@ -122,6 +129,16 @@ public sealed partial class SerginGeneratedDetailView<TRoot>
 
     protected override Task OnParametersSetAsync() => LoadAsync();
 
+    private RenderFragment? SlotOf(SerginViewSlot slot) =>
+        Model.Slots.GetValueOrDefault(slot) is { } component
+            ? builder =>
+            {
+                builder.OpenComponent(0, component);
+                builder.AddAttribute(1, "Context", Context);
+                builder.CloseComponent();
+            }
+            : null;
+
     private IEnumerable<SerginBreadcrumb> ListStep() =>
         GeneratedViewSupport.ListStep(Model, Catalog) is { } step ? [step] : [];
 
@@ -134,6 +151,7 @@ public sealed partial class SerginGeneratedDetailView<TRoot>
         {
             record = null;
             version = null;
+            overview = null;
             problem = ErrorPresenter.Present(loaded.Errors[0]);
 
             return;
@@ -142,6 +160,9 @@ public sealed partial class SerginGeneratedDetailView<TRoot>
         problem = null;
         record = loaded.Value;
         version = loaded.Version;
+        overview = Model.EntityOverview is { } entityOverview
+            ? await GeneratedViewSupport.LoadOverviewAsync(Dispatcher, entityOverview.Invoker, entityOverview.Build(Id))
+            : null;
     }
 
     // What a slot component or a configured menu item calls: it runs outside this view's own handlers, so it re-renders.

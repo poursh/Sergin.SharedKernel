@@ -30,6 +30,19 @@ internal static class GeneratedViewSupport
         return item is null ? new SerginBreadcrumb(model.Title, list) : SerginBreadcrumb.Of(item);
     }
 
+    /// <summary>
+    /// Sends an overview query once and hands back its response, or null when the read failed: an overview is a summary, so a
+    /// failure leaves the figures empty rather than a second error beside the page's own.
+    /// </summary>
+    public static async Task<object?> LoadOverviewAsync(ISerginDispatcher dispatcher, RequestInvoker invoker, object request)
+    {
+        ArgumentNullException.ThrowIfNull(invoker);
+
+        ViewSendResult result = await invoker.SendAsync(dispatcher, request);
+
+        return result.IsError ? null : result.Value;
+    }
+
     /// <summary>The field named <paramref name="titleField"/>, or null.</summary>
     public static FieldView? TitleFieldOf(IReadOnlyList<FieldView> fields, string? titleField)
     {

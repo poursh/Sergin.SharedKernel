@@ -42,9 +42,10 @@ internal sealed class AggregateViewModelJoin(
         CommandView[] commandViews = [.. Commands(requests)];
 
         Type? overview = Single(requests, typeof(IOverviewQuery<>));
+        Type? entityOverview = Single(requests, typeof(IEntityOverviewQuery<,>));
         Type? audit = Single(requests, typeof(IAuditQuery<,>));
 
-        AggregateViewGuard.EnsureConfigured(view, commandViews, getOne, getOneResponse, list, listItem, create, update, overview, audit);
+        AggregateViewGuard.EnsureConfigured(view, commandViews, getOne, getOneResponse, list, listItem, create, update, overview, entityOverview, audit);
 
         IReadOnlyList<FieldView> detailFields = Fields(getOneResponse, CategoryOf(getOne), builder.DetailFields, out string? detailTitle);
         IReadOnlyList<FieldView> listFields = Fields(listItem, CategoryOf(list), builder.ListFields, out string? listTitle);
@@ -62,6 +63,7 @@ internal sealed class AggregateViewModelJoin(
             Request(getOne, RequestFactory.ForId),
             Request(list, RequestFactory.ForList),
             Request(overview, RequestFactory.ForNone),
+            Request(entityOverview, RequestFactory.ForId),
             Request(audit, RequestFactory.ForId),
             Request(create, RequestFactory.ForForm),
             Request(update, RequestFactory.ForForm),
@@ -83,7 +85,8 @@ internal sealed class AggregateViewModelJoin(
             listItem,
             listItem is null ? null : typeof(GeneratedListBody<>).MakeGenericType(listItem),
             create is null ? null : builder.Forms.GetValueOrDefault(create)?.DeclaredTitle,
-            update is null ? null : builder.Forms.GetValueOrDefault(update)?.DeclaredTitle);
+            update is null ? null : builder.Forms.GetValueOrDefault(update)?.DeclaredTitle,
+            builder.DetailOverviewIsCollapsed);
     }
 
     // Every public property's compiled, unwrapping reader, made once; a read fills a fresh bag.

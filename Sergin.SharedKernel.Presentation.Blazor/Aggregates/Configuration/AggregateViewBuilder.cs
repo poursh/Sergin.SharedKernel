@@ -26,6 +26,8 @@ public abstract class AggregateViewBuilder
     internal Dictionary<Type, FormViewBuilder> Forms { get; } = [];
 
     internal Dictionary<SerginViewSlot, Type> Slots { get; } = [];
+
+    internal bool DetailOverviewIsCollapsed { get; private protected set; }
 }
 
 /// <summary>What a view configuration declares for <typeparamref name="TRoot"/>.</summary>
@@ -107,6 +109,13 @@ public sealed class AggregateViewBuilder<TRoot> : AggregateViewBuilder
         }
 
         configure((FormViewBuilder<TCommand>)form);
+        return this;
+    }
+
+    /// <summary>Starts the detail view's overview collapsed.</summary>
+    public AggregateViewBuilder<TRoot> DetailOverviewCollapsed()
+    {
+        DetailOverviewIsCollapsed = true;
         return this;
     }
 
