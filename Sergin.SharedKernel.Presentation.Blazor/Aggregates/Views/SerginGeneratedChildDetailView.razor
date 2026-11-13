@@ -1,0 +1,19 @@
+@typeparam TRoot
+@typeparam TChild
+@* The detail view of a configured child entity under its root, generated from the root's model: see the code-behind. *@
+<SerginEntityDetailView TitleText="Child.Singular" Trail="Trail" Problem="problem" Ready="@(record is not null)" Actions="Actions"
+                        FieldsTitleData="@(record is null ? null : DisplayText)">
+    <HeaderActions>
+        <SerginReloadButton OnReload="ReloadAsync" />
+        <SerginCopyLinkButton />
+    </HeaderActions>
+    <Fields>
+        @if (record is not null)
+        {
+            @foreach (FieldView field in VisibleFields)
+            {
+                <GeneratedField @key="field.Name" Field="field" Record="record" Context="Context" />
+            }
+        }
+    </Fields>
+</SerginEntityDetailView>
