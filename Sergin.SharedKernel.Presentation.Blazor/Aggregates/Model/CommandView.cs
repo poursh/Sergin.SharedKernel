@@ -33,6 +33,15 @@ namespace Sergin.SharedKernel.Presentation.Blazor.Aggregates;
 /// <param name="DisabledWhen">Whether the action is disabled for a record or row (presentation only: the command stays callable and the pipeline still refuses); null for never.</param>
 /// <param name="DisabledReason">The tooltip of a disabled action, or null.</param>
 /// <param name="BuildFromIds">Builds a child command from the root's id and the child's id; null unless its constructor is exactly those two.</param>
+/// <param name="ValueField">The one value a root's set-property command sets, as its value form renders it; null for any other command, and for a hidden one.</param>
+/// <param name="BuildFromValues">
+/// Builds a root's set-property command from the record's id and its value by field name (<paramref name="ValueField"/>'s);
+/// null whenever <paramref name="ValueField"/> is.
+/// </param>
+/// <param name="AppliesWhen">
+/// Whether the command is offered for a record (one command of an <c>IReverseOf</c> pair, from <c>AppliesWhen</c>; its partner
+/// carries the negation); a record that is none of the declared type, and a view with no record, offer neither. Null for always.
+/// </param>
 public sealed record CommandView(
     Type Request,
     CommandRole Role,
@@ -57,7 +66,10 @@ public sealed record CommandView(
     SerginEditMode EditMode = SerginEditMode.Dialog,
     Func<object, bool>? DisabledWhen = null,
     TextDefinition? DisabledReason = null,
-    Func<Guid, Guid, object>? BuildFromIds = null);
+    Func<Guid, Guid, object>? BuildFromIds = null,
+    FormFieldView? ValueField = null,
+    Func<Guid, IReadOnlyDictionary<string, object?>, object>? BuildFromValues = null,
+    Func<object, bool>? AppliesWhen = null);
 
 /// <summary>An entry a configuration put behind a command's drop-down with <c>MenuItem(...)</c>.</summary>
 public sealed record CommandMenuItemView(

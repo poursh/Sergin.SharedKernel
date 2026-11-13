@@ -55,10 +55,16 @@ public sealed partial class GeneratedListBody<TItem> : IGeneratedListBody
     private IReadOnlyList<ListColumn> columns = [];
     private FieldView? titleField;
     private bool canManageSchedules;
+    private bool parametersSet;
+    private Guid? shownParentId;
 
     [Parameter]
     [EditorRequired]
     public AggregateViewModel Model { get; set; } = default!;
+
+    /// <summary>The parent's id of a list under a parent: every list query is sent with it.</summary>
+    [Parameter]
+    public Guid? ParentId { get; set; }
 
     /// <summary>Raised after a command changed records, so the view can refresh what else it shows (the overview).</summary>
     [Parameter]
@@ -143,6 +149,21 @@ public sealed partial class GeneratedListBody<TItem> : IGeneratedListBody
         BulkActions = [.. BulkActionsOf()];
     }
 
+    // A new parent (a route reused for another parent's records) reloads the rows under it; the first set loads as the table
+    // always does. Reloading here, not from the view, guarantees the reload reads the ParentId just set.
+    protected override async Task OnParametersSetAsync()
+    {
+        Guid? previous = shownParentId;
+        shownParentId = ParentId;
+
+        if (parametersSet && previous != ParentId)
+        {
+            await list.ReloadAsync();
+        }
+
+        parametersSet = true;
+    }
+
     private static Guid IdOf(TItem item) => GeneratedViewSupport.IdOf(idReader, item!);
 
     private string? TextOf(ListColumn column, TItem item) => FieldValueText.Render(column.Field, column.Field.Get(item!), Formatter, Localizer);
@@ -155,7 +176,8 @@ public sealed partial class GeneratedListBody<TItem> : IGeneratedListBody
             request.Paggination,
             request.Term?.Value,
             [.. request.Filtering?.Filters ?? []],
-            [.. request.Sorting?.Sorts ?? []]);
+            [.. request.Sorting?.Sorts ?? []],
+            ParentId);
 
         ViewSendResult result = await Model.List!.Invoker.SendAsync(Dispatcher, Model.List.Build(input), cancellationToken);
 
@@ -183,10 +205,12 @@ public sealed partial class GeneratedListBody<TItem> : IGeneratedListBody
     // ---- Rows ----
 
     private IReadOnlyList<SerginPageAction> IconActionsOf(TItem item) =>
-        commands.For(Model, IdOf(item), _ => [], GeneratedLists.Icons, delete: command => DeleteRowAsync(command, item));
+        commands.For(
+            Model, IdOf(item), _ => [], GeneratedLists.Icons, delete: command => DeleteRowAsync(command, item), record: item, links: ViewLinkPlacement.BeforeCommands);
 
     private IReadOnlyList<SerginPageAction> MenuActionsOf(TItem item) =>
-        commands.For(Model, IdOf(item), command => RowMenuItemsOf(command, item), GeneratedLists.Menu, run: command => RunRowAsync(command, item));
+        commands.For(
+            Model, IdOf(item), command => RowMenuItemsOf(command, item), GeneratedLists.Menu, run: command => RunRowAsync(command, item), record: item);
 
     private AggregateViewContext ContextOf(IReadOnlyList<TItem> items) =>
         new(items.Count == 1 ? items[0] : null, Version: null, ChangedAsync, [.. items.Select(IdOf)]);
@@ -294,7 +318,7 @@ public sealed partial class GeneratedListBody<TItem> : IGeneratedListBody
 
     private IEnumerable<SerginBulkAction<TItem>> BulkActionsOf()
     {
-        foreach (CommandView command in Model.Commands.Where(command => command is { Selectable: true, Hidden: false, BuildFromId: not null }))
+        foreach (CommandView command in Model.Commands.Where(command => command is { Selectable: true, Hidden: false, BuildFromId: not null, AppliesWhen: null }))
         {
             PermissionDefinition? permission = command.Permissions.FirstOrDefault();
 

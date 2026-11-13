@@ -22,12 +22,21 @@
             {
                 @foreach (FieldView field in VisibleFields)
                 {
-                    <GeneratedField @key="field.Name" Field="field" Record="record" Context="Context" />
+                    <GeneratedField @key="field.Name" Field="field" Record="record" Context="Context" InlineCommand="InlineChoiceOf(field)"
+                                    OnInlineChanged="InlineChanged(field)" InlineBusy="IsInlineBusy(field)" />
                 }
             }
         }
     </Fields>
     <Entities>
+        @if (record is not null)
+        {
+            @foreach (CommandView command in inlineCards)
+            {
+                <GeneratedInlineEditCard @key="command.Request" Command="command" Id="Id" Value="ValueOf(command)"
+                                         OnSubmit="InlineSubmitted(command)" Busy="commands.IsRunning(command)" />
+            }
+        }
         @if (record is not null && EntitiesSlot is not null)
         {
             <DynamicComponent Type="EntitiesSlot" Parameters="SlotParameters" />

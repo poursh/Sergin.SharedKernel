@@ -43,9 +43,11 @@ public static class GeneratedChildForm
     {
         ArgumentNullException.ThrowIfNull(child);
 
-        Type? request = isEdit ? child.Edit?.Type : child.Add?.Type;
+        Type request = (isEdit ? child.Edit?.Type : child.Add?.Type)
+            ?? throw new InvalidOperationException($"{child.Child.FullName} has no {(isEdit ? "edit" : "add")} command.");
 
-        return child.Commands.Any(command => command.Request == request && command.RequiresVersion);
+        return (child.Commands.SingleOrDefault(command => command.Request == request)
+            ?? throw new InvalidOperationException($"{child.Child.FullName} has no command view for {request.FullName}.")).RequiresVersion;
     }
 
     /// <summary>

@@ -97,8 +97,18 @@ public sealed class FieldTextGuard(IEnumerable<Assembly> contractsAssemblies)
             ];
         }
 
-        return shown.Where(name => catalog.FindField(category, name) is null).Select(name => $"{request.FullName}.{name}");
+        return shown.Where(name => catalog.FindField(category, name) is null).Select(name => $"{request.FullName}.{name}")
+            .Concat(MissingEnumValues(request, shown, category, catalog));
     }
+
+    private static IEnumerable<string> MissingEnumValues(Type request, string[] shown, TextCategory category, TextCatalog catalog) =>
+        from property in request.GetProperties(BindingFlags.Public | BindingFlags.Instance)
+        where shown.Contains(property.Name, StringComparer.Ordinal)
+        let enumType = Nullable.GetUnderlyingType(property.PropertyType) ?? property.PropertyType
+        where enumType.IsEnum
+        from member in Enum.GetValues(enumType).Cast<object>()
+        where catalog.FindValue(category, enumType, member) is null
+        select $"{request.FullName}.{property.Name} ({enumType.Name}.{member})";
 
     private static IEnumerable<string> MissingListFields(
         Type declaringType, ListFieldSet set, Type[] requests, CommandConfigurationRegistry registry, TextCatalog catalog)

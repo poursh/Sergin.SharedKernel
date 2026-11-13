@@ -1,5 +1,6 @@
 using Sergin.SharedKernel.Application.Commands;
 using Sergin.SharedKernel.Domain.Securities;
+using Sergin.SharedKernel.Presentation.Blazor.Pages;
 
 namespace Sergin.SharedKernel.Presentation.Blazor.Aggregates;
 
@@ -38,6 +39,18 @@ public abstract class CommandViewBuilder
     internal TextDefinition? DeclaredDisabledReason { get; private protected set; }
 
     internal List<CommandMenuItemView> MenuItems { get; } = [];
+
+    /// <summary>The look <c>Kind(...)</c> declared, replacing the role's default; null for the default.</summary>
+    internal SerginActionKind? DeclaredKind { get; private protected set; }
+
+    /// <summary>The record type <c>AppliesWhen&lt;TRecord&gt;</c> reads, or null.</summary>
+    internal Type? AppliesRecord { get; private protected set; }
+
+    /// <summary>Whether the command applies to a record: true only for a <see cref="AppliesRecord"/> that satisfies the predicate.</summary>
+    internal Func<object, bool>? DeclaredAppliesWhen { get; private protected set; }
+
+    /// <summary>The partner's side of <see cref="DeclaredAppliesWhen"/>: true only for a <see cref="AppliesRecord"/> that does not satisfy it.</summary>
+    internal Func<object, bool>? DeclaredPartnerAppliesWhen { get; private protected set; }
 }
 
 /// <summary>How one command of the root is offered: what the command's type cannot imply.</summary>
@@ -49,7 +62,10 @@ public sealed class CommandViewBuilder<TCommand> : CommandViewBuilder
     {
     }
 
-    /// <summary>The button text. Required for a transition, set-property or move command, which have no default.</summary>
+    /// <summary>
+    /// The button text. Required for a transition or move command, which have no default; a root's set-property command
+    /// defaults to its value field's label, which a verb (Rename) replaces.
+    /// </summary>
     public CommandViewBuilder<TCommand> Label(TextDefinition label)
     {
         ArgumentNullException.ThrowIfNull(label);
@@ -124,6 +140,29 @@ public sealed class CommandViewBuilder<TCommand> : CommandViewBuilder
         DisabledRecord = typeof(TRecord);
         DeclaredDisabledWhen = record => record is TRecord typed && when(typed);
         DeclaredDisabledReason = reason;
+        return this;
+    }
+
+    /// <summary>
+    /// On one command of an <see cref="IReverseOf{TOther}"/> pair: it is offered for a record of <typeparamref name="TRecord"/>
+    /// that satisfies <paramref name="when"/>, and its partner exactly when it does not. A view whose record is no
+    /// <typeparamref name="TRecord"/> (a list row) offers neither. Presentation only: both commands stay callable and the
+    /// pipeline still refuses. Declare it on exactly one command of the pair.
+    /// </summary>
+    public CommandViewBuilder<TCommand> AppliesWhen<TRecord>(Func<TRecord, bool> when)
+    {
+        ArgumentNullException.ThrowIfNull(when);
+
+        AppliesRecord = typeof(TRecord);
+        DeclaredAppliesWhen = record => record is TRecord typed && when(typed);
+        DeclaredPartnerAppliesWhen = record => record is TRecord typed && !when(typed);
+        return this;
+    }
+
+    /// <summary>The action's look and place in the actions bar, replacing the role's default.</summary>
+    public CommandViewBuilder<TCommand> Kind(SerginActionKind kind)
+    {
+        DeclaredKind = kind;
         return this;
     }
 

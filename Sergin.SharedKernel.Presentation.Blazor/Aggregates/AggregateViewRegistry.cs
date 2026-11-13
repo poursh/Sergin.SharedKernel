@@ -69,9 +69,13 @@ public sealed class AggregateViewRegistry
 
         var targets = AggregateTargets.From(commands.RequestTypes);
 
-        return new AggregateViewRegistry(declared.ToDictionary(
+        var models = declared.ToDictionary(
             view => view.Builder.Root,
-            view => new AggregateViewModelJoin(view, commands, aggregates, texts, targets).Build()));
+            view => new AggregateViewModelJoin(view, commands, aggregates, texts, targets).Build());
+
+        AggregateViewGuard.EnsureParents(models);
+
+        return new AggregateViewRegistry(models);
     }
 
     private static DeclaredView Run(Type configurationType, Type closedInterface, string schema)

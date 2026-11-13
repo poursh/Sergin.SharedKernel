@@ -37,6 +37,7 @@ public enum FormInputKind
 /// </param>
 /// <param name="ParentFirst">A child picker's placeholder while no parent is chosen; null for any other input.</param>
 /// <param name="EnumValues">A select's values, in declaration order; null for any other input.</param>
+/// <param name="ValueTexts">What a select's items show for each value, from the enum's declared value texts; null when none is declared or for any other input.</param>
 public sealed record FormFieldView(
     string Name,
     FieldText Label,
@@ -50,7 +51,8 @@ public sealed record FormFieldView(
     PickerOptions? ParentOptions = null,
     FormParentLabel? ParentLabel = null,
     TextDefinition? ParentFirst = null,
-    IReadOnlyList<object>? EnumValues = null);
+    IReadOnlyList<object>? EnumValues = null,
+    IReadOnlyDictionary<object, TextDefinition>? ValueTexts = null);
 
 /// <summary>A child picker's parent select: its label, and its placeholder or null.</summary>
 public sealed record FormParentLabel(TextDefinition Label, TextDefinition? Placeholder);

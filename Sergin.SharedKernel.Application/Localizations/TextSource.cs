@@ -17,12 +17,13 @@ public sealed class TextSource
 {
     private const string CommonModule = "common";
 
-    private TextSource(string moduleSegment, TextOrigin origin, IReadOnlyList<TextCatalogEntry> entries, IReadOnlyList<FieldText> fields)
+    private TextSource(string moduleSegment, TextOrigin origin, IReadOnlyList<TextCatalogEntry> entries, IReadOnlyList<FieldText> fields, IReadOnlyList<IEnumTexts>? values = null)
     {
         ModuleSegment = moduleSegment;
         Origin = origin;
         Entries = entries;
         Fields = fields;
+        Values = values ?? [];
     }
 
     /// <summary>SharedKernel's own text classes; module segment <c>common</c>.</summary>
@@ -37,6 +38,8 @@ public sealed class TextSource
     internal IReadOnlyList<TextCatalogEntry> Entries { get; }
 
     internal IReadOnlyList<FieldText> Fields { get; }
+
+    internal IReadOnlyList<IEnumTexts> Values { get; }
 
     public static TextSource FromAssembly(Assembly assembly, string moduleName, TextOrigin origin)
     {
@@ -101,19 +104,20 @@ public sealed class TextSource
         string segment = SerginStringKey.ToSegment(moduleName);
         List<TextCatalogEntry> entries = [];
         List<FieldText> fields = [];
+        List<IEnumTexts> values = [];
 
         foreach (Type type in declaringTypes.Where(IsDeclaringType))
         {
-            Collect(type, origin, entries, fields);
+            Collect(type, origin, entries, fields, values);
         }
 
-        return new TextSource(segment, origin, entries, fields);
+        return new TextSource(segment, origin, entries, fields, values);
     }
 
     private static bool IsDeclaringType(Type type) =>
         type.IsAbstract && type.IsSealed && (type.IsPublic || type.IsNestedPublic) && !type.IsGenericTypeDefinition;
 
-    private static void Collect(Type type, TextOrigin origin, List<TextCatalogEntry> entries, List<FieldText> fields)
+    private static void Collect(Type type, TextOrigin origin, List<TextCatalogEntry> entries, List<FieldText> fields, List<IEnumTexts> values)
     {
         try
         {
@@ -140,6 +144,14 @@ public sealed class TextSource
                     case ErrorTextPair pair:
                         entries.Add(EntryOf(pair.Title, [.. pair.Title.Key.Segments.Skip(1).SkipLast(1)], type, origin));
                         entries.Add(EntryOf(pair.Detail, [.. pair.Detail.Key.Segments.Skip(1).SkipLast(1)], type, origin));
+                        break;
+                    case IEnumTexts enumTexts:
+                        values.Add(enumTexts);
+                        foreach (TextDefinition member in enumTexts.Members.Values)
+                        {
+                            entries.Add(EntryOf(member, [.. member.Key.Segments.Skip(1).SkipLast(1)], type, origin));
+                        }
+
                         break;
                     default:
                         break;
@@ -169,7 +181,8 @@ public sealed class TextSource
     }
 
     private static bool IsText(Type type) =>
-        type == typeof(TextDefinition) || type == typeof(FieldText) || type == typeof(ErrorTextPair);
+        type == typeof(TextDefinition) || type == typeof(FieldText) || type == typeof(ErrorTextPair)
+        || typeof(IEnumTexts).IsAssignableFrom(type);
 
     private static TextCatalogEntry EntryOf(
         TextDefinition definition, IReadOnlyList<string> category, Type declaringType, TextOrigin origin) =>

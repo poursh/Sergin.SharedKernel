@@ -50,6 +50,11 @@ namespace Sergin.SharedKernel.Presentation.Blazor.Aggregates;
 /// <param name="CreateTitle">The create form's title, from <c>Form&lt;T&gt;(form => form.Title(...))</c>; null for the shell's "New {Name}".</param>
 /// <param name="UpdateTitle">The edit form's title, likewise; null for the shell's "Edit {Name}".</param>
 /// <param name="DetailOverviewCollapsed">Whether the detail overview starts collapsed, from <c>DetailOverviewCollapsed()</c>.</param>
+/// <param name="Links">The links to other pages from <c>Link(...)</c>: detail bar actions and list row icons; null for none.</param>
+/// <param name="Parent">
+/// The parent root of a root listed under one (<c>ListUnder&lt;TParent&gt;</c>): its own model gives the list's trail and
+/// loads the parent record; null for any other root.
+/// </param>
 public sealed record AggregateViewModel(
     Type Root,
     Type Configuration,
@@ -85,7 +90,9 @@ public sealed record AggregateViewModel(
     Type? ListBodyType = null,
     TextDefinition? CreateTitle = null,
     TextDefinition? UpdateTitle = null,
-    bool DetailOverviewCollapsed = false)
+    bool DetailOverviewCollapsed = false,
+    IReadOnlyList<ViewLinkView>? Links = null,
+    Type? Parent = null)
 {
     /// <summary>
     /// Loads the record <paramref name="id"/> through the GetOne query: at its version for a <c>Versioned()</c> root, plainly
@@ -117,10 +124,15 @@ public sealed record AggregateViewModel(
         object request = BuildForm(id, values);
         RequestInvoker invoker = (id is null ? Create : Update)?.Invoker
             ?? throw new InvalidOperationException($"{Root.FullName} has no {(id is null ? "create" : "update")} command.");
-        bool versioned = id is not null && Commands.Any(command => command.Request == Update?.Type && command.RequiresVersion);
+        bool versioned = id is not null && CommandOf(Update!.Type).RequiresVersion;
 
         return versioned
             ? invoker.SendVersionedAsync(dispatcher, request, version, cancellationToken)
             : invoker.SendAsync(dispatcher, request, cancellationToken);
     }
+
+    /// <summary>The command view of <paramref name="request"/>; every command a form sends has one, so a missing one is a bug, not "unversioned".</summary>
+    internal CommandView CommandOf(Type request) =>
+        Commands.SingleOrDefault(command => command.Request == request)
+        ?? throw new InvalidOperationException($"{Root.FullName} has no command view for {request.FullName}.");
 }

@@ -9,6 +9,7 @@ namespace Sergin.SharedKernel.Application.Localizations;
 public sealed class TextCategory
 {
     private const string FieldsSegment = "fields";
+    private const string ValuesSegment = "values";
 
     private TextCategory(string module, IReadOnlyList<string> path)
     {
@@ -34,6 +35,39 @@ public sealed class TextCategory
 
     public TextDefinition Text(string name, string @default, string? description = null) =>
         new(KeyOf(SerginStringKey.ToSegment(name)), @default, description);
+
+    /// <summary>
+    /// Declares the texts of <typeparamref name="TEnum"/>'s members, keyed <c>&lt;prefix&gt;.values.&lt;enum&gt;.&lt;member&gt;</c>.
+    /// A member declared twice is refused; leaving a member out is allowed here and refused by the field-text guard
+    /// when a configured request shows the enum.
+    /// </summary>
+    public EnumTexts<TEnum> Values<TEnum>(params (TEnum Value, string Default, string? Description)[] values)
+        where TEnum : struct, Enum
+    {
+        ArgumentNullException.ThrowIfNull(values);
+
+        string enumSegment = SerginStringKey.ToSegment(typeof(TEnum).Name);
+        Dictionary<TEnum, TextDefinition> declared = [];
+
+        foreach ((TEnum value, string @default, string? description) in values)
+        {
+            if (declared.ContainsKey(value))
+            {
+                throw new ArgumentException($"{typeof(TEnum).Name}.{value} is declared twice in '{Prefix}'.", nameof(values));
+            }
+
+            string member = SerginStringKey.ToSegment(value.ToString());
+
+            declared.Add(
+                value,
+                new TextDefinition(
+                    KeyOf($"{ValuesSegment}{SerginStringKey.Separator}{enumSegment}{SerginStringKey.Separator}{member}"),
+                    @default,
+                    description));
+        }
+
+        return new EnumTexts<TEnum>(this, declared);
+    }
 
     public FieldText Field(string propertyName, string label, string? hint = null, string? placeholder = null)
     {

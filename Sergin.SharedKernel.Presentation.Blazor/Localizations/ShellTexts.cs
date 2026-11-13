@@ -78,6 +78,16 @@ public static class ShellTexts
             category.Text("SelectParentFirst", "Select {Parent} first", "Shown in a picker disabled until {Parent}, another field's label, is chosen.");
     }
 
+    /// <summary>What a generated view shows for a bool that declares no texts of its own.</summary>
+    public static class Values
+    {
+        private static readonly TextCategory category = common.Child("Values");
+
+        public static TextDefinition Yes { get; } = category.Text("Yes", "Yes");
+
+        public static TextDefinition No { get; } = category.Text("No", "No");
+    }
+
     /// <summary>The default home slot.</summary>
     public static class Welcome
     {

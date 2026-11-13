@@ -55,6 +55,12 @@ public sealed partial class GeneratedInput
 
     private string? PlaceholderShown => Field.Label.Placeholder is { } placeholder ? Localizer.Text(placeholder) : null;
 
+    private string? HintShown => Field.Label.Hint is { } hint ? Localizer.Text(hint) : null;
+
+    // A select item: the value's declared text, else the member as it is.
+    private string? ValueShown(object value) =>
+        Field.ValueTexts is { } valueTexts && valueTexts.TryGetValue(value, out TextDefinition? text) ? Localizer.Text(text) : value.ToString();
+
     private string? ParentLabelShown => Field.ParentLabel is { } parent ? Localizer.Text(parent.Label) : null;
 
     private string? ParentPlaceholderShown => Field.ParentLabel?.Placeholder is { } placeholder ? Localizer.Text(placeholder) : null;

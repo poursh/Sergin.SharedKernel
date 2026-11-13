@@ -1,0 +1,12 @@
+@* A root's set-property command in a dialog: its value form, Save and Cancel. A refused or stale save keeps the dialog
+   open with the user's value. *@
+<MudDialog>
+    <TitleContent>
+        <MudText Typo="Typo.h6">@Localizer.Text(Command.Label)</MudText>
+    </TitleContent>
+    <DialogContent>
+        <GeneratedValueForm Command="Command" Id="Id" Value="Value" OnSubmit="OnSubmit" Busy="busy" SubmitLabel="CommonTexts.Save">
+            <MudButton OnClick="Cancel">@Localizer.Text(CommonTexts.Cancel)</MudButton>
+        </GeneratedValueForm>
+    </DialogContent>
+</MudDialog>

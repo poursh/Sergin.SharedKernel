@@ -5,31 +5,31 @@
 {
     case FormInputKind.Text:
         <MudTextField T="string" Variant="Variant.Outlined" Margin="Margin.Dense" Value="@(Values.ValueOf(Field.Name) as string)"
-                      ValueChanged="OnTextChanged" Label="@LabelShown" Placeholder="@PlaceholderShown" Validation="textValidation" Immediate="true" />
+                      ValueChanged="OnTextChanged" Label="@LabelShown" Placeholder="@PlaceholderShown" HelperText="@HintShown" Validation="textValidation" Immediate="true" />
         break;
     case FormInputKind.Number:
         <MudNumericField T="decimal?" Variant="Variant.Outlined" Margin="Margin.Dense" Value="NumberValue" ValueChanged="OnNumberChanged"
-                         Label="@LabelShown" Placeholder="@PlaceholderShown" Validation="numberValidation" Immediate="true" />
+                         Label="@LabelShown" Placeholder="@PlaceholderShown" HelperText="@HintShown" Validation="numberValidation" Immediate="true" />
         break;
     case FormInputKind.Switch:
-        <MudSwitch T="bool" Value="SwitchValue" ValueChanged="OnSwitchChanged" Label="@LabelShown" Color="Color.Primary" Validation="switchValidation" />
+        <MudSwitch T="bool" Value="SwitchValue" ValueChanged="OnSwitchChanged" Label="@LabelShown" Color="Color.Primary" Validation="switchValidation" HelperText="@HintShown" />
         break;
     case FormInputKind.Date:
         <MudDatePicker Variant="Variant.Outlined" Margin="Margin.Dense" Date="DateValue" DateChanged="OnDateChanged" Culture="@Formatter.Culture"
-                       Label="@LabelShown" Placeholder="@PlaceholderShown" Validation="dateValidation" />
+                       Label="@LabelShown" Placeholder="@PlaceholderShown" HelperText="@HintShown" Validation="dateValidation" />
         break;
     case FormInputKind.Select:
         <MudSelect T="object" Variant="Variant.Outlined" Margin="Margin.Dense" Value="@Values.ValueOf(Field.Name)" ValueChanged="OnSelectChanged"
-                   Label="@LabelShown" Placeholder="@PlaceholderShown" Validation="selectValidation">
+                   Label="@LabelShown" Placeholder="@PlaceholderShown" HelperText="@HintShown" Validation="selectValidation">
             @foreach (object value in Field.EnumValues ?? [])
             {
-                <MudSelectItem T="object" Value="@value">@value</MudSelectItem>
+                <MudSelectItem T="object" Value="@value">@ValueShown(value)</MudSelectItem>
             }
         </MudSelect>
         break;
     case FormInputKind.Picker:
         <MudSelect T="Guid" Variant="Variant.Outlined" Margin="Margin.Dense" Value="GuidValue" ValueChanged="OnGuidChanged"
-                   Label="@LabelShown" Placeholder="@PlaceholderShown" Validation="guidValidation">
+                   Label="@LabelShown" Placeholder="@PlaceholderShown" HelperText="@HintShown" Validation="guidValidation">
             @foreach (PickerOption option in options)
             {
                 <MudSelectItem T="Guid" Value="@option.Id">@option.Label</MudSelectItem>
@@ -46,7 +46,7 @@
         </MudSelect>
 
         <MudSelect T="Guid" Variant="Variant.Outlined" Margin="Margin.Dense" Value="GuidValue" ValueChanged="OnGuidChanged"
-                   Label="@LabelShown" Placeholder="@ChildPlaceholderShown" Validation="guidValidation" Disabled="@(ParentSelection == Guid.Empty)">
+                   Label="@LabelShown" Placeholder="@ChildPlaceholderShown" HelperText="@HintShown" Validation="guidValidation" Disabled="@(ParentSelection == Guid.Empty)">
             @foreach (PickerOption option in options)
             {
                 <MudSelectItem T="Guid" Value="@option.Id">@option.Label</MudSelectItem>

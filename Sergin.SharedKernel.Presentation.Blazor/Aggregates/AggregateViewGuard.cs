@@ -40,6 +40,10 @@ public static class AggregateViewGuard
             .. views.All.SelectMany(model => model.Children.SelectMany(child => RoutesOf(child.Routes)
                 .Where(route => !templates.Contains(Normalize(route)))
                 .Select(route => $"  {model.Configuration.FullName} ({model.Root.Name}, child {child.Child.Name}): \"{route}\""))),
+            .. views.All.SelectMany(model => (model.Links ?? [])
+                .Select(link => link.Href(Guid.Empty))
+                .Where(route => !templates.Contains(Normalize(route)))
+                .Select(route => $"  {model.Configuration.FullName} ({model.Root.Name}, link): \"{route}\"")),
         ];
 
         if (missing.Length > 0)
@@ -146,6 +150,9 @@ public static class AggregateViewGuard
             throw Refuse(view, $"Form<{form.Name}>() names {form.FullName}, which is not {builder.Root.Name}'s create or update command.");
         }
 
+        // Before the routes: a parented list's own route rule names the real mistake.
+        EnsureListParent(view, list);
+
         AggregateViewRoutes routes = builder.DeclaredRoutes;
 
         if ((routes.Detail is not null || routes.Edit is not null) && getOne is null)
@@ -166,6 +173,91 @@ public static class AggregateViewGuard
         if (routes.Edit is not null && update is null)
         {
             throw Refuse(view, $"its routes promise a {builder.Root.Name} edit form, but no IUpdateCommand<{builder.Root.Name}, …> exists to send.");
+        }
+    }
+
+    /// <summary>
+    /// A list query under a parent (<c>IUnderParent</c>) is routed with <c>ListUnder&lt;TParent&gt;</c> naming that parent, and
+    /// nothing else is: its list route needs the parent's id, which a plain list route cannot carry.
+    /// </summary>
+    private static void EnsureListParent(DeclaredView view, Type? list)
+    {
+        AggregateViewBuilder builder = view.Builder;
+        string root = builder.Root.Name;
+        Type? parent = list is null ? null : CommandTypes.TargetOf(list)?.Parent;
+        Type? declared = builder.ListParent;
+
+        if (parent is not null && declared is null)
+        {
+            throw Refuse(
+                view,
+                $"{root}'s list query {list!.FullName} is listed under a {parent.Name}, so its list route carries the parent's id: "
+                + $"declare it with ListUnder<{parent.Name}>(…){(builder.DeclaredRoutes.List is null ? string.Empty : ", not Routes(list: …)")}.");
+        }
+
+        if (declared is null)
+        {
+            return;
+        }
+
+        if (parent is null)
+        {
+            throw Refuse(
+                view,
+                $"ListUnder<{declared.Name}>() lists {root} under a parent, but {root}'s list query "
+                + $"{list?.FullName ?? "(there is none)"} is no IUnderParent<{declared.Name}, …>.");
+        }
+
+        if (parent != declared)
+        {
+            throw Refuse(
+                view,
+                $"ListUnder<{declared.Name}>() names {declared.FullName}, but {root}'s list query {list!.FullName} is listed under "
+                + $"{parent.FullName}. Declare ListUnder<{parent.Name}>(…).");
+        }
+
+        if (builder.DeclaredRoutes.List is not null)
+        {
+            throw Refuse(view, $"{root} is listed under a {parent.Name} with ListUnder<{parent.Name}>(…), so Routes(list: …) has no page to name.");
+        }
+
+        // Sampled with a distinct id: a route that drops it would list every parent's records under the same address.
+        var sample = Guid.Parse("33333333-3333-3333-3333-333333333333");
+        string route = builder.DeclaredRoutes.ListUnderParent!(sample);
+
+        if (!route.Contains(sample.ToString(), StringComparison.OrdinalIgnoreCase))
+        {
+            throw Refuse(view, $"ListUnder<{parent.Name}>(…) builds \"{route}\" from the parent id {sample}, and it must carry it.");
+        }
+    }
+
+    /// <summary>
+    /// A root listed under a parent shows the parent in its trail, loaded through the parent's own model: the parent needs a
+    /// view configuration and a GetOne query.
+    /// </summary>
+    internal static void EnsureParents(IReadOnlyDictionary<Type, AggregateViewModel> models)
+    {
+        foreach (AggregateViewModel model in models.Values)
+        {
+            if (model.Parent is not { } parent)
+            {
+                continue;
+            }
+
+            if (!models.TryGetValue(parent, out AggregateViewModel? parentModel))
+            {
+                throw new InvalidOperationException(
+                    $"Aggregate view configuration {model.Configuration.FullName}: ListUnder<{parent.Name}>() lists {model.Root.Name} under "
+                    + $"{parent.FullName}, which no aggregate view configuration declares; its list's trail shows the parent through the "
+                    + $"parent's own views. Add an IAggregateViewConfiguration<{parent.Name}>.");
+            }
+
+            if (parentModel.GetOne is null)
+            {
+                throw new InvalidOperationException(
+                    $"Aggregate view configuration {model.Configuration.FullName}: ListUnder<{parent.Name}>() lists {model.Root.Name} under "
+                    + $"{parent.FullName}, which has no IGetOneQuery<{parent.Name}, …> to load the parent record with.");
+            }
         }
     }
 
@@ -209,35 +301,74 @@ public static class AggregateViewGuard
     // ---- Edit modes, disabled actions, child entities ----
 
     /// <summary>
-    /// A set-property command is edited on a page of its own, which only a child entity has so far: the root's is refused
-    /// in any mode, a child's unless declared <c>Edit(SerginEditMode.Page)</c> (dialog and inline editing come later).
+    /// How a set-property command is edited. A child's on a page of its own, declared <c>Edit(SerginEditMode.Page)</c>. A
+    /// root's, unless <c>Hidden()</c>, in a dialog or inline: its constructor must be <c>(Id, value)</c>, <c>Page</c> is
+    /// refused (a root has no edit page for one value), and <c>Inline</c> needs a GetOne response property named after the
+    /// value, which the detail shows and edits in place.
     /// </summary>
-    internal static void EnsureEditable(DeclaredView view, Type request, CommandRole role, bool child, SerginEditMode mode)
+    internal static void EnsureEditable(
+        DeclaredView view, Type request, CommandRole role, bool child, SerginEditMode mode, bool hidden, Type? getOneResponse)
     {
         if (role != CommandRole.SetProperty)
         {
             return;
         }
 
-        if (!child)
+        if (child)
         {
-            throw Refuse(
-                view,
-                $"{request.FullName} is a set-property command on {view.Builder.Root.Name} itself, which a generated view cannot offer yet "
-                + "in any edit mode; only a child entity's set-property command is supported, declared Edit(SerginEditMode.Page).");
+            if (mode != SerginEditMode.Page)
+            {
+                throw Refuse(
+                    view,
+                    $"{request.FullName} is a set-property command on a child entity, and edit mode {mode} is not supported for one; "
+                    + $"declare Command<{request.Name}>().Edit(SerginEditMode.Page).");
+            }
+
+            return;
         }
 
-        if (mode != SerginEditMode.Page)
+        if (hidden)
+        {
+            return;
+        }
+
+        string root = view.Builder.Root.Name;
+        ParameterInfo[] parameters = request.GetConstructors()[0].GetParameters();
+
+        if (parameters is not [_, _] || parameters.Count(parameter => IsNamed(parameter, "Id")) != 1)
         {
             throw Refuse(
                 view,
-                $"{request.FullName} is a set-property command, and edit mode {mode} is not supported yet; "
-                + $"declare Command<{request.Name}>().Edit(SerginEditMode.Page).");
+                $"{request.FullName} is a set-property command on {root}, which a generated view sends from the record's id and one "
+                + $"value, but its constructor is ({string.Join(", ", parameters.Select(parameter => parameter.Name))}), not (Id, value). "
+                + $"Give it that constructor, model it as an update command, or Command<{request.Name}>().Hidden() it.");
+        }
+
+        if (mode == SerginEditMode.Page)
+        {
+            throw Refuse(
+                view,
+                $"{request.FullName} is a set-property command on {root} itself, and edit mode {nameof(SerginEditMode.Page)} is only for a "
+                + $"child entity's; declare Command<{request.Name}>().Edit(SerginEditMode.Dialog) (the default) or Edit(SerginEditMode.Inline).");
+        }
+
+        string value = parameters.Single(parameter => !IsNamed(parameter, "Id")).Name!;
+
+        if (mode == SerginEditMode.Inline && getOneResponse?.GetProperty(value, BindingFlags.Public | BindingFlags.Instance) is null)
+        {
+            throw Refuse(
+                view,
+                $"{request.FullName} is declared Edit(SerginEditMode.Inline), which edits its value {value} on the detail, but "
+                + $"{root}'s GetOne response {getOneResponse?.FullName ?? "(there is none)"} has no property {value} to show it from. "
+                + "Add one, or leave the command in its dialog.");
         }
     }
 
-    /// <summary><c>DisabledWhen&lt;TRecord&gt;</c> reads a record the command's views hold: a list item or GetOne response of the root or child.</summary>
-    internal static void EnsureDisabledRecord(DeclaredView view, Type request, Type disabledRecord, IReadOnlyCollection<Type?> records)
+    private static bool IsNamed(ParameterInfo parameter, string name) => string.Equals(parameter.Name, name, StringComparison.OrdinalIgnoreCase);
+
+    /// <summary><c>DisabledWhen&lt;TRecord&gt;</c> and <c>AppliesWhen&lt;TRecord&gt;</c> read a record the command's views hold: a list item or GetOne response of the root or child.</summary>
+    internal static void EnsureDisabledRecord(
+        DeclaredView view, Type request, string method, Type disabledRecord, IReadOnlyCollection<Type?> records)
     {
         if (!records.Contains(disabledRecord))
         {
@@ -245,8 +376,24 @@ public static class AggregateViewGuard
 
             throw Refuse(
                 view,
-                $"Command<{request.Name}>().DisabledWhen<{disabledRecord.Name}>() reads {disabledRecord.FullName}, which is no record "
+                $"Command<{request.Name}>().{method}<{disabledRecord.Name}>() reads {disabledRecord.FullName}, which is no record "
                 + $"of the command's views ({(known.Length == 0 ? "there are none" : known)}).");
+        }
+    }
+
+    /// <summary>
+    /// The two commands of an <c>IReverseOf</c> pair are offered exactly when the other is not, so exactly one of them
+    /// declares <c>AppliesWhen</c>: neither leaves no rule, both two that may disagree.
+    /// </summary>
+    internal static void EnsureReversePair(DeclaredView view, Type request, Type partner, bool declaredHere, bool declaredThere)
+    {
+        if (declaredHere == declaredThere)
+        {
+            throw Refuse(
+                view,
+                $"{request.FullName} and {partner.FullName} are an IReverseOf pair, offered exactly when the other is not, so exactly one of "
+                + $"them declares AppliesWhen<TRecord>(...); {(declaredHere ? "both do" : "neither does")}. Declare it on Command<{request.Name}>() "
+                + $"or Command<{partner.Name}>(), not {(declaredHere ? "both" : "neither")}.");
         }
     }
 
@@ -409,7 +556,7 @@ public static class AggregateViewGuard
 
     private static IEnumerable<string> RoutesOf(AggregateViewRoutes routes)
     {
-        string?[] all = [routes.List, routes.Create, routes.Detail?.Invoke(Guid.Empty), routes.Edit?.Invoke(Guid.Empty)];
+        string?[] all = [routes.List, routes.ListUnderParent?.Invoke(Guid.Empty), routes.Create, routes.Detail?.Invoke(Guid.Empty), routes.Edit?.Invoke(Guid.Empty)];
         return all.OfType<string>();
     }
 

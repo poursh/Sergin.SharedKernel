@@ -20,4 +20,10 @@ public enum SerginViewSlot
 
     /// <summary>The list view's overview line when collapsed.</summary>
     ListOverviewSummary,
+
+    /// <summary>
+    /// Replaces the list view's generated table. It loads its own rows; <c>Context</c> carries the parent of a list under a
+    /// parent, and its <c>Generation</c> changes when the header's Reload asks the list to reload.
+    /// </summary>
+    ListBody,
 }

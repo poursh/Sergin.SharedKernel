@@ -30,7 +30,7 @@ namespace Sergin.SharedKernel.Presentation.Blazor.Aggregates;
 /// <param name="EditFields">The edit command's shown fields.</param>
 /// <param name="EditTitle">The edit form's title; null for the shell's.</param>
 /// <param name="EditCommand">The edit command as an action; null with no <paramref name="Edit"/>.</param>
-/// <param name="Commands">Every command on the child that is an action, in the order of their request types' full names.</param>
+/// <param name="Commands">Every command on the child that is an action, sorted by their request types' full names (ordinal).</param>
 /// <param name="ListBodyType">The child list section's body closed over <paramref name="ListItem"/>, made at registry build; null with no list.</param>
 public sealed record ChildViewModel(
     Type Child,

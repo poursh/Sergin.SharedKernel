@@ -14,6 +14,7 @@ using Sergin.SharedKernel.Presentation.Blazor.Modules;
 using Sergin.SharedKernel.Presentation.Blazor.Navigation;
 using Sergin.SharedKernel.Presentation.Blazor.Pages;
 using Sergin.SharedKernel.Presentation.Blazor.ScheduledTasks;
+using Sergin.SharedKernel.Presentation.Blazor.Validation;
 using Sergin.SharedKernel.Presentation.Blazor.Views;
 using Sergin.SharedKernel.Presentation.Errors;
 
@@ -35,6 +36,10 @@ namespace Sergin.SharedKernel.Presentation.Blazor.Aggregates.Views;
 /// disabled while it runs; on success the configured text shows and the record is read again. A delete is confirmed,
 /// sent at the held version and leaves for the list. A stale answer reloads the record. A schedulable command's button
 /// is a split button holding Schedule… and View schedules (n) for a user who may manage scheduled tasks.
+/// A root's set-property command is edited in its edit mode: Dialog, an action opening <see cref="SerginSetPropertyDialog"/>
+/// prefilled from the record; Inline, for a user who holds its permissions, the detail field itself as a select or switch
+/// (sent on change) or, for any other value, a <see cref="GeneratedInlineEditCard"/> below the fields. Each send goes
+/// through <see cref="GeneratedSetProperty"/>; every error is shown and the record is read again after any outcome.
 /// </remarks>
 public sealed partial class SerginGeneratedDetailView<TRoot>
     where TRoot : class, IAggregateRoot
@@ -50,6 +55,10 @@ public sealed partial class SerginGeneratedDetailView<TRoot>
     private FieldView? titleField;
     private object? overview;
     private readonly Dictionary<Type, SerginGeneratedChildSection> childSections = [];
+    private readonly Dictionary<string, CommandView> inlineChoices = new(StringComparer.Ordinal);
+    private GeneratedSetProperty setProperty = default!;
+    private IReadOnlyList<CommandView> inlineCards = [];
+    private IReadOnlyDictionary<string, object?> recordValues = new Dictionary<string, object?>(StringComparer.Ordinal);
 
     [Parameter]
     public Guid Id { get; set; }
@@ -80,6 +89,9 @@ public sealed partial class SerginGeneratedDetailView<TRoot>
 
     [Inject]
     private IScrollManager ScrollManager { get; set; } = default!;
+
+    [Inject]
+    private ISerginFormValidator FormValidator { get; set; } = default!;
 
     [CascadingParameter]
     private SerginViewHost Host { get; set; } = SerginViewHost.Unhosted;
@@ -134,7 +146,7 @@ public sealed partial class SerginGeneratedDetailView<TRoot>
         record is null ? new(Model.Singular) : SerginBreadcrumb.Data(DisplayText),
     ];
 
-    private IReadOnlyList<SerginPageAction> Actions => record is null ? [] : commands.For(Model, Id, MenuItemsOf);
+    private IReadOnlyList<SerginPageAction> Actions => record is null ? [] : commands.For(Model, Id, MenuItemsOf, record: record, links: ViewLinkPlacement.AfterCommands);
 
     protected override async Task OnInitializedAsync()
     {
@@ -146,8 +158,10 @@ public sealed partial class SerginGeneratedDetailView<TRoot>
                 $"{typeof(TRoot).FullName} has no GetOne query, so its detail view has nothing to load. Add an IGetOneQuery<{typeof(TRoot).Name}, …>.");
         }
 
-        commands = new GeneratedCommandActions(this, RunAsync, DeleteAsync);
+        commands = new GeneratedCommandActions(this, RunAsync, DeleteAsync, EditAsync);
+        setProperty = new GeneratedSetProperty(FormValidator);
         titleField = GeneratedViewSupport.TitleFieldOf(Model.DetailFields, Model.DetailTitleField);
+        await LoadInlineCommandsAsync();
 
         canManageSchedules = Model.HasSchedulableCommand && await ScopeAuthorization.CurrentUserHasAsync(ScheduledTaskPermissions.Manage);
     }
@@ -185,6 +199,7 @@ public sealed partial class SerginGeneratedDetailView<TRoot>
         problem = null;
         record = loaded.Value;
         version = loaded.Version;
+        recordValues = Model.DetailArguments!(loaded.Value!);
         overview = Model.EntityOverview is { } entityOverview
             && (Model.Slots.ContainsKey(SerginViewSlot.DetailOverview) || Model.Slots.ContainsKey(SerginViewSlot.DetailOverviewSummary))
             ? await GeneratedViewSupport.LoadOverviewAsync(Dispatcher, entityOverview.Invoker, entityOverview.Build(Id))
@@ -256,6 +271,98 @@ public sealed partial class SerginGeneratedDetailView<TRoot>
         {
             await Host.LeaveAsync(list);
         }
+    }
+
+    // The inline set-property commands this user may send (presentation only: the pipeline still checks), split into the
+    // choices a detail field becomes and the cards below the fields.
+    private async Task LoadInlineCommandsAsync()
+    {
+        List<CommandView> cards = [];
+
+        foreach (CommandView command in Model.Commands.Where(command => command is { Hidden: false, EditMode: SerginEditMode.Inline, ValueField: not null }))
+        {
+            if (!await HoldsAsync(command))
+            {
+                continue;
+            }
+
+            if (command.ValueField!.Kind is FormInputKind.Select or FormInputKind.Switch)
+            {
+                inlineChoices[command.ValueField.Name] = command;
+            }
+            else
+            {
+                cards.Add(command);
+            }
+        }
+
+        inlineCards = cards;
+    }
+
+    private async Task<bool> HoldsAsync(CommandView command)
+    {
+        foreach (PermissionDefinition permission in command.Permissions)
+        {
+            bool held = command.AnyScope
+                ? await ScopeAuthorization.CurrentUserHoldsAnywhereAsync(permission)
+                : await ScopeAuthorization.CurrentUserHasAsync(permission);
+
+            if (!held)
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    private CommandView? InlineChoiceOf(FieldView field) => inlineChoices.GetValueOrDefault(field.Name);
+
+    private bool IsInlineBusy(FieldView field) => InlineChoiceOf(field) is { } command && commands.IsRunning(command);
+
+    private EventCallback<object?> InlineChanged(FieldView field) =>
+        InlineChoiceOf(field) is { } command
+            ? EventCallback.Factory.Create<object?>(this, value => SetPropertyAsync(command, value))
+            : default;
+
+    private EventCallback<object?> InlineSubmitted(CommandView command) =>
+        EventCallback.Factory.Create<object?>(this, value => SetPropertyAsync(command, value));
+
+    // The record's value of the command's property, as its input edits it; null when the record has none.
+    private object? ValueOf(CommandView command) => recordValues.GetValueOrDefault(command.ValueField!.Name);
+
+    private async Task EditAsync(CommandView command)
+    {
+        DialogParameters<SerginSetPropertyDialog> parameters = new()
+        {
+            { dialog => dialog.Command, command },
+            { dialog => dialog.Id, Id },
+            { dialog => dialog.Value, ValueOf(command) },
+            { dialog => dialog.Submit, value => SetPropertyAsync(command, value) },
+        };
+
+        await DialogService.ShowAsync<SerginSetPropertyDialog>(
+            string.Empty, parameters, new DialogOptions { MaxWidth = MaxWidth.Small, FullWidth = true, CloseOnEscapeKey = true });
+    }
+
+    // Sends one value; shows every error and reads the record again whatever the outcome. True when it was sent.
+    private async Task<bool> SetPropertyAsync(CommandView command, object? value)
+    {
+        SetPropertyStatus status = await commands.WhileRunningAsync(
+            command, () => setProperty.SubmitAsync(Dispatcher, command, Id, value, version));
+
+        if (status != SetPropertyStatus.Sent)
+        {
+            ErrorPresenter.Notify(setProperty.Errors);
+        }
+        else if (command.SucceededText is { } succeeded)
+        {
+            Snackbar.Add(Localizer.Text(succeeded, PlaceholderArguments()), Severity.Success);
+        }
+
+        await ReloadAsync();
+
+        return status == SetPropertyStatus.Sent;
     }
 
     // The record's properties (value objects read through, by the model's compiled reader) fill a text's placeholders,

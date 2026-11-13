@@ -87,6 +87,15 @@ public sealed class FieldBuilder<T>
         return this;
     }
 
+    /// <summary>Shows a bool as <paramref name="whenTrue"/> or <paramref name="whenFalse"/> instead of Yes or No.</summary>
+    public FieldBuilder<T> BoolTexts(TextDefinition whenTrue, TextDefinition whenFalse)
+    {
+        ArgumentNullException.ThrowIfNull(whenTrue);
+        ArgumentNullException.ThrowIfNull(whenFalse);
+        field.BoolTexts = (whenTrue, whenFalse);
+        return this;
+    }
+
     /// <summary>Not shown.</summary>
     public FieldBuilder<T> Hidden()
     {
@@ -128,6 +137,8 @@ internal sealed class FieldOverride(string name)
     public TextDefinition? Format { get; set; }
 
     public string FormatPlaceholder { get; set; } = "Value";
+
+    public (TextDefinition WhenTrue, TextDefinition WhenFalse)? BoolTexts { get; set; }
 }
 
 internal static class ViewExpressions

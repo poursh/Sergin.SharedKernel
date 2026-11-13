@@ -1,5 +1,25 @@
-@* One field of a generated view: a configured component, a link, or the value as text. *@
-@if (Field.Component is not null)
+@* One field of a generated view: the editable choice of an inline set-property command, a configured component, a link,
+   or the value as text. *@
+@if (InlineCommand?.ValueField is { Kind: FormInputKind.Switch })
+{
+    <SerginDetailField LabelText="Field.Label">
+        <MudSwitch T="bool" Value="@(Value is true)" ValueChanged="OnSwitchChanged" Disabled="InlineBusy" Color="Color.Primary"
+                   aria-label="@LabelShown" />
+    </SerginDetailField>
+}
+else if (InlineCommand?.ValueField is { } choice)
+{
+    <SerginDetailField LabelText="Field.Label">
+        <MudSelect T="object" Value="Value" ValueChanged="OnSelectChanged" Disabled="InlineBusy" ToStringFunc="ChoiceShown"
+                   Variant="Variant.Outlined" Margin="Margin.Dense" aria-label="@LabelShown">
+            @foreach (object option in choice.EnumValues ?? [])
+            {
+                <MudSelectItem T="object" Value="@option">@ChoiceShown(option)</MudSelectItem>
+            }
+        </MudSelect>
+    </SerginDetailField>
+}
+else if (Field.Component is not null)
 {
     <SerginDetailField LabelText="Field.Label"><DynamicComponent Type="Field.Component" Parameters="ComponentParameters" /></SerginDetailField>
 }

@@ -5,6 +5,7 @@ using Sergin.SharedKernel.Application.Commands;
 using Sergin.SharedKernel.Application.Commands.Configuration;
 using Sergin.SharedKernel.Application.Commands.Types;
 using Sergin.SharedKernel.Presentation.Blazor.Aggregates.Views.Parts;
+using Sergin.SharedKernel.Presentation.Blazor.Localizations;
 using Sergin.SharedKernel.Presentation.Blazor.Pages;
 
 namespace Sergin.SharedKernel.Presentation.Blazor.Aggregates;
@@ -39,7 +40,7 @@ internal sealed class AggregateViewModelJoin(
         Type? update = Single(requests, typeof(IUpdateCommand<,>));
         Type? getOneResponse = getOne is null ? null : ResponseOf(getOne);
         Type? listItem = list is null ? null : ListItemOf(list);
-        CommandView[] commandViews = [.. Commands(requests, builder, singular, child: false, [getOneResponse, listItem])];
+        CommandView[] commandViews = [.. Commands(requests, builder, singular, child: false, [getOneResponse, listItem], getOneResponse)];
 
         Type? overview = Single(requests, typeof(IOverviewQuery<>));
         Type? entityOverview = Single(requests, typeof(IEntityOverviewQuery<,>));
@@ -87,7 +88,9 @@ internal sealed class AggregateViewModelJoin(
             listItem is null ? null : typeof(GeneratedListBody<>).MakeGenericType(listItem),
             create is null ? null : builder.Forms.GetValueOrDefault(create)?.DeclaredTitle,
             update is null ? null : builder.Forms.GetValueOrDefault(update)?.DeclaredTitle,
-            builder.DetailOverviewIsCollapsed);
+            builder.DetailOverviewIsCollapsed,
+            [.. builder.Links],
+            builder.ListParent);
     }
 
     // ---- Children ----
@@ -175,12 +178,21 @@ internal sealed class AggregateViewModelJoin(
 
     /// <summary>
     /// The actions among <paramref name="requests"/>: the commands whose role is the root's, or a child's when
-    /// <paramref name="child"/>. <paramref name="records"/> are the records a <c>DisabledWhen</c> may read.
+    /// <paramref name="child"/>. <paramref name="records"/> are the records a <c>DisabledWhen</c> may read;
+    /// <paramref name="getOneResponse"/> is the root's GetOne response, which an inline set-property command edits a
+    /// property of and a value form is prefilled from.
     /// </summary>
     internal IEnumerable<CommandView> Commands(
-        IEnumerable<Type> requests, ViewDeclarationBuilder declarations, TextDefinition singular, bool child, IReadOnlyCollection<Type?> records)
+        IEnumerable<Type> requests,
+        ViewDeclarationBuilder declarations,
+        TextDefinition singular,
+        bool child,
+        IReadOnlyCollection<Type?> records,
+        Type? getOneResponse = null)
     {
-        foreach (Type request in requests.Where(type => !CommandTypes.IsSystem(type) && IsCommand(type)))
+        Type[] candidates = [.. requests.Where(type => !CommandTypes.IsSystem(type) && IsCommand(type) && RoleOf(type, child) is not null)];
+
+        foreach (Type request in candidates)
         {
             if (RoleOf(request, child) is not { } role)
             {
@@ -191,18 +203,29 @@ internal sealed class AggregateViewModelJoin(
             _ = ConstructorOf(request);
             declarations.Commands.TryGetValue(request, out CommandViewBuilder? declared);
             SerginEditMode mode = declared?.DeclaredEditMode ?? SerginEditMode.Dialog;
-            AggregateViewGuard.EnsureEditable(view, request, role, child, mode);
+            bool hidden = declared?.IsHidden ?? false;
+            AggregateViewGuard.EnsureEditable(view, request, role, child, mode, hidden, getOneResponse);
 
             if (declared?.DisabledRecord is { } disabledRecord)
             {
-                AggregateViewGuard.EnsureDisabledRecord(view, request, disabledRecord, records);
+                AggregateViewGuard.EnsureDisabledRecord(view, request, nameof(CommandViewBuilder<IBaseCommand>.DisabledWhen), disabledRecord, records);
             }
 
-            CommandSettings settings = commands.For(request);
-            (TextDefinition? defaultLabel, string? defaultIcon) = DefaultsOf(role);
-            TextDefinition? label = declared?.DeclaredLabel ?? defaultLabel;
+            if (declared?.AppliesRecord is { } appliesRecord)
+            {
+                AggregateViewGuard.EnsureDisabledRecord(view, request, nameof(CommandViewBuilder<IBaseCommand>.AppliesWhen), appliesRecord, records);
+            }
 
-            if (label is null && declared is not { IsHidden: true })
+            Func<object, bool>? appliesWhen = AppliesWhenOf(request, declared, declarations, candidates, hidden);
+
+            CommandSettings settings = commands.For(request);
+            FormFieldView? valueField = role == CommandRole.SetProperty && !child && !hidden ? ValueFieldOf(request, declarations, getOneResponse) : null;
+            (TextDefinition? defaultLabel, string? defaultIcon) = DefaultsOf(role);
+
+            // A set-property command is named by the value it sets, unless it declares a verb (Rename).
+            TextDefinition? label = declared?.DeclaredLabel ?? defaultLabel ?? valueField?.Label.Label;
+
+            if (label is null && !hidden)
             {
                 throw Refuse(
                     $"{request.FullName} is a {role} command with no default label. Declare one with "
@@ -214,7 +237,7 @@ internal sealed class AggregateViewModelJoin(
                 role,
                 label ?? singular,
                 declared?.DeclaredIcon ?? defaultIcon,
-                KindOf(role),
+                declared?.DeclaredKind ?? KindOf(role),
                 settings.RequiredPermissions,
                 settings.PermissionScope == PermissionScope.Any,
                 settings.RequiresExpectedVersion,
@@ -223,7 +246,7 @@ internal sealed class AggregateViewModelJoin(
                 declared?.DeclaredSucceededText,
                 declared?.ConfirmTitle,
                 declared?.ConfirmText,
-                declared?.IsHidden ?? false,
+                hidden,
                 [.. declared?.MenuItems ?? []],
                 RequestInvoker.For(request),
                 !child && RequestFactory.IsIdOnly(request) ? RequestFactory.ForId(request) : null,
@@ -233,9 +256,58 @@ internal sealed class AggregateViewModelJoin(
                 mode,
                 declared?.DeclaredDisabledWhen,
                 declared?.DeclaredDisabledReason,
-                child && RequestFactory.IsChildIdOnly(request) ? RequestFactory.ForChildId(request) : null);
+                child && RequestFactory.IsChildIdOnly(request) ? RequestFactory.ForChildId(request) : null,
+                valueField,
+                valueField is null ? null : RequestFactory.ForForm(request),
+                appliesWhen);
         }
     }
+
+    /// <summary>
+    /// When <paramref name="request"/> is offered: its own <c>AppliesWhen</c>, or the negation of its <c>IReverseOf</c>
+    /// partner's; null for a command that declares none and has no pair. The two commands of a pair declare it on exactly
+    /// one (a hidden command is not offered, so a pair with one needs none).
+    /// </summary>
+    private Func<object, bool>? AppliesWhenOf(
+        Type request, CommandViewBuilder? declared, ViewDeclarationBuilder declarations, Type[] candidates, bool hidden)
+    {
+        Type? partner = ReversePartnerOf(request, candidates);
+
+        if (partner is null)
+        {
+            return declared?.DeclaredAppliesWhen;
+        }
+
+        declarations.Commands.TryGetValue(partner, out CommandViewBuilder? partnerDeclared);
+        bool declaredHere = declared?.DeclaredAppliesWhen is not null;
+        bool declaredThere = partnerDeclared?.DeclaredAppliesWhen is not null;
+
+        if (!hidden && !(partnerDeclared?.IsHidden ?? false))
+        {
+            AggregateViewGuard.EnsureReversePair(view, request, partner, declaredHere, declaredThere);
+        }
+
+        return declaredHere ? declared!.DeclaredAppliesWhen : partnerDeclared?.DeclaredPartnerAppliesWhen;
+    }
+
+    /// <summary>The other command of an <c>IReverseOf</c> pair among <paramref name="candidates"/>, whichever side declares it; null with none.</summary>
+    private static Type? ReversePartnerOf(Type request, Type[] candidates) =>
+        candidates.FirstOrDefault(other => other != request && (Reverses(request, other) || Reverses(other, request)));
+
+    private static bool Reverses(Type reverse, Type reversed) =>
+        reverse.GetInterfaces().Any(contract =>
+            contract.IsGenericType && contract.GetGenericTypeDefinition() == typeof(IReverseOf<>) && contract.GetGenericArguments()[0] == reversed);
+
+    /// <summary>
+    /// A root set-property command's one value as a form field (the guard refused any constructor but <c>(Id, value)</c>);
+    /// refused when the configuration marked that value <c>NotShown</c>, which leaves the command nothing to edit.
+    /// </summary>
+    private FormFieldView ValueFieldOf(Type request, ViewDeclarationBuilder declarations, Type? getOneResponse) =>
+        FormFields(request, declarations, getOneResponse) is [{ } only]
+            ? only
+            : throw Refuse(
+                $"{request.FullName} is a set-property command whose one value is not shown (NotShown in its configuration), so a "
+                + $"generated view has nothing to edit. Show it, or Command<{request.Name}>().Hidden() the command.");
 
     /// <summary>The role of a command on the root itself or, when <paramref name="child"/>, on a child entity; null for another effect.</summary>
     private static CommandRole? RoleOf(Type request, bool child)
@@ -311,22 +383,64 @@ internal sealed class AggregateViewModelJoin(
                 continue;
             }
 
+            bool hidden = named?.Hidden ?? (IsGuid(property.PropertyType) || property.Name == "Id");
+
             fields.Add(new FieldView(
                 property.Name,
                 label,
                 ValueObjects.UnwrappedGetter(property),
                 named?.Href,
                 named?.Component,
-                named?.Hidden ?? (IsGuid(property.PropertyType) || property.Name == "Id"),
+                hidden,
                 named?.Order ?? index,
                 named?.Format,
-                named?.FormatPlaceholder ?? "Value"));
+                named?.FormatPlaceholder ?? "Value",
+                ValueTextsOf(record, property, category, named, hidden)));
 
             // A string, or a value object wrapping one: the record's name as stored.
             title ??= ValueObjects.PrimitiveOf(property.PropertyType) == typeof(string) ? property.Name : null;
         }
 
         return [.. fields.OrderBy(field => field.Order)];
+    }
+
+    /// <summary>
+    /// What a shown enum or bool property's values read as: an enum's declared value texts, every member of which must
+    /// have one; a bool's <c>BoolTexts(...)</c>, else Yes and No. Null for any other property.
+    /// </summary>
+    private IReadOnlyDictionary<object, TextDefinition>? ValueTextsOf(Type record, PropertyInfo property, TextCategory? category, FieldOverride? named, bool hidden)
+    {
+        Type? primitive = ValueObjects.PrimitiveOf(property.PropertyType);
+        primitive = primitive is null ? null : Nullable.GetUnderlyingType(primitive) ?? primitive;
+
+        if (primitive == typeof(bool))
+        {
+            (TextDefinition whenTrue, TextDefinition whenFalse) = named?.BoolTexts ?? (ShellTexts.Values.Yes, ShellTexts.Values.No);
+
+            return new Dictionary<object, TextDefinition> { [true] = whenTrue, [false] = whenFalse };
+        }
+
+        if (primitive is not { IsEnum: true })
+        {
+            return null;
+        }
+
+        IReadOnlyDictionary<object, TextDefinition> declared = category is null ? new Dictionary<object, TextDefinition>() : texts.ValueTextsOf(category, primitive);
+
+        if (!hidden)
+        {
+            foreach (object member in Enum.GetValues(primitive))
+            {
+                if (!declared.ContainsKey(member))
+                {
+                    throw Refuse(
+                        $"{record.FullName}.{property.Name} is shown but {primitive.Name}.{member} has no value text in "
+                        + $"{category?.Prefix ?? "any category"}; declare one with Values(...) in the texts class, or hide the field.");
+                }
+            }
+        }
+
+        return declared;
     }
 
     /// <summary>The property's label: the one the configuration declared, else its field text's; a property the configuration names to show must have one.</summary>
@@ -523,8 +637,11 @@ internal sealed class AggregateViewModelJoin(
         if (kind is { } simple)
         {
             IReadOnlyList<object>? values = simple == FormInputKind.Select ? [.. Enum.GetValues(primitive).Cast<object>()] : null;
+            IReadOnlyDictionary<object, TextDefinition>? valueTexts = simple == FormInputKind.Select && category is not null && texts.ValueTextsOf(category, primitive) is { Count: > 0 } declared
+                ? declared
+                : null;
 
-            return new FormFieldView(name, label, parameter.ParameterType, simple, null, null, null, primitive, EnumValues: values);
+            return new FormFieldView(name, label, parameter.ParameterType, simple, null, null, null, primitive, EnumValues: values, ValueTexts: valueTexts);
         }
 
         if (primitive != typeof(Guid))

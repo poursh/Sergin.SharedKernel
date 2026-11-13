@@ -15,12 +15,18 @@ public abstract class AggregateViewBuilder : ViewDeclarationBuilder
 
     internal AggregateViewRoutes DeclaredRoutes { get; private protected set; } = AggregateViewRoutes.None;
 
+    /// <summary>The parent root a <c>ListUnder&lt;TParent&gt;</c> named, or null.</summary>
+    internal Type? ListParent { get; private protected set; }
+
     internal Dictionary<SerginViewSlot, Type> Slots { get; } = [];
 
     internal bool DetailOverviewIsCollapsed { get; private protected set; }
 
     /// <summary>The child entities the configuration declared, by child type.</summary>
     internal Dictionary<Type, ChildViewBuilder> Children { get; } = [];
+
+    /// <summary>The links to other pages the configuration declared, in order.</summary>
+    internal List<ViewLinkView> Links { get; } = [];
 }
 
 /// <summary>What a view configuration declares for <typeparamref name="TRoot"/>.</summary>
@@ -49,7 +55,20 @@ public sealed class AggregateViewBuilder<TRoot> : AggregateViewBuilder
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(list);
         ArgumentNullException.ThrowIfNull(detail);
-        DeclaredRoutes = new AggregateViewRoutes(list, detail, create, edit);
+        DeclaredRoutes = new AggregateViewRoutes(list, detail, create, edit, DeclaredRoutes.ListUnderParent);
+        return this;
+    }
+
+    /// <summary>
+    /// The list route of a root whose list query is <c>IUnderParent&lt;TParent, …&gt;</c>, built from the parent's id. Its
+    /// detail, create and edit routes stay optional; declare them with <see cref="Routes"/> only if the root has them.
+    /// </summary>
+    public AggregateViewBuilder<TRoot> ListUnder<TParent>(Func<Guid, string> list)
+        where TParent : class, IAggregateRoot
+    {
+        ArgumentNullException.ThrowIfNull(list);
+        ListParent = typeof(TParent);
+        DeclaredRoutes = DeclaredRoutes with { ListUnderParent = list };
         return this;
     }
 
@@ -96,6 +115,20 @@ public sealed class AggregateViewBuilder<TRoot> : AggregateViewBuilder
         }
 
         configure((ChildViewBuilder<TRoot, TChild>)existing);
+        return this;
+    }
+
+    /// <summary>
+    /// A link to another page: a Secondary action on the detail bar and an icon on each list row. <paramref name="href"/>
+    /// builds the page's route from the record's id and must match a routable component's <c>[Route]</c>. It carries no
+    /// permission: it is shown to whoever sees the view, and the target page refuses on its own.
+    /// </summary>
+    public AggregateViewBuilder<TRoot> Link(TextDefinition label, string icon, Func<Guid, string> href)
+    {
+        ArgumentNullException.ThrowIfNull(label);
+        ArgumentException.ThrowIfNullOrWhiteSpace(icon);
+        ArgumentNullException.ThrowIfNull(href);
+        Links.Add(new ViewLinkView(label, icon, href));
         return this;
     }
 
