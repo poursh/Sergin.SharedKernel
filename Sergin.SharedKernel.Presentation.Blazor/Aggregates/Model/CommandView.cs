@@ -38,6 +38,10 @@ namespace Sergin.SharedKernel.Presentation.Blazor.Aggregates;
 /// Builds a root's set-property command from the record's id and its value by field name (<paramref name="ValueField"/>'s);
 /// null whenever <paramref name="ValueField"/> is.
 /// </param>
+/// <param name="AppliesWhen">
+/// Whether the command is offered for a record (one command of an <c>IReverseOf</c> pair, from <c>AppliesWhen</c>; its partner
+/// carries the negation); a record that is none of the declared type, and a view with no record, offer neither. Null for always.
+/// </param>
 public sealed record CommandView(
     Type Request,
     CommandRole Role,
@@ -64,7 +68,8 @@ public sealed record CommandView(
     TextDefinition? DisabledReason = null,
     Func<Guid, Guid, object>? BuildFromIds = null,
     FormFieldView? ValueField = null,
-    Func<Guid, IReadOnlyDictionary<string, object?>, object>? BuildFromValues = null);
+    Func<Guid, IReadOnlyDictionary<string, object?>, object>? BuildFromValues = null,
+    Func<object, bool>? AppliesWhen = null);
 
 /// <summary>An entry a configuration put behind a command's drop-down with <c>MenuItem(...)</c>.</summary>
 public sealed record CommandMenuItemView(

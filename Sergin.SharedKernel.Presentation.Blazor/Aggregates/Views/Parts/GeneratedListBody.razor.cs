@@ -183,10 +183,12 @@ public sealed partial class GeneratedListBody<TItem> : IGeneratedListBody
     // ---- Rows ----
 
     private IReadOnlyList<SerginPageAction> IconActionsOf(TItem item) =>
-        commands.For(Model, IdOf(item), _ => [], GeneratedLists.Icons, delete: command => DeleteRowAsync(command, item));
+        commands.For(
+            Model, IdOf(item), _ => [], GeneratedLists.Icons, delete: command => DeleteRowAsync(command, item), record: item, links: ViewLinkPlacement.BeforeCommands);
 
     private IReadOnlyList<SerginPageAction> MenuActionsOf(TItem item) =>
-        commands.For(Model, IdOf(item), command => RowMenuItemsOf(command, item), GeneratedLists.Menu, run: command => RunRowAsync(command, item));
+        commands.For(
+            Model, IdOf(item), command => RowMenuItemsOf(command, item), GeneratedLists.Menu, run: command => RunRowAsync(command, item), record: item);
 
     private AggregateViewContext ContextOf(IReadOnlyList<TItem> items) =>
         new(items.Count == 1 ? items[0] : null, Version: null, ChangedAsync, [.. items.Select(IdOf)]);
@@ -294,7 +296,7 @@ public sealed partial class GeneratedListBody<TItem> : IGeneratedListBody
 
     private IEnumerable<SerginBulkAction<TItem>> BulkActionsOf()
     {
-        foreach (CommandView command in Model.Commands.Where(command => command is { Selectable: true, Hidden: false, BuildFromId: not null }))
+        foreach (CommandView command in Model.Commands.Where(command => command is { Selectable: true, Hidden: false, BuildFromId: not null, AppliesWhen: null }))
         {
             PermissionDefinition? permission = command.Permissions.FirstOrDefault();
 

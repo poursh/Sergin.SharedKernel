@@ -146,7 +146,7 @@ public sealed partial class SerginGeneratedDetailView<TRoot>
         record is null ? new(Model.Singular) : SerginBreadcrumb.Data(DisplayText),
     ];
 
-    private IReadOnlyList<SerginPageAction> Actions => record is null ? [] : commands.For(Model, Id, MenuItemsOf);
+    private IReadOnlyList<SerginPageAction> Actions => record is null ? [] : commands.For(Model, Id, MenuItemsOf, record: record, links: ViewLinkPlacement.AfterCommands);
 
     protected override async Task OnInitializedAsync()
     {

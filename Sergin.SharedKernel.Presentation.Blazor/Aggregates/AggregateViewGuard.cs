@@ -40,6 +40,10 @@ public static class AggregateViewGuard
             .. views.All.SelectMany(model => model.Children.SelectMany(child => RoutesOf(child.Routes)
                 .Where(route => !templates.Contains(Normalize(route)))
                 .Select(route => $"  {model.Configuration.FullName} ({model.Root.Name}, child {child.Child.Name}): \"{route}\""))),
+            .. views.All.SelectMany(model => (model.Links ?? [])
+                .Select(link => link.Href(Guid.Empty))
+                .Where(route => !templates.Contains(Normalize(route)))
+                .Select(route => $"  {model.Configuration.FullName} ({model.Root.Name}, link): \"{route}\"")),
         ];
 
         if (missing.Length > 0)
@@ -274,8 +278,9 @@ public static class AggregateViewGuard
 
     private static bool IsNamed(ParameterInfo parameter, string name) => string.Equals(parameter.Name, name, StringComparison.OrdinalIgnoreCase);
 
-    /// <summary><c>DisabledWhen&lt;TRecord&gt;</c> reads a record the command's views hold: a list item or GetOne response of the root or child.</summary>
-    internal static void EnsureDisabledRecord(DeclaredView view, Type request, Type disabledRecord, IReadOnlyCollection<Type?> records)
+    /// <summary><c>DisabledWhen&lt;TRecord&gt;</c> and <c>AppliesWhen&lt;TRecord&gt;</c> read a record the command's views hold: a list item or GetOne response of the root or child.</summary>
+    internal static void EnsureDisabledRecord(
+        DeclaredView view, Type request, string method, Type disabledRecord, IReadOnlyCollection<Type?> records)
     {
         if (!records.Contains(disabledRecord))
         {
@@ -283,8 +288,24 @@ public static class AggregateViewGuard
 
             throw Refuse(
                 view,
-                $"Command<{request.Name}>().DisabledWhen<{disabledRecord.Name}>() reads {disabledRecord.FullName}, which is no record "
+                $"Command<{request.Name}>().{method}<{disabledRecord.Name}>() reads {disabledRecord.FullName}, which is no record "
                 + $"of the command's views ({(known.Length == 0 ? "there are none" : known)}).");
+        }
+    }
+
+    /// <summary>
+    /// The two commands of an <c>IReverseOf</c> pair are offered exactly when the other is not, so exactly one of them
+    /// declares <c>AppliesWhen</c>: neither leaves no rule, both two that may disagree.
+    /// </summary>
+    internal static void EnsureReversePair(DeclaredView view, Type request, Type partner, bool declaredHere, bool declaredThere)
+    {
+        if (declaredHere == declaredThere)
+        {
+            throw Refuse(
+                view,
+                $"{request.FullName} and {partner.FullName} are an IReverseOf pair, offered exactly when the other is not, so exactly one of "
+                + $"them declares AppliesWhen<TRecord>(...); {(declaredHere ? "both do" : "neither does")}. Declare it on Command<{request.Name}>() "
+                + $"or Command<{partner.Name}>(), not {(declaredHere ? "both" : "neither")}.");
         }
     }
 

@@ -50,6 +50,7 @@ namespace Sergin.SharedKernel.Presentation.Blazor.Aggregates;
 /// <param name="CreateTitle">The create form's title, from <c>Form&lt;T&gt;(form => form.Title(...))</c>; null for the shell's "New {Name}".</param>
 /// <param name="UpdateTitle">The edit form's title, likewise; null for the shell's "Edit {Name}".</param>
 /// <param name="DetailOverviewCollapsed">Whether the detail overview starts collapsed, from <c>DetailOverviewCollapsed()</c>.</param>
+/// <param name="Links">The links to other pages from <c>Link(...)</c>: detail bar actions and list row icons; null for none.</param>
 public sealed record AggregateViewModel(
     Type Root,
     Type Configuration,
@@ -85,7 +86,8 @@ public sealed record AggregateViewModel(
     Type? ListBodyType = null,
     TextDefinition? CreateTitle = null,
     TextDefinition? UpdateTitle = null,
-    bool DetailOverviewCollapsed = false)
+    bool DetailOverviewCollapsed = false,
+    IReadOnlyList<ViewLinkView>? Links = null)
 {
     /// <summary>
     /// Loads the record <paramref name="id"/> through the GetOne query: at its version for a <c>Versioned()</c> root, plainly

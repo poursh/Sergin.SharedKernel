@@ -88,7 +88,8 @@ internal sealed class AggregateViewModelJoin(
             listItem is null ? null : typeof(GeneratedListBody<>).MakeGenericType(listItem),
             create is null ? null : builder.Forms.GetValueOrDefault(create)?.DeclaredTitle,
             update is null ? null : builder.Forms.GetValueOrDefault(update)?.DeclaredTitle,
-            builder.DetailOverviewIsCollapsed);
+            builder.DetailOverviewIsCollapsed,
+            [.. builder.Links]);
     }
 
     // ---- Children ----
@@ -188,7 +189,9 @@ internal sealed class AggregateViewModelJoin(
         IReadOnlyCollection<Type?> records,
         Type? getOneResponse = null)
     {
-        foreach (Type request in requests.Where(type => !CommandTypes.IsSystem(type) && IsCommand(type)))
+        Type[] candidates = [.. requests.Where(type => !CommandTypes.IsSystem(type) && IsCommand(type) && RoleOf(type, child) is not null)];
+
+        foreach (Type request in candidates)
         {
             if (RoleOf(request, child) is not { } role)
             {
@@ -204,8 +207,15 @@ internal sealed class AggregateViewModelJoin(
 
             if (declared?.DisabledRecord is { } disabledRecord)
             {
-                AggregateViewGuard.EnsureDisabledRecord(view, request, disabledRecord, records);
+                AggregateViewGuard.EnsureDisabledRecord(view, request, nameof(CommandViewBuilder<IBaseCommand>.DisabledWhen), disabledRecord, records);
             }
+
+            if (declared?.AppliesRecord is { } appliesRecord)
+            {
+                AggregateViewGuard.EnsureDisabledRecord(view, request, nameof(CommandViewBuilder<IBaseCommand>.AppliesWhen), appliesRecord, records);
+            }
+
+            Func<object, bool>? appliesWhen = AppliesWhenOf(request, declared, declarations, candidates, hidden);
 
             CommandSettings settings = commands.For(request);
             FormFieldView? valueField = role == CommandRole.SetProperty && !child && !hidden ? ValueFieldOf(request, declarations, getOneResponse) : null;
@@ -226,7 +236,7 @@ internal sealed class AggregateViewModelJoin(
                 role,
                 label ?? singular,
                 declared?.DeclaredIcon ?? defaultIcon,
-                KindOf(role),
+                declared?.DeclaredKind ?? KindOf(role),
                 settings.RequiredPermissions,
                 settings.PermissionScope == PermissionScope.Any,
                 settings.RequiresExpectedVersion,
@@ -247,9 +257,45 @@ internal sealed class AggregateViewModelJoin(
                 declared?.DeclaredDisabledReason,
                 child && RequestFactory.IsChildIdOnly(request) ? RequestFactory.ForChildId(request) : null,
                 valueField,
-                valueField is null ? null : RequestFactory.ForForm(request));
+                valueField is null ? null : RequestFactory.ForForm(request),
+                appliesWhen);
         }
     }
+
+    /// <summary>
+    /// When <paramref name="request"/> is offered: its own <c>AppliesWhen</c>, or the negation of its <c>IReverseOf</c>
+    /// partner's; null for a command that declares none and has no pair. The two commands of a pair declare it on exactly
+    /// one (a hidden command is not offered, so a pair with one needs none).
+    /// </summary>
+    private Func<object, bool>? AppliesWhenOf(
+        Type request, CommandViewBuilder? declared, ViewDeclarationBuilder declarations, Type[] candidates, bool hidden)
+    {
+        Type? partner = ReversePartnerOf(request, candidates);
+
+        if (partner is null)
+        {
+            return declared?.DeclaredAppliesWhen;
+        }
+
+        declarations.Commands.TryGetValue(partner, out CommandViewBuilder? partnerDeclared);
+        bool declaredHere = declared?.DeclaredAppliesWhen is not null;
+        bool declaredThere = partnerDeclared?.DeclaredAppliesWhen is not null;
+
+        if (!hidden && !(partnerDeclared?.IsHidden ?? false))
+        {
+            AggregateViewGuard.EnsureReversePair(view, request, partner, declaredHere, declaredThere);
+        }
+
+        return declaredHere ? declared!.DeclaredAppliesWhen : partnerDeclared?.DeclaredPartnerAppliesWhen;
+    }
+
+    /// <summary>The other command of an <c>IReverseOf</c> pair among <paramref name="candidates"/>, whichever side declares it; null with none.</summary>
+    private static Type? ReversePartnerOf(Type request, Type[] candidates) =>
+        candidates.FirstOrDefault(other => other != request && (Reverses(request, other) || Reverses(other, request)));
+
+    private static bool Reverses(Type reverse, Type reversed) =>
+        reverse.GetInterfaces().Any(contract =>
+            contract.IsGenericType && contract.GetGenericTypeDefinition() == typeof(IReverseOf<>) && contract.GetGenericArguments()[0] == reversed);
 
     /// <summary>
     /// A root set-property command's one value as a form field (the guard refused any constructor but <c>(Id, value)</c>);

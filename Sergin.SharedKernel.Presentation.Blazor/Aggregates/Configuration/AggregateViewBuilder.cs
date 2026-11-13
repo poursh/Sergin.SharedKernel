@@ -21,6 +21,9 @@ public abstract class AggregateViewBuilder : ViewDeclarationBuilder
 
     /// <summary>The child entities the configuration declared, by child type.</summary>
     internal Dictionary<Type, ChildViewBuilder> Children { get; } = [];
+
+    /// <summary>The links to other pages the configuration declared, in order.</summary>
+    internal List<ViewLinkView> Links { get; } = [];
 }
 
 /// <summary>What a view configuration declares for <typeparamref name="TRoot"/>.</summary>
@@ -96,6 +99,20 @@ public sealed class AggregateViewBuilder<TRoot> : AggregateViewBuilder
         }
 
         configure((ChildViewBuilder<TRoot, TChild>)existing);
+        return this;
+    }
+
+    /// <summary>
+    /// A link to another page: a Secondary action on the detail bar and an icon on each list row. <paramref name="href"/>
+    /// builds the page's route from the record's id and must match a routable component's <c>[Route]</c>. It carries no
+    /// permission: it is shown to whoever sees the view, and the target page refuses on its own.
+    /// </summary>
+    public AggregateViewBuilder<TRoot> Link(TextDefinition label, string icon, Func<Guid, string> href)
+    {
+        ArgumentNullException.ThrowIfNull(label);
+        ArgumentException.ThrowIfNullOrWhiteSpace(icon);
+        ArgumentNullException.ThrowIfNull(href);
+        Links.Add(new ViewLinkView(label, icon, href));
         return this;
     }
 
