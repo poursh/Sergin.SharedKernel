@@ -209,32 +209,70 @@ public static class AggregateViewGuard
     // ---- Edit modes, disabled actions, child entities ----
 
     /// <summary>
-    /// A set-property command is edited on a page of its own, which only a child entity has so far: the root's is refused
-    /// in any mode, a child's unless declared <c>Edit(SerginEditMode.Page)</c> (dialog and inline editing come later).
+    /// How a set-property command is edited. A child's on a page of its own, declared <c>Edit(SerginEditMode.Page)</c>. A
+    /// root's, unless <c>Hidden()</c>, in a dialog or inline: its constructor must be <c>(Id, value)</c>, <c>Page</c> is
+    /// refused (a root has no edit page for one value), and <c>Inline</c> needs a GetOne response property named after the
+    /// value, which the detail shows and edits in place.
     /// </summary>
-    internal static void EnsureEditable(DeclaredView view, Type request, CommandRole role, bool child, SerginEditMode mode)
+    internal static void EnsureEditable(
+        DeclaredView view, Type request, CommandRole role, bool child, SerginEditMode mode, bool hidden, Type? getOneResponse)
     {
         if (role != CommandRole.SetProperty)
         {
             return;
         }
 
-        if (!child)
+        if (child)
         {
-            throw Refuse(
-                view,
-                $"{request.FullName} is a set-property command on {view.Builder.Root.Name} itself, which a generated view cannot offer yet "
-                + "in any edit mode; only a child entity's set-property command is supported, declared Edit(SerginEditMode.Page).");
+            if (mode != SerginEditMode.Page)
+            {
+                throw Refuse(
+                    view,
+                    $"{request.FullName} is a set-property command on a child entity, and edit mode {mode} is not supported for one; "
+                    + $"declare Command<{request.Name}>().Edit(SerginEditMode.Page).");
+            }
+
+            return;
         }
 
-        if (mode != SerginEditMode.Page)
+        if (hidden)
+        {
+            return;
+        }
+
+        string root = view.Builder.Root.Name;
+        ParameterInfo[] parameters = request.GetConstructors()[0].GetParameters();
+
+        if (parameters is not [_, _] || parameters.Count(parameter => IsNamed(parameter, "Id")) != 1)
         {
             throw Refuse(
                 view,
-                $"{request.FullName} is a set-property command, and edit mode {mode} is not supported yet; "
-                + $"declare Command<{request.Name}>().Edit(SerginEditMode.Page).");
+                $"{request.FullName} is a set-property command on {root}, which a generated view sends from the record's id and one "
+                + $"value, but its constructor is ({string.Join(", ", parameters.Select(parameter => parameter.Name))}), not (Id, value). "
+                + $"Give it that constructor, model it as an update command, or Command<{request.Name}>().Hidden() it.");
+        }
+
+        if (mode == SerginEditMode.Page)
+        {
+            throw Refuse(
+                view,
+                $"{request.FullName} is a set-property command on {root} itself, and edit mode {nameof(SerginEditMode.Page)} is only for a "
+                + $"child entity's; declare Command<{request.Name}>().Edit(SerginEditMode.Dialog) (the default) or Edit(SerginEditMode.Inline).");
+        }
+
+        string value = parameters.Single(parameter => !IsNamed(parameter, "Id")).Name!;
+
+        if (mode == SerginEditMode.Inline && getOneResponse?.GetProperty(value, BindingFlags.Public | BindingFlags.Instance) is null)
+        {
+            throw Refuse(
+                view,
+                $"{request.FullName} is declared Edit(SerginEditMode.Inline), which edits its value {value} on the detail, but "
+                + $"{root}'s GetOne response {getOneResponse?.FullName ?? "(there is none)"} has no property {value} to show it from. "
+                + "Add one, or leave the command in its dialog.");
         }
     }
+
+    private static bool IsNamed(ParameterInfo parameter, string name) => string.Equals(parameter.Name, name, StringComparison.OrdinalIgnoreCase);
 
     /// <summary><c>DisabledWhen&lt;TRecord&gt;</c> reads a record the command's views hold: a list item or GetOne response of the root or child.</summary>
     internal static void EnsureDisabledRecord(DeclaredView view, Type request, Type disabledRecord, IReadOnlyCollection<Type?> records)

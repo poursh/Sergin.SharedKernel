@@ -117,10 +117,15 @@ public sealed record AggregateViewModel(
         object request = BuildForm(id, values);
         RequestInvoker invoker = (id is null ? Create : Update)?.Invoker
             ?? throw new InvalidOperationException($"{Root.FullName} has no {(id is null ? "create" : "update")} command.");
-        bool versioned = id is not null && Commands.Any(command => command.Request == Update?.Type && command.RequiresVersion);
+        bool versioned = id is not null && CommandOf(Update!.Type).RequiresVersion;
 
         return versioned
             ? invoker.SendVersionedAsync(dispatcher, request, version, cancellationToken)
             : invoker.SendAsync(dispatcher, request, cancellationToken);
     }
+
+    /// <summary>The command view of <paramref name="request"/>; every command a form sends has one, so a missing one is a bug, not "unversioned".</summary>
+    internal CommandView CommandOf(Type request) =>
+        Commands.SingleOrDefault(command => command.Request == request)
+        ?? throw new InvalidOperationException($"{Root.FullName} has no command view for {request.FullName}.");
 }

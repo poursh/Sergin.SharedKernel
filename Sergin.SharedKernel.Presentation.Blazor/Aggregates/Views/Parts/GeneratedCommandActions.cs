@@ -5,14 +5,17 @@ namespace Sergin.SharedKernel.Presentation.Blazor.Aggregates.Views.Parts;
 
 /// <summary>
 /// The actions of a generated record view (or of one list row), from its root's commands: an update links to the edit route, a
-/// transition and a delete run through the view's own handlers, each disabled while it runs. Commands are offered in
+/// transition and a delete run through the view's own handlers, and a set-property command in the Dialog edit mode opens
+/// its dialog when the view gave an edit handler (a detail view does, a list row does not); each is disabled while it runs. Commands are offered in
 /// the model's order, a hidden one not at all (the actions bar puts the danger ones at the far end); each carries its
 /// first required permission, which the bar hides it for.
 /// </summary>
 /// <param name="receiver">The view, so a click re-renders it.</param>
 /// <param name="runAsync">Sends a transition.</param>
 /// <param name="deleteAsync">Confirms and sends a delete.</param>
-internal sealed class GeneratedCommandActions(IHandleEvent receiver, Func<CommandView, Task> runAsync, Func<CommandView, Task> deleteAsync)
+/// <param name="editAsync">Opens a Dialog-mode set-property command's dialog; null where the view offers none.</param>
+internal sealed class GeneratedCommandActions(
+    IHandleEvent receiver, Func<CommandView, Task> runAsync, Func<CommandView, Task> deleteAsync, Func<CommandView, Task>? editAsync = null)
 {
     private readonly HashSet<Type> running = [];
 
@@ -30,6 +33,9 @@ internal sealed class GeneratedCommandActions(IHandleEvent receiver, Func<Comman
             running.Remove(command.Request);
         }
     }
+
+    /// <summary>Whether <paramref name="command"/> is running, so its control is disabled.</summary>
+    public bool IsRunning(CommandView command) => running.Contains(command.Request);
 
     /// <param name="model">The root's model.</param>
     /// <param name="id">The record's id.</param>
@@ -64,6 +70,11 @@ internal sealed class GeneratedCommandActions(IHandleEvent receiver, Func<Comman
                 {
                     OnClick = EventCallback.Factory.Create(receiver, () => deleteCommand(command)),
                 },
+                CommandRole.SetProperty when editAsync is not null && command is { EditMode: SerginEditMode.Dialog, ValueField: not null } =>
+                    Action(command, menuItemsOf) with
+                    {
+                        OnClick = EventCallback.Factory.Create(receiver, () => editAsync(command)),
+                    },
                 _ => null,
             };
 

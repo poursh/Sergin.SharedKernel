@@ -1,0 +1,12 @@
+@* The one value of a root's set-property command as a form: the dialog's and the inline card's body. MudForm's details
+   are SerginFormView's: onsubmit splatted lowercase as an EventCallback, SuppressImplicitSubmission false so Enter
+   submits, and the submit disabled while invalid. *@
+<MudForm @ref="form" Model="values" Validation="@validation" @bind-IsValid="isValid"
+         SuppressImplicitSubmission="false" onsubmit="@OnFormSubmit">
+    <GeneratedInput Field="Command.ValueField!" Values="values" Validate="ValidateAsync" />
+    <MudStack Row="true" Spacing="2" Class="mt-3">
+        <MudButton ButtonType="ButtonType.Submit" Variant="Variant.Filled" Color="Color.Primary"
+                   Disabled="@(Busy || !isValid)">@Localizer.Text(SubmitLabel ?? Command.Label)</MudButton>
+        @ChildContent
+    </MudStack>
+</MudForm>

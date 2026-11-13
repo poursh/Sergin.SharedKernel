@@ -40,7 +40,7 @@ internal sealed class AggregateViewModelJoin(
         Type? update = Single(requests, typeof(IUpdateCommand<,>));
         Type? getOneResponse = getOne is null ? null : ResponseOf(getOne);
         Type? listItem = list is null ? null : ListItemOf(list);
-        CommandView[] commandViews = [.. Commands(requests, builder, singular, child: false, [getOneResponse, listItem])];
+        CommandView[] commandViews = [.. Commands(requests, builder, singular, child: false, [getOneResponse, listItem], getOneResponse)];
 
         Type? overview = Single(requests, typeof(IOverviewQuery<>));
         Type? entityOverview = Single(requests, typeof(IEntityOverviewQuery<,>));
@@ -176,10 +176,17 @@ internal sealed class AggregateViewModelJoin(
 
     /// <summary>
     /// The actions among <paramref name="requests"/>: the commands whose role is the root's, or a child's when
-    /// <paramref name="child"/>. <paramref name="records"/> are the records a <c>DisabledWhen</c> may read.
+    /// <paramref name="child"/>. <paramref name="records"/> are the records a <c>DisabledWhen</c> may read;
+    /// <paramref name="getOneResponse"/> is the root's GetOne response, which an inline set-property command edits a
+    /// property of and a value form is prefilled from.
     /// </summary>
     internal IEnumerable<CommandView> Commands(
-        IEnumerable<Type> requests, ViewDeclarationBuilder declarations, TextDefinition singular, bool child, IReadOnlyCollection<Type?> records)
+        IEnumerable<Type> requests,
+        ViewDeclarationBuilder declarations,
+        TextDefinition singular,
+        bool child,
+        IReadOnlyCollection<Type?> records,
+        Type? getOneResponse = null)
     {
         foreach (Type request in requests.Where(type => !CommandTypes.IsSystem(type) && IsCommand(type)))
         {
@@ -192,7 +199,8 @@ internal sealed class AggregateViewModelJoin(
             _ = ConstructorOf(request);
             declarations.Commands.TryGetValue(request, out CommandViewBuilder? declared);
             SerginEditMode mode = declared?.DeclaredEditMode ?? SerginEditMode.Dialog;
-            AggregateViewGuard.EnsureEditable(view, request, role, child, mode);
+            bool hidden = declared?.IsHidden ?? false;
+            AggregateViewGuard.EnsureEditable(view, request, role, child, mode, hidden, getOneResponse);
 
             if (declared?.DisabledRecord is { } disabledRecord)
             {
@@ -200,10 +208,13 @@ internal sealed class AggregateViewModelJoin(
             }
 
             CommandSettings settings = commands.For(request);
+            FormFieldView? valueField = role == CommandRole.SetProperty && !child && !hidden ? ValueFieldOf(request, declarations, getOneResponse) : null;
             (TextDefinition? defaultLabel, string? defaultIcon) = DefaultsOf(role);
-            TextDefinition? label = declared?.DeclaredLabel ?? defaultLabel;
 
-            if (label is null && declared is not { IsHidden: true })
+            // A set-property command is named by the value it sets, unless it declares a verb (Rename).
+            TextDefinition? label = declared?.DeclaredLabel ?? defaultLabel ?? valueField?.Label.Label;
+
+            if (label is null && !hidden)
             {
                 throw Refuse(
                     $"{request.FullName} is a {role} command with no default label. Declare one with "
@@ -224,7 +235,7 @@ internal sealed class AggregateViewModelJoin(
                 declared?.DeclaredSucceededText,
                 declared?.ConfirmTitle,
                 declared?.ConfirmText,
-                declared?.IsHidden ?? false,
+                hidden,
                 [.. declared?.MenuItems ?? []],
                 RequestInvoker.For(request),
                 !child && RequestFactory.IsIdOnly(request) ? RequestFactory.ForId(request) : null,
@@ -234,9 +245,22 @@ internal sealed class AggregateViewModelJoin(
                 mode,
                 declared?.DeclaredDisabledWhen,
                 declared?.DeclaredDisabledReason,
-                child && RequestFactory.IsChildIdOnly(request) ? RequestFactory.ForChildId(request) : null);
+                child && RequestFactory.IsChildIdOnly(request) ? RequestFactory.ForChildId(request) : null,
+                valueField,
+                valueField is null ? null : RequestFactory.ForForm(request));
         }
     }
+
+    /// <summary>
+    /// A root set-property command's one value as a form field (the guard refused any constructor but <c>(Id, value)</c>);
+    /// refused when the configuration marked that value <c>NotShown</c>, which leaves the command nothing to edit.
+    /// </summary>
+    private FormFieldView ValueFieldOf(Type request, ViewDeclarationBuilder declarations, Type? getOneResponse) =>
+        FormFields(request, declarations, getOneResponse) is [{ } only]
+            ? only
+            : throw Refuse(
+                $"{request.FullName} is a set-property command whose one value is not shown (NotShown in its configuration), so a "
+                + $"generated view has nothing to edit. Show it, or Command<{request.Name}>().Hidden() the command.");
 
     /// <summary>The role of a command on the root itself or, when <paramref name="child"/>, on a child entity; null for another effect.</summary>
     private static CommandRole? RoleOf(Type request, bool child)

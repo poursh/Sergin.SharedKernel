@@ -49,7 +49,10 @@ public sealed class CommandViewBuilder<TCommand> : CommandViewBuilder
     {
     }
 
-    /// <summary>The button text. Required for a transition, set-property or move command, which have no default.</summary>
+    /// <summary>
+    /// The button text. Required for a transition or move command, which have no default; a root's set-property command
+    /// defaults to its value field's label, which a verb (Rename) replaces.
+    /// </summary>
     public CommandViewBuilder<TCommand> Label(TextDefinition label)
     {
         ArgumentNullException.ThrowIfNull(label);
