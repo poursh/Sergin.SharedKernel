@@ -1,0 +1,11 @@
+@typeparam TRoot
+@typeparam TChild
+@* The add or edit form of a configured child entity under its root, generated from the root's model: see the code-behind. *@
+<SerginFormView TitleText="TitleText" TitleArguments="TitleArguments" Trail="Trail" Problem="problem" Ready="Ready"
+                Model="values" Validation="validation" OnSubmit="OnSubmit" Submitting="submitting"
+                SubmitLabelText="@(IsEdit ? CommonTexts.Save : CommonTexts.Create)" CancelHref="@CancelHref">
+    @foreach (FormFieldView field in Fields)
+    {
+        <GeneratedInput @key="field.Name" Field="field" Values="values" Validate="ValidateAsync" />
+    }
+</SerginFormView>
