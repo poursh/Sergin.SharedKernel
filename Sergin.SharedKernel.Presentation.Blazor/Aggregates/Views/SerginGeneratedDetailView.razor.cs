@@ -186,6 +186,7 @@ public sealed partial class SerginGeneratedDetailView<TRoot>
         record = loaded.Value;
         version = loaded.Version;
         overview = Model.EntityOverview is { } entityOverview
+            && (Model.Slots.ContainsKey(SerginViewSlot.DetailOverview) || Model.Slots.ContainsKey(SerginViewSlot.DetailOverviewSummary))
             ? await GeneratedViewSupport.LoadOverviewAsync(Dispatcher, entityOverview.Invoker, entityOverview.Build(Id))
             : null;
     }

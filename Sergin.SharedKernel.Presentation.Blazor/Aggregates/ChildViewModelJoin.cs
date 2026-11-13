@@ -32,7 +32,8 @@ internal sealed class ChildViewModelJoin(AggregateViewModelJoin join, Type? root
 
         CommandView[] commands =
         [
-            .. join.Commands(requests, declared, singular, child: true, [getOneResponse, listItem, rootGetOneResponse, rootListItem]),
+            .. join.Commands(requests, declared, singular, child: true, [getOneResponse, listItem, rootGetOneResponse, rootListItem])
+                .OrderBy(command => command.Request.FullName, StringComparer.Ordinal),
         ];
         CommandView? editCommand = EditCommandOf(commands);
 

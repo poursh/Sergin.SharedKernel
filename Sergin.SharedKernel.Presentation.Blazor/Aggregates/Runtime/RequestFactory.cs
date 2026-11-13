@@ -110,9 +110,7 @@ public static class RequestFactory
         NullabilityInfoContext nullability = new();
         Func<object?, object?>[] converters =
         [
-            .. parameters.Select(parameter => ValueObjects.Converter(
-                parameter.ParameterType,
-                neverNull: !IsNullable(parameter, nullability))),
+            .. parameters.Select(parameter => BlankAware(parameter, nullability)),
         ];
         bool[] isId = [.. parameters.Select(parameter => IsNamed(parameter, IdParameter))];
         bool[] isRootId = [.. parameters.Select(parameter => IsNamed(parameter, RootIdParameter))];
@@ -212,6 +210,18 @@ public static class RequestFactory
                 }),
             ]);
         };
+    }
+
+    // Decided once per parameter: a parameter declared nullable whose primitive is a string takes blank text as null (a
+    // cleared optional field is "not given"); a non-nullable one keeps its text so the validators see it.
+    private static Func<object?, object?> BlankAware(ParameterInfo parameter, NullabilityInfoContext nullability)
+    {
+        bool nullable = IsNullable(parameter, nullability);
+        Func<object?, object?> convert = ValueObjects.Converter(parameter.ParameterType, neverNull: !nullable);
+
+        return nullable && ValueObjects.PrimitiveOf(parameter.ParameterType) == typeof(string)
+            ? value => value is string text && string.IsNullOrWhiteSpace(text) ? null : convert(value)
+            : convert;
     }
 
     private static bool IsNamed(ParameterInfo parameter, string name) => string.Equals(parameter.Name, name, StringComparison.OrdinalIgnoreCase);

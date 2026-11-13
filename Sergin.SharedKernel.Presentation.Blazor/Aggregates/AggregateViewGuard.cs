@@ -281,6 +281,13 @@ public static class AggregateViewGuard
                 + $"child's alone, but its constructor is not (RootId, Id). Give it that constructor, or model it as an update or set-property command.");
         }
 
+        if ((declared.ListFields as IListFilterDeclarations)?.FilterComponents.Keys.FirstOrDefault() is { } filter)
+        {
+            throw Refuse(
+                view,
+                $"List<…>(list => list.Filter(\"{filter}\", …)) on Child<{child.Name}> has no effect: a child list section has no filter panel. Remove it.");
+        }
+
         if (getOne is not null && !RequestFactory.IsChildIdOnly(getOne))
         {
             throw Refuse(view, $"{getOne.FullName} is loaded from the root's id and the child's alone, but its constructor is not (RootId, Id).");
@@ -321,6 +328,8 @@ public static class AggregateViewGuard
                 + "and no command declared Edit(SerginEditMode.Page) to send.");
         }
 
+        EnsureChildRoutesCarryIds(view, child, routes);
+
         if (routes.Create is not null && add is null)
         {
             throw Refuse(view, $"its routes promise a {child.Name} create form, but no IAddChildCommand<{root.Name}, …, {child.Name}, …> exists to send.");
@@ -329,6 +338,36 @@ public static class AggregateViewGuard
         if (routes.Detail is not null && getOne is null)
         {
             throw Refuse(view, $"its routes promise a {child.Name} detail page, but no IChildGetOneQuery<{root.Name}, …, {child.Name}, …> exists to load it.");
+        }
+    }
+
+    // Sampled with two distinct ids: a route that drops one (or writes the child's id where the root's belongs) would link to the wrong page.
+    private static void EnsureChildRoutesCarryIds(DeclaredView view, Type child, ChildViewRoutes routes)
+    {
+        var rootId = Guid.Parse("11111111-1111-1111-1111-111111111111");
+        var childId = Guid.Parse("22222222-2222-2222-2222-222222222222");
+        string root = rootId.ToString();
+        string childText = childId.ToString();
+
+        (string Name, string? Route, bool NeedsChild)[] sampled =
+        [
+            ("create", routes.Create?.Invoke(rootId), false),
+            ("detail", routes.Detail?.Invoke(rootId, childId), true),
+            ("edit", routes.Edit?.Invoke(rootId, childId), true),
+        ];
+
+        foreach ((string name, string? route, bool needsChild) in sampled)
+        {
+            if (route is not null
+                && (!route.Contains(root, StringComparison.OrdinalIgnoreCase)
+                    || needsChild && !route.Contains(childText, StringComparison.OrdinalIgnoreCase)))
+            {
+                throw Refuse(
+                    view,
+                    $"Child<{child.Name}>().Routes(...) {name} route builds \"{route}\" from the root id {root}"
+                    + $"{(needsChild ? $" and the child id {childText}" : string.Empty)}, and it must carry "
+                    + $"{(needsChild ? "both" : "the root id")}.");
+            }
         }
     }
 
