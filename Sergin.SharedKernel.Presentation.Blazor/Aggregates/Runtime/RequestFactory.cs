@@ -241,11 +241,12 @@ public static class RequestFactory
         };
     }
 
-    // An optional parameter's declared default, or the type's default when it declares none (a value type's DefaultValue
-    // is then DBNull or Missing).
+    // An optional parameter's declared default, else its type's default. A struct declared "= default" (DateTime since =
+    // default) reports a null DefaultValue, which the compiled constructor call could not unbox, so a value type with no
+    // usable value gets a fresh default instance (null for a Nullable<T>).
     private static object? DefaultOf(ParameterInfo parameter)
     {
-        if (parameter.HasDefaultValue && parameter.DefaultValue is not DBNull)
+        if (parameter.HasDefaultValue && parameter.DefaultValue is not (null or DBNull or Missing))
         {
             return parameter.DefaultValue;
         }

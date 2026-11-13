@@ -55,6 +55,8 @@ public sealed partial class GeneratedListBody<TItem> : IGeneratedListBody
     private IReadOnlyList<ListColumn> columns = [];
     private FieldView? titleField;
     private bool canManageSchedules;
+    private bool parametersSet;
+    private Guid? shownParentId;
 
     [Parameter]
     [EditorRequired]
@@ -145,6 +147,21 @@ public sealed partial class GeneratedListBody<TItem> : IGeneratedListBody
 
         canManageSchedules = Model.HasSchedulableCommand && await ScopeAuthorization.CurrentUserHasAsync(ScheduledTaskPermissions.Manage);
         BulkActions = [.. BulkActionsOf()];
+    }
+
+    // A new parent (a route reused for another parent's records) reloads the rows under it; the first set loads as the table
+    // always does. Reloading here, not from the view, guarantees the reload reads the ParentId just set.
+    protected override async Task OnParametersSetAsync()
+    {
+        Guid? previous = shownParentId;
+        shownParentId = ParentId;
+
+        if (parametersSet && previous != ParentId)
+        {
+            await list.ReloadAsync();
+        }
+
+        parametersSet = true;
     }
 
     private static Guid IdOf(TItem item) => GeneratedViewSupport.IdOf(idReader, item!);

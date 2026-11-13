@@ -98,7 +98,7 @@ public sealed partial class SerginGeneratedListView<TRoot>
         await LoadOverviewAsync();
     }
 
-    // The parent is read again whenever the route names another one; the list then reloads under it.
+    // The parent is read again whenever the route names another one; the list then reloads under it (see GeneratedListBody).
     protected override async Task OnParametersSetAsync()
     {
         if (parentModel is null)
@@ -116,16 +116,15 @@ public sealed partial class SerginGeneratedListView<TRoot>
 
         bool changed = loadedParentId is not null;
         loadedParentId = parentId;
+
+        // Dropped first, so the trail never pairs the new parent's href with the old parent's name.
+        parent = null;
         await LoadParentAsync(parentId);
 
+        // The table reloads itself once it is handed the new ParentId; a list body slot sees the new generation.
         if (changed)
         {
             await RefreshSlotsAsync();
-
-            if (body is not null)
-            {
-                await body.ReloadAsync();
-            }
         }
     }
 
