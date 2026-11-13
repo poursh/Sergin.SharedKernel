@@ -130,7 +130,9 @@ public sealed partial class SerginGeneratedChildDetailView<TRoot, TChild>
 
         if (loaded.IsError)
         {
+            // Nothing of the child shows, so the root's name goes with it: the trail falls back to the root's singular, still linked.
             record = null;
+            rootRecord = null;
             version = null;
             problem = ErrorPresenter.Present(loaded.Errors[0]);
 
@@ -148,6 +150,7 @@ public sealed partial class SerginGeneratedChildDetailView<TRoot, TChild>
     }
 
     // The edit command links to the child's edit route; each remove and transition runs through this view.
+    // A SetProperty command on a child is only ever its Page-mode edit command (the guard refuses other modes), so the edit link covers it.
     private IEnumerable<SerginPageAction> ActionsOf()
     {
         if (Child.EditCommand is { Hidden: false, EditMode: SerginEditMode.Page } edit && Child.Routes.Edit is { } editRoute)
@@ -156,7 +159,7 @@ public sealed partial class SerginGeneratedChildDetailView<TRoot, TChild>
         }
 
         foreach (CommandView command in Child.Commands.Where(command => command is
-                 { Role: CommandRole.RemoveChild or CommandRole.Transition or CommandRole.SetProperty, Hidden: false, BuildFromIds: not null }))
+                 { Role: CommandRole.RemoveChild or CommandRole.Transition, Hidden: false, BuildFromIds: not null }))
         {
             yield return Action(command) with
             {
@@ -179,32 +182,46 @@ public sealed partial class SerginGeneratedChildDetailView<TRoot, TChild>
             Disabled: refused || busy.Contains(command.Request));
     }
 
-    // A guarded command needs the root's version; without one it reports not found and reads again, as a stale answer would.
-    private async Task<ViewSendResult?> SendAsync(CommandView command)
+    // The seam decides what is sent; this maps its outcome. No version: not found and a re-read, nothing sent.
+    private async Task<bool> SucceededAsync(CommandView command)
     {
-        if (command.RequiresVersion && version is null)
-        {
-            ErrorPresenter.Notify(Error.NotFound());
-            await LoadAsync();
-
-            return null;
-        }
-
         busy.Add(command.Request);
+
+        ChildCommandOutcome outcome;
 
         try
         {
-            return await GeneratedChildBulk.SendAsync(Dispatcher, command, RootId, Id, version);
+            outcome = await GeneratedChildCommands.SendAsync(Dispatcher, command, RootId, Id, version);
         }
         finally
         {
             busy.Remove(command.Request);
         }
+
+        switch (outcome.Status)
+        {
+            case ChildCommandStatus.NoVersion:
+                ErrorPresenter.Notify(Error.NotFound());
+                await LoadAsync();
+
+                return false;
+            case ChildCommandStatus.Refused:
+                ErrorPresenter.Notify(outcome.Errors);
+
+                if (outcome.Stale)
+                {
+                    await LoadAsync();
+                }
+
+                return false;
+            default:
+                return true;
+        }
     }
 
     private async Task RunAsync(CommandView command)
     {
-        if (await SendAsync(command) is not { } result || await GeneratedViewSupport.FailedAsync(result, ErrorPresenter, LoadAsync))
+        if (!await SucceededAsync(command))
         {
             return;
         }
@@ -226,12 +243,12 @@ public sealed partial class SerginGeneratedChildDetailView<TRoot, TChild>
         }
 
         // An in-use child arrives as one validation error; a stale root as a version error, which reads both again.
-        if (await SendAsync(command) is not { } result || await GeneratedViewSupport.FailedAsync(result, ErrorPresenter, LoadAsync))
+        if (!await SucceededAsync(command))
         {
             return;
         }
 
-        await Host.LeaveAsync(Model.Routes.Detail!(RootId));
+        await Host.LeaveAsync(GeneratedChildCommands.LeaveTarget(Model, RootId));
     }
 
     private Dictionary<string, object?> PlaceholderArguments() =>
