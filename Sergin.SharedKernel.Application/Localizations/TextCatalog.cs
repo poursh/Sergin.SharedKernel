@@ -11,12 +11,14 @@ public sealed class TextCatalog
 {
     private readonly IReadOnlyList<TextCatalogEntry> entries;
     private readonly IReadOnlyList<FieldText> fields;
+    private readonly IReadOnlyList<IEnumTexts> values;
     private readonly Dictionary<string, TextDefinition> byKey;
 
-    private TextCatalog(IReadOnlyList<TextCatalogEntry> entries, IReadOnlyList<FieldText> fields)
+    private TextCatalog(IReadOnlyList<TextCatalogEntry> entries, IReadOnlyList<FieldText> fields, IReadOnlyList<IEnumTexts> values)
     {
         this.entries = entries;
         this.fields = fields;
+        this.values = values;
         byKey = entries.ToDictionary(entry => entry.Definition.Key.Value, entry => entry.Definition, StringComparer.Ordinal);
     }
 
@@ -28,6 +30,7 @@ public sealed class TextCatalog
 
         List<TextCatalogEntry> collected = [];
         List<FieldText> collectedFields = [];
+        List<IEnumTexts> collectedValues = [];
 
         foreach (TextSource source in sources)
         {
@@ -44,13 +47,15 @@ public sealed class TextCatalog
             }
 
             collectedFields.AddRange(source.Fields);
+            collectedValues.AddRange(source.Values);
         }
 
         CheckKeys(collected);
 
         return new TextCatalog(
             [.. collected.DistinctBy(entry => entry.Definition.Key.Value, StringComparer.Ordinal)],
-            [.. collectedFields.DistinctBy(field => (field.Category.Prefix, field.PropertyName))]);
+            [.. collectedFields.DistinctBy(field => (field.Category.Prefix, field.PropertyName))],
+            [.. collectedValues.DistinctBy(texts => (texts.Category.Prefix, texts.EnumType))]);
     }
 
     public bool TryGet(string key, [NotNullWhen(true)] out TextDefinition? definition)
@@ -69,6 +74,24 @@ public sealed class TextCatalog
 
     public FieldText? FindField(TextCategory category, string propertyName) =>
         FieldsOf(category).FirstOrDefault(field => string.Equals(field.PropertyName, propertyName, StringComparison.Ordinal));
+
+    /// <summary>The declared text of <paramref name="member"/> of <paramref name="enumType"/> under <paramref name="category"/>, or null.</summary>
+    public TextDefinition? FindValue(TextCategory category, Type enumType, object member)
+    {
+        ArgumentNullException.ThrowIfNull(member);
+
+        return ValueTextsOf(category, enumType).TryGetValue(member, out TextDefinition? text) ? text : null;
+    }
+
+    /// <summary>Every declared member text of <paramref name="enumType"/> under <paramref name="category"/>, keyed by the boxed member; empty when none is declared.</summary>
+    public IReadOnlyDictionary<object, TextDefinition> ValueTextsOf(TextCategory category, Type enumType)
+    {
+        ArgumentNullException.ThrowIfNull(category);
+        ArgumentNullException.ThrowIfNull(enumType);
+
+        return values.FirstOrDefault(texts => texts.Category.Prefix == category.Prefix && texts.EnumType == enumType)?.Members
+            ?? new Dictionary<object, TextDefinition>();
+    }
 
     private static void CheckKeys(List<TextCatalogEntry> collected)
     {
