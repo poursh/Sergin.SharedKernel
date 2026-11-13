@@ -28,6 +28,15 @@ public abstract class CommandViewBuilder
 
     internal bool IsHidden { get; private protected set; }
 
+    internal SerginEditMode DeclaredEditMode { get; private protected set; } = SerginEditMode.Dialog;
+
+    /// <summary>The record type <c>DisabledWhen&lt;TRecord&gt;</c> reads, or null.</summary>
+    internal Type? DisabledRecord { get; private protected set; }
+
+    internal Func<object, bool>? DeclaredDisabledWhen { get; private protected set; }
+
+    internal TextDefinition? DeclaredDisabledReason { get; private protected set; }
+
     internal List<CommandMenuItemView> MenuItems { get; } = [];
 }
 
@@ -92,6 +101,29 @@ public sealed class CommandViewBuilder<TCommand> : CommandViewBuilder
         ArgumentNullException.ThrowIfNull(text);
         ConfirmManyTitle = title;
         ConfirmManyText = text;
+        return this;
+    }
+
+    /// <summary>Where an edit command is offered; <see cref="SerginEditMode.Dialog"/> by default.</summary>
+    public CommandViewBuilder<TCommand> Edit(SerginEditMode mode)
+    {
+        DeclaredEditMode = mode;
+        return this;
+    }
+
+    /// <summary>
+    /// Disables the action for a record or row of <typeparamref name="TRecord"/> that satisfies <paramref name="when"/>,
+    /// with <paramref name="reason"/> as its tooltip. Presentation only: the command stays callable and the pipeline still
+    /// refuses. <typeparamref name="TRecord"/> must be a record the command's views hold: the list item or GetOne response
+    /// of the root or of the child.
+    /// </summary>
+    public CommandViewBuilder<TCommand> DisabledWhen<TRecord>(Func<TRecord, bool> when, TextDefinition? reason = null)
+    {
+        ArgumentNullException.ThrowIfNull(when);
+
+        DisabledRecord = typeof(TRecord);
+        DeclaredDisabledWhen = record => record is TRecord typed && when(typed);
+        DeclaredDisabledReason = reason;
         return this;
     }
 

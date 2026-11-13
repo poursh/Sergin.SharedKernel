@@ -29,6 +29,10 @@ namespace Sergin.SharedKernel.Presentation.Blazor.Aggregates;
 /// <param name="BulkSucceededText">The text a list's bulk run reports (<c>{Count}</c>), or null for the default.</param>
 /// <param name="ConfirmManyTitle">A list's bulk delete confirm's title, or null for the default.</param>
 /// <param name="ConfirmManyText">A list's bulk delete confirm's text (<c>{Count}</c>), or null for the default.</param>
+/// <param name="EditMode">Where an edit command is offered; <see cref="SerginEditMode.Dialog"/> unless declared with <c>Edit(...)</c>.</param>
+/// <param name="DisabledWhen">Whether the action is disabled for a record or row (presentation only: the command stays callable and the pipeline still refuses); null for never.</param>
+/// <param name="DisabledReason">The tooltip of a disabled action, or null.</param>
+/// <param name="BuildFromIds">Builds a child command from the root's id and the child's id; null unless its constructor is exactly those two.</param>
 public sealed record CommandView(
     Type Request,
     CommandRole Role,
@@ -49,7 +53,11 @@ public sealed record CommandView(
     Func<Guid, object>? BuildFromId,
     TextDefinition? BulkSucceededText = null,
     TextDefinition? ConfirmManyTitle = null,
-    TextDefinition? ConfirmManyText = null);
+    TextDefinition? ConfirmManyText = null,
+    SerginEditMode EditMode = SerginEditMode.Dialog,
+    Func<object, bool>? DisabledWhen = null,
+    TextDefinition? DisabledReason = null,
+    Func<Guid, Guid, object>? BuildFromIds = null);
 
 /// <summary>An entry a configuration put behind a command's drop-down with <c>MenuItem(...)</c>.</summary>
 public sealed record CommandMenuItemView(

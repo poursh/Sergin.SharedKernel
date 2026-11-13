@@ -9,4 +9,10 @@ public enum CommandRole
     Transition,
     SetProperty,
     Move,
+
+    /// <summary>Adds a child entity to the root (<c>IAddChildCommand</c>).</summary>
+    AddChild,
+
+    /// <summary>Removes a child entity from the root (<c>IRemoveChildCommand</c>).</summary>
+    RemoveChild,
 }

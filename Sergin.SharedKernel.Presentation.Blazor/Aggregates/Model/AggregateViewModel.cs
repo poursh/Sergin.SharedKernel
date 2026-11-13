@@ -34,6 +34,7 @@ namespace Sergin.SharedKernel.Presentation.Blazor.Aggregates;
 /// <param name="DetailTitleField">The GetOne response's display property: breadcrumb tail, fields title, schedule target label.</param>
 /// <param name="ListTitleField">The list item's display property.</param>
 /// <param name="ListFilters">The list's identifier filters and where their options come from.</param>
+/// <param name="Children">The root's child entities, by type name: one for each child the root's typed requests name.</param>
 /// <param name="DetailArguments">
 /// Reads every public property of a GetOne response into a name-to-value bag, value objects read through to their
 /// primitive: what fills a text's placeholders from the loaded record. Compiled once; null with no GetOne.
@@ -75,6 +76,7 @@ public sealed record AggregateViewModel(
     string? DetailTitleField,
     string? ListTitleField,
     IReadOnlyList<ListFilterView> ListFilters,
+    IReadOnlyList<ChildViewModel> Children,
     Func<object, IReadOnlyDictionary<string, object?>>? DetailArguments,
     TextDefinition? ListSearchPlaceholder = null,
     IReadOnlyDictionary<string, FieldText>? ListFieldLabels = null,

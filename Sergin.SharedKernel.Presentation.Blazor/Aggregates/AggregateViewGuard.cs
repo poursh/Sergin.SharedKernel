@@ -37,6 +37,9 @@ public static class AggregateViewGuard
             .. views.All.SelectMany(model => RoutesOf(model.Routes)
                 .Where(route => !templates.Contains(Normalize(route)))
                 .Select(route => $"  {model.Configuration.FullName} ({model.Root.Name}): \"{route}\"")),
+            .. views.All.SelectMany(model => model.Children.SelectMany(child => RoutesOf(child.Routes)
+                .Where(route => !templates.Contains(Normalize(route)))
+                .Select(route => $"  {model.Configuration.FullName} ({model.Root.Name}, child {child.Child.Name}): \"{route}\""))),
         ];
 
         if (missing.Length > 0)
@@ -135,8 +138,8 @@ public static class AggregateViewGuard
         EnsureIdOnly(view, commands);
         EnsureSchedulableFromId(view, commands);
         EnsureQueryShapes(view, getOne, overview, entityOverview, audit);
-        EnsureRecord(view, builder.DetailFields?.Record, getOneResponse, "Detail", "GetOne query's response");
-        EnsureRecord(view, builder.ListFields?.Record, listItem, "List", "list query's item");
+        EnsureRecord(view, builder.Root.Name, builder.DetailFields?.Record, getOneResponse, "Detail", "GetOne query's response");
+        EnsureRecord(view, builder.Root.Name, builder.ListFields?.Record, listItem, "List", "list query's item");
 
         if (builder.Forms.Keys.FirstOrDefault(command => command != create && command != update) is { } form)
         {
@@ -192,19 +195,178 @@ public static class AggregateViewGuard
         }
     }
 
-    private static void EnsureRecord(DeclaredView view, Type? configured, Type? expected, string method, string what)
+    private static void EnsureRecord(DeclaredView view, string owner, Type? configured, Type? expected, string method, string what)
     {
         if (configured is not null && configured != expected)
         {
             throw Refuse(
                 view,
-                $"{method}<{configured.Name}>() names {configured.FullName}, which is not {view.Builder.Root.Name}'s {what} "
+                $"{method}<{configured.Name}>() names {configured.FullName}, which is not {owner}'s {what} "
                 + $"({expected?.FullName ?? "there is none"}).");
+        }
+    }
+
+    // ---- Edit modes, disabled actions, child entities ----
+
+    /// <summary>
+    /// A set-property command is edited on a page of its own, which only a child entity has so far: the root's is refused
+    /// in any mode, a child's unless declared <c>Edit(SerginEditMode.Page)</c> (dialog and inline editing come later).
+    /// </summary>
+    internal static void EnsureEditable(DeclaredView view, Type request, CommandRole role, bool child, SerginEditMode mode)
+    {
+        if (role != CommandRole.SetProperty)
+        {
+            return;
+        }
+
+        if (!child)
+        {
+            throw Refuse(
+                view,
+                $"{request.FullName} is a set-property command on {view.Builder.Root.Name} itself, which a generated view cannot offer yet "
+                + "in any edit mode; only a child entity's set-property command is supported, declared Edit(SerginEditMode.Page).");
+        }
+
+        if (mode != SerginEditMode.Page)
+        {
+            throw Refuse(
+                view,
+                $"{request.FullName} is a set-property command, and edit mode {mode} is not supported yet; "
+                + $"declare Command<{request.Name}>().Edit(SerginEditMode.Page).");
+        }
+    }
+
+    /// <summary><c>DisabledWhen&lt;TRecord&gt;</c> reads a record the command's views hold: a list item or GetOne response of the root or child.</summary>
+    internal static void EnsureDisabledRecord(DeclaredView view, Type request, Type disabledRecord, IReadOnlyCollection<Type?> records)
+    {
+        if (!records.Contains(disabledRecord))
+        {
+            string known = string.Join(", ", records.OfType<Type>().Select(type => type.Name));
+
+            throw Refuse(
+                view,
+                $"Command<{request.Name}>().DisabledWhen<{disabledRecord.Name}>() reads {disabledRecord.FullName}, which is no record "
+                + $"of the command's views ({(known.Length == 0 ? "there are none" : known)}).");
+        }
+    }
+
+    /// <summary>A command that edits a child on a page of its own: its update, or one declared <c>Edit(SerginEditMode.Page)</c>.</summary>
+    internal static bool IsEditCommand(CommandView command) =>
+        command.Role == CommandRole.Update || command.EditMode == SerginEditMode.Page;
+
+    /// <summary>
+    /// What a child's declaration names must be its own: its commands, GetOne response and list item, its forms; its
+    /// routes need their query or command; it has at most one edit command; a remove or transition is sent from the ids alone.
+    /// </summary>
+    internal static void EnsureChild(
+        DeclaredView view,
+        Type child,
+        ChildViewBuilder declared,
+        IReadOnlyCollection<CommandView> commands,
+        Type? getOne,
+        Type? getOneResponse,
+        Type? listItem,
+        Type? add,
+        CommandView? editCommand)
+    {
+        Type root = view.Builder.Root;
+
+        EnsureChildCommands(view, child, declared, commands);
+
+        if (commands.FirstOrDefault(command => command.Role is CommandRole.Transition or CommandRole.RemoveChild && command.BuildFromIds is null) is { } offender)
+        {
+            throw Refuse(
+                view,
+                $"{offender.Request.FullName} is a {offender.Role} command, which a generated view sends from the root's id and the "
+                + $"child's alone, but its constructor is not (RootId, Id). Give it that constructor, or model it as an update or set-property command.");
+        }
+
+        if (getOne is not null && !RequestFactory.IsChildIdOnly(getOne))
+        {
+            throw Refuse(view, $"{getOne.FullName} is loaded from the root's id and the child's alone, but its constructor is not (RootId, Id).");
+        }
+
+        EnsureRecord(view, child.Name, declared.DetailFields?.Record, getOneResponse, "Detail", "GetOne query's response");
+        EnsureRecord(view, child.Name, declared.ListFields?.Record, listItem, "List", "list query's item");
+
+        if (declared.Forms.Keys.FirstOrDefault(command => command != add && command != editCommand?.Request) is { } form)
+        {
+            throw Refuse(view, $"Form<{form.Name}>() on Child<{child.Name}> names {form.FullName}, which is not {child.Name}'s add or edit command.");
+        }
+
+        CommandView[] editors = [.. commands.Where(IsEditCommand)];
+
+        if (editors.Length > 1)
+        {
+            throw Refuse(
+                view,
+                $"{child.Name} has more than one edit command ({string.Join(", ", editors.Select(command => command.Request.FullName))}); "
+                + "a generated child page edits with exactly one: its update, or one command declared Edit(SerginEditMode.Page).");
+        }
+
+        ChildViewRoutes routes = declared.DeclaredRoutes;
+
+        if (editCommand is not null && routes.Edit is null)
+        {
+            throw Refuse(
+                view,
+                $"{editCommand.Request.FullName} edits {child.Name} on a page of its own, but Child<{child.Name}>().Routes(...) names no edit route.");
+        }
+
+        if (editCommand is null && routes.Edit is not null)
+        {
+            throw Refuse(
+                view,
+                $"its routes promise a {child.Name} edit page, but {child.Name} has no IUpdateCommand<{root.Name}, …, {child.Name}, …> "
+                + "and no command declared Edit(SerginEditMode.Page) to send.");
+        }
+
+        if (routes.Create is not null && add is null)
+        {
+            throw Refuse(view, $"its routes promise a {child.Name} create form, but no IAddChildCommand<{root.Name}, …, {child.Name}, …> exists to send.");
+        }
+
+        if (routes.Detail is not null && getOne is null)
+        {
+            throw Refuse(view, $"its routes promise a {child.Name} detail page, but no IChildGetOneQuery<{root.Name}, …, {child.Name}, …> exists to load it.");
+        }
+    }
+
+    private static void EnsureChildCommands(DeclaredView view, Type child, ChildViewBuilder declared, IReadOnlyCollection<CommandView> commands)
+    {
+        Type root = view.Builder.Root;
+
+        foreach (Type request in declared.Commands.Keys)
+        {
+            CommandTarget? target = CommandTypes.TargetOf(request);
+
+            if (target is null || target.Root != root || !AggregateTargets.ChildrenNamedBy(request, target).Contains(child))
+            {
+                throw Refuse(
+                    view,
+                    $"Command<{request.Name}>() on Child<{child.Name}> names {request.FullName}, which is typed to "
+                    + $"{(target is null ? "no aggregate" : target.Root.FullName)}"
+                    + $"{(target?.Child is { } other ? $" (child {other.Name})" : string.Empty)}, not to {child.Name} of {root.Name}.");
+            }
+
+            if (commands.All(command => command.Request != request))
+            {
+                throw Refuse(
+                    view,
+                    $"Command<{request.Name}>() names {request.FullName}, which is no add, remove, update, transition or set-property "
+                    + $"command on {child.Name}, so no action shows it.");
+            }
         }
     }
 
     private static InvalidOperationException Refuse(DeclaredView view, string problem) =>
         new($"Aggregate view configuration {view.Configuration.FullName}: {problem}");
+
+    private static IEnumerable<string> RoutesOf(ChildViewRoutes routes)
+    {
+        string?[] all = [routes.Create?.Invoke(Guid.Empty), routes.Detail?.Invoke(Guid.Empty, Guid.Empty), routes.Edit?.Invoke(Guid.Empty, Guid.Empty)];
+        return all.OfType<string>();
+    }
 
     private static IEnumerable<string> RoutesOf(AggregateViewRoutes routes)
     {

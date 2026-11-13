@@ -5,7 +5,7 @@ using Sergin.SharedKernel.Domain;
 namespace Sergin.SharedKernel.Presentation.Blazor.Aggregates;
 
 /// <summary>The non-generic half, so the registry can read what any closed builder collected.</summary>
-public abstract class AggregateViewBuilder
+public abstract class AggregateViewBuilder : ViewDeclarationBuilder
 {
     private protected AggregateViewBuilder(Type root) => Root = root;
 
@@ -15,19 +15,12 @@ public abstract class AggregateViewBuilder
 
     internal AggregateViewRoutes DeclaredRoutes { get; private protected set; } = AggregateViewRoutes.None;
 
-    /// <summary>The commands the configuration named, by request type.</summary>
-    internal Dictionary<Type, CommandViewBuilder> Commands { get; } = [];
-
-    internal FieldSetBuilder? DetailFields { get; private protected set; }
-
-    internal FieldSetBuilder? ListFields { get; private protected set; }
-
-    /// <summary>The forms the configuration named, by command type.</summary>
-    internal Dictionary<Type, FormViewBuilder> Forms { get; } = [];
-
     internal Dictionary<SerginViewSlot, Type> Slots { get; } = [];
 
     internal bool DetailOverviewIsCollapsed { get; private protected set; }
+
+    /// <summary>The child entities the configuration declared, by child type.</summary>
+    internal Dictionary<Type, ChildViewBuilder> Children { get; } = [];
 }
 
 /// <summary>What a view configuration declares for <typeparamref name="TRoot"/>.</summary>
@@ -62,37 +55,19 @@ public sealed class AggregateViewBuilder<TRoot> : AggregateViewBuilder
 
     /// <summary>How the command <typeparamref name="TCommand"/>, which must be typed to <typeparamref name="TRoot"/>, is offered.</summary>
     public CommandViewBuilder<TCommand> Command<TCommand>()
-        where TCommand : IBaseCommand
-    {
-        if (Commands.TryGetValue(typeof(TCommand), out CommandViewBuilder? existing))
-        {
-            return (CommandViewBuilder<TCommand>)existing;
-        }
-
-        CommandViewBuilder<TCommand> command = new();
-        Commands.Add(typeof(TCommand), command);
-        return command;
-    }
+        where TCommand : IBaseCommand => DeclareCommand<TCommand>();
 
     /// <summary>Overrides for the detail fields; <typeparamref name="TResponse"/> must be the GetOne query's response.</summary>
     public AggregateViewBuilder<TRoot> Detail<TResponse>(Action<FieldSetBuilder<TResponse>> configure)
     {
-        ArgumentNullException.ThrowIfNull(configure);
-
-        FieldSetBuilder<TResponse> fields = DetailFields as FieldSetBuilder<TResponse> ?? new FieldSetBuilder<TResponse>();
-        configure(fields);
-        DetailFields = fields;
+        DeclareDetail(configure);
         return this;
     }
 
     /// <summary>Overrides for the list columns and filters; <typeparamref name="TItem"/> must be the list query's item.</summary>
     public AggregateViewBuilder<TRoot> List<TItem>(Action<ListViewBuilder<TItem>> configure)
     {
-        ArgumentNullException.ThrowIfNull(configure);
-
-        ListViewBuilder<TItem> fields = ListFields as ListViewBuilder<TItem> ?? new ListViewBuilder<TItem>();
-        configure(fields);
-        ListFields = fields;
+        DeclareList(configure);
         return this;
     }
 
@@ -100,15 +75,27 @@ public sealed class AggregateViewBuilder<TRoot> : AggregateViewBuilder
     public AggregateViewBuilder<TRoot> Form<TCommand>(Action<FormViewBuilder<TCommand>> configure)
         where TCommand : IBaseCommand
     {
+        DeclareForm(configure);
+        return this;
+    }
+
+    /// <summary>
+    /// How the child entity <typeparamref name="TChild"/> of <typeparamref name="TRoot"/> is shown and edited: its name,
+    /// routes, commands, fields and forms. A child the root's requests name is shown whether or not it is declared here,
+    /// but needs <c>Named(...)</c>, so declare each one.
+    /// </summary>
+    public AggregateViewBuilder<TRoot> Child<TChild>(Action<ChildViewBuilder<TRoot, TChild>> configure)
+        where TChild : class, IEntity
+    {
         ArgumentNullException.ThrowIfNull(configure);
 
-        if (!Forms.TryGetValue(typeof(TCommand), out FormViewBuilder? form))
+        if (!Children.TryGetValue(typeof(TChild), out ChildViewBuilder? existing))
         {
-            form = new FormViewBuilder<TCommand>();
-            Forms.Add(typeof(TCommand), form);
+            existing = new ChildViewBuilder<TRoot, TChild>();
+            Children.Add(typeof(TChild), existing);
         }
 
-        configure((FormViewBuilder<TCommand>)form);
+        configure((ChildViewBuilder<TRoot, TChild>)existing);
         return this;
     }
 
