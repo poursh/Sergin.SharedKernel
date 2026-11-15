@@ -4,7 +4,7 @@
                            FieldsTitleData="@(record is null ? null : DisplayText)"
                            Overview="OverviewFragment" OverviewSummary="OverviewSummaryFragment" OverviewCollapsed="Model.DetailOverviewCollapsed">
     <HeaderActions>
-        <SerginReloadButton OnReload="ReloadAsync" />
+        <SerginReloadButton OnReload="HeaderReloadAsync" />
         <SerginCopyLinkButton />
         @if (record is not null && Model.Audit is not null)
         {

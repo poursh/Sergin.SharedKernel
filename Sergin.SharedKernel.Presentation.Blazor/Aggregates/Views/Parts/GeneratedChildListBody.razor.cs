@@ -184,7 +184,7 @@ public sealed partial class GeneratedChildListBody<TItem> : IGeneratedChildListB
         Dictionary<string, object?> arguments = GeneratedViewSupport.ArgumentsOf(Child.ListItemArguments, item, GeneratedViewSupport.DisplayOf(item, titleField, id));
 
         if (!await DialogService.ConfirmDeleteAsync(
-                Localizer, command.ConfirmTitle ?? CommonTexts.Delete, command.ConfirmText ?? ShellTexts.CommandActions.DeleteConfirm, arguments, command.Label))
+                Localizer, command.ConfirmTitle ?? CommonTexts.Delete, command.ConfirmText ?? ShellTexts.CommandActions.DeleteConfirm, arguments, command.ConfirmLabel ?? command.Label))
         {
             return;
         }

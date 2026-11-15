@@ -56,17 +56,51 @@ public static class AggregateViewGuard
         }
     }
 
-    /// <summary>A transition or delete is sent for one record: its constructor must take the id and nothing else.</summary>
+    /// <summary>
+    /// A transition or delete is sent for one record: its constructor must take the id and nothing else, except that a
+    /// delete may take the id and further shown values, which its confirm asks for (<see cref="CommandView.ConfirmFields"/>).
+    /// </summary>
     private static void EnsureIdOnly(DeclaredView view, IReadOnlyCollection<CommandView> commands)
     {
-        CommandView? offender = commands.FirstOrDefault(command => command.Role is CommandRole.Transition or CommandRole.Delete && command.BuildFromId is null);
+        CommandView? offender = commands.FirstOrDefault(command =>
+            command.Role is CommandRole.Transition or CommandRole.Delete
+            && command.BuildFromId is null
+            && command is not { Role: CommandRole.Delete, ConfirmFields.Count: > 0 });
 
         if (offender is not null)
         {
             throw Refuse(
                 view,
-                $"{offender.Request.FullName} is a {offender.Role} command, which a generated view sends from the record's id alone, but its "
-                + "constructor takes more than the id. Give it a constructor of only the id, or model it as an update or set-property command.");
+                $"{offender.Request.FullName} is a {offender.Role} command, which a generated view sends from the record's id alone"
+                + (offender.Role == CommandRole.Delete ? " (or, for a delete, the id and the values its confirm asks for)" : string.Empty)
+                + ", but its constructor takes more than the id. Give it a constructor of only the id, or model it as an update or set-property command.");
+        }
+    }
+
+    /// <summary>A delete's further values are asked for in its confirm, so each must be shown: a <c>NotShown</c> one could not be filled.</summary>
+    internal static void RefuseUnshownConfirmValues(DeclaredView view, Type request, IReadOnlyCollection<string> unshown) =>
+        throw Refuse(
+            view,
+            $"{request.FullName} is a delete whose constructor takes {string.Join(", ", unshown)} beside the Id, which its confirm "
+            + $"dialog asks for, but its configuration marks {(unshown.Count == 1 ? "it" : "them")} NotShown, so the dialog could not "
+            + "fill " + (unshown.Count == 1 ? "it" : "them") + ". Show " + (unshown.Count == 1 ? "it" : "them")
+            + $", give the delete a constructor of only the id, or Command<{request.Name}>().Hidden() it.");
+
+    /// <summary>
+    /// <c>Confirm(...)</c> is asked before a root's transition or delete and a child's removal; on any other command (an
+    /// update links to its form, a set-property opens its own editor) no view would ask it.
+    /// </summary>
+    internal static void EnsureConfirmAsked(DeclaredView view, Type request, CommandRole role, bool child)
+    {
+        bool asked = child ? role == CommandRole.RemoveChild : role is CommandRole.Transition or CommandRole.Delete;
+
+        if (!asked)
+        {
+            throw Refuse(
+                view,
+                $"Command<{request.Name}>().Confirm(...) declares a confirm on {request.FullName}, a {(child ? "child " : string.Empty)}{role} "
+                + "command, which no generated view asks before sending: only a root's transition or delete and a child's removal ask. "
+                + "Remove the Confirm(...).");
         }
     }
 

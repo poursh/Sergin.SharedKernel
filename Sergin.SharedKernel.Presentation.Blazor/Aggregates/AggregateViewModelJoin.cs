@@ -216,10 +216,16 @@ internal sealed class AggregateViewModelJoin(
                 AggregateViewGuard.EnsureDisabledRecord(view, request, nameof(CommandViewBuilder<IBaseCommand>.AppliesWhen), appliesRecord, records);
             }
 
+            if (declared?.IsConfirmDeclared == true)
+            {
+                AggregateViewGuard.EnsureConfirmAsked(view, request, role, child);
+            }
+
             Func<object, bool>? appliesWhen = AppliesWhenOf(request, declared, declarations, candidates, hidden, child);
 
             CommandSettings settings = commands.For(request);
             FormFieldView? valueField = role == CommandRole.SetProperty && !child && !hidden ? ValueFieldOf(request, declarations, getOneResponse) : null;
+            IReadOnlyList<FormFieldView> confirmFields = role == CommandRole.Delete && !child ? ConfirmFieldsOf(request, declarations, getOneResponse) : [];
             (TextDefinition? defaultLabel, string? defaultIcon) = DefaultsOf(role);
 
             // A set-property command is named by the value it sets, unless it declares a verb (Rename).
@@ -258,9 +264,49 @@ internal sealed class AggregateViewModelJoin(
                 declared?.DeclaredDisabledReason,
                 child && RequestFactory.IsChildIdOnly(request) ? RequestFactory.ForChildId(request) : null,
                 valueField,
-                valueField is null ? null : RequestFactory.ForForm(request),
-                appliesWhen);
+                valueField is null && confirmFields.Count == 0 ? null : RequestFactory.ForForm(request),
+                appliesWhen,
+                declared?.ConfirmLabel)
+            {
+                ConfirmFields = confirmFields,
+            };
         }
+    }
+
+    /// <summary>
+    /// The values a root's delete asks for in its confirm: none for an id-only delete; for one whose constructor is the
+    /// <c>Id</c> and further values, each of those as a form field. A further value marked <c>NotShown</c> is refused, as the
+    /// dialog could not fill it; a constructor without exactly one <c>Id</c> is left to the id-only refusal.
+    /// </summary>
+    private IReadOnlyList<FormFieldView> ConfirmFieldsOf(Type request, ViewDeclarationBuilder declarations, Type? getOneResponse)
+    {
+        if (RequestFactory.IsIdOnly(request))
+        {
+            return [];
+        }
+
+        ParameterInfo[] parameters = ConstructorOf(request).GetParameters();
+
+        if (parameters.Count(parameter => string.Equals(parameter.Name, "Id", StringComparison.OrdinalIgnoreCase)) != 1)
+        {
+            return [];
+        }
+
+        IReadOnlyList<FormFieldView> fields = FormFields(request, declarations, getOneResponse);
+        string[] unshown =
+        [
+            .. parameters
+                .Where(parameter => !string.Equals(parameter.Name, "Id", StringComparison.OrdinalIgnoreCase))
+                .Select(parameter => parameter.Name!)
+                .Where(name => fields.All(field => field.Name != name)),
+        ];
+
+        if (unshown.Length > 0)
+        {
+            AggregateViewGuard.RefuseUnshownConfirmValues(view, request, unshown);
+        }
+
+        return fields;
     }
 
     /// <summary>

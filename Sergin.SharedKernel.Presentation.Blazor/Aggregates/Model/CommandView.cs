@@ -20,8 +20,10 @@ namespace Sergin.SharedKernel.Presentation.Blazor.Aggregates;
 /// <param name="ScheduleName">The name its configuration gave with <c>Schedulable(name)</c>, or null.</param>
 /// <param name="Selectable">Whether it may run once per selected row (<c>ISelectable</c>).</param>
 /// <param name="SucceededText">The text shown after it succeeds, placeholders filled from the loaded record; null for none.</param>
-/// <param name="ConfirmTitle">The delete confirm's title, or null for the default.</param>
-/// <param name="ConfirmText">The delete confirm's text, or null for the default.</param>
+/// <param name="ConfirmTitle">The confirm's title (a delete's, or any command's from <c>Confirm(...)</c>), or null for the default.</param>
+/// <param name="ConfirmText">
+/// The confirm's text, or null: a delete then uses the default, and any other command is sent without asking.
+/// </param>
 /// <param name="Hidden">Not offered as an action.</param>
 /// <param name="MenuItems">Further entries behind the action's drop-down.</param>
 /// <param name="Invoker">Sends the command without naming its response type.</param>
@@ -35,13 +37,14 @@ namespace Sergin.SharedKernel.Presentation.Blazor.Aggregates;
 /// <param name="BuildFromIds">Builds a child command from the root's id and the child's id; null unless its constructor is exactly those two.</param>
 /// <param name="ValueField">The one value a root's set-property command sets, as its value form renders it; null for any other command, and for a hidden one.</param>
 /// <param name="BuildFromValues">
-/// Builds a root's set-property command from the record's id and its value by field name (<paramref name="ValueField"/>'s);
-/// null whenever <paramref name="ValueField"/> is.
+/// Builds a root's set-property command from the record's id and its value by field name (<paramref name="ValueField"/>'s),
+/// or a delete from the record's id and the values its confirm asked for (<see cref="ConfirmFields"/>); null for any other command.
 /// </param>
 /// <param name="AppliesWhen">
 /// Whether the command is offered for a record (one command of an <c>IReverseOf</c> pair, from <c>AppliesWhen</c>; its partner
 /// carries the negation); a record that is none of the declared type, and a view with no record, offer neither. Null for always.
 /// </param>
+/// <param name="ConfirmLabel">The confirm button's text from <c>Confirm(...)</c>, or null for the command's label.</param>
 public sealed record CommandView(
     Type Request,
     CommandRole Role,
@@ -69,7 +72,16 @@ public sealed record CommandView(
     Func<Guid, Guid, object>? BuildFromIds = null,
     FormFieldView? ValueField = null,
     Func<Guid, IReadOnlyDictionary<string, object?>, object>? BuildFromValues = null,
-    Func<object, bool>? AppliesWhen = null);
+    Func<object, bool>? AppliesWhen = null,
+    TextDefinition? ConfirmLabel = null)
+{
+    /// <summary>
+    /// The values a delete's confirm asks for: its constructor's shown parameters beside the <c>Id</c>, built with
+    /// <see cref="BuildFromValues"/> (<see cref="BuildFromId"/> stays null). Empty for any other command and for an id-only
+    /// delete. A list offers such a delete neither as a row action nor in bulk, having no dialog to ask with.
+    /// </summary>
+    public IReadOnlyList<FormFieldView> ConfirmFields { get; init; } = [];
+}
 
 /// <summary>An entry a configuration put behind a command's drop-down with <c>MenuItem(...)</c>.</summary>
 public sealed record CommandMenuItemView(

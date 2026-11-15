@@ -21,6 +21,12 @@ public abstract class CommandViewBuilder
 
     internal TextDefinition? ConfirmText { get; private protected set; }
 
+    /// <summary>The confirm button's text <c>Confirm(...)</c> declared, or null for the command's label.</summary>
+    internal TextDefinition? ConfirmLabel { get; private protected set; }
+
+    /// <summary>Whether <c>Confirm(...)</c> was declared (not only <c>ConfirmDelete(...)</c>), which the guard checks is asked somewhere.</summary>
+    internal bool IsConfirmDeclared { get; private protected set; }
+
     internal TextDefinition? DeclaredBulkSucceededText { get; private protected set; }
 
     internal TextDefinition? ConfirmManyTitle { get; private protected set; }
@@ -96,6 +102,23 @@ public sealed class CommandViewBuilder<TCommand> : CommandViewBuilder
         ArgumentNullException.ThrowIfNull(text);
         ConfirmTitle = title;
         ConfirmText = text;
+        return this;
+    }
+
+    /// <summary>
+    /// Asks before the command is sent: a transition on the detail bar or a list row, or a delete (where it is the same as
+    /// <see cref="ConfirmDelete"/> plus the button's text). <paramref name="title"/> and <paramref name="text"/> have their
+    /// placeholders filled from the record or row; the confirm button reads <paramref name="confirmLabel"/>, else the
+    /// command's label. A list's bulk run does not ask.
+    /// </summary>
+    public CommandViewBuilder<TCommand> Confirm(TextDefinition title, TextDefinition text, TextDefinition? confirmLabel = null)
+    {
+        ArgumentNullException.ThrowIfNull(title);
+        ArgumentNullException.ThrowIfNull(text);
+        ConfirmTitle = title;
+        ConfirmText = text;
+        ConfirmLabel = confirmLabel;
+        IsConfirmDeclared = true;
         return this;
     }
 

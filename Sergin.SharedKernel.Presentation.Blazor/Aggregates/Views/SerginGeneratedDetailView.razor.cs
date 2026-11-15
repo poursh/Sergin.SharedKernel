@@ -33,8 +33,13 @@ namespace Sergin.SharedKernel.Presentation.Blazor.Aggregates.Views;
 /// </summary>
 /// <remarks>
 /// A transition is sent from the record's id (at the held version when the command is version-guarded), its button
-/// disabled while it runs; on success the configured text shows and the record is read again. A delete is confirmed,
-/// sent at the held version and leaves for the list. A stale answer reloads the record. A schedulable command's button
+/// disabled while it runs, after its confirm when declared with <c>Confirm(...)</c>; on success the configured text shows
+/// and the record is read again. A delete is confirmed, sent at the held version and leaves for the list; one that takes
+/// values beside the id asks for them in <see cref="SerginConfirmValuesDialog"/> and is built from them, and when refused
+/// shows its errors once and reads the record again. A stale answer reloads the record. Every successful write that keeps
+/// the view open (a transition, a sent set-property value) bumps <see cref="AggregateViewContext.Generation"/>, as the
+/// header's Reload does, and tells the host through <see cref="SerginViewHost.ChangedAsync"/>, so a tree page reads its
+/// tree again. A schedulable command's button
 /// is a split button holding Schedule… and View schedules (n) for a user who may manage scheduled tasks.
 /// A root's set-property command is edited in its edit mode: Dialog, an action opening <see cref="SerginSetPropertyDialog"/>
 /// prefilled from the record; Inline, for a user who holds its permissions, the detail field itself as a select or switch
@@ -127,7 +132,10 @@ public sealed partial class SerginGeneratedDetailView<TRoot>
     // A child command moved the root's version (or found it stale): the record is read again, and the section reloads its own rows.
     private EventCallback ChildChanged => EventCallback.Factory.Create(this, LoadAsync);
 
-    private AggregateViewContext Context => new(record, version, ReloadAsync, [Id], overview);
+    private AggregateViewContext Context => new(record, version, ReloadAsync, [Id], overview, Generation: Generation);
+
+    // Internal, not private: the generation tests read it, as a slot reads Context.Generation.
+    internal int Generation { get; private set; }
 
     private RenderFragment? OverviewFragment => record is null ? null : SlotOf(SerginViewSlot.DetailOverview);
 
@@ -158,7 +166,7 @@ public sealed partial class SerginGeneratedDetailView<TRoot>
                 $"{typeof(TRoot).FullName} has no GetOne query, so its detail view has nothing to load. Add an IGetOneQuery<{typeof(TRoot).Name}, …>.");
         }
 
-        commands = new GeneratedCommandActions(this, RunAsync, DeleteAsync, EditAsync);
+        commands = new GeneratedCommandActions(this, RunAsync, DeleteAsync, EditAsync, ConfirmAsync);
         setProperty = new GeneratedSetProperty(FormValidator);
         titleField = GeneratedViewSupport.TitleFieldOf(Model.DetailFields, Model.DetailTitleField);
         await LoadInlineCommandsAsync();
@@ -219,6 +227,21 @@ public sealed partial class SerginGeneratedDetailView<TRoot>
         await InvokeAsync(StateHasChanged);
     }
 
+    // The header's Reload: a new generation, so a slot that keeps its own rows reloads them too. Internal for the generation test.
+    internal Task HeaderReloadAsync()
+    {
+        Generation++;
+        return ReloadAsync();
+    }
+
+    // A write succeeded and the view stays open: a new generation, the record read again, and the host told.
+    private async Task ChangedAsync()
+    {
+        Generation++;
+        await ReloadAsync();
+        await Host.ChangedAsync();
+    }
+
     private async Task<ErrorOr<AuditInfo>> LoadAuditAsync()
     {
         ViewSendResult result = await Model.Audit!.Invoker.SendAsync(Dispatcher, Model.Audit.Build(Id));
@@ -235,7 +258,8 @@ public sealed partial class SerginGeneratedDetailView<TRoot>
     private Task<ViewSendResult> SendAsync(CommandView command) =>
         GeneratedViewSupport.SendFromIdAsync(Dispatcher, command, Id, version);
 
-    private async Task RunAsync(CommandView command)
+    // Sends a transition (its confirm, if any, was asked by the action). Internal for the host-changed test.
+    internal async Task RunAsync(CommandView command)
     {
         ViewSendResult result = await commands.WhileRunningAsync(command, () => SendAsync(command));
 
@@ -249,13 +273,34 @@ public sealed partial class SerginGeneratedDetailView<TRoot>
             Snackbar.Add(Localizer.Text(succeeded, PlaceholderArguments()), Severity.Success);
         }
 
-        await LoadAsync();
+        await ChangedAsync();
     }
+
+    // A command declared with Confirm(...): its texts filled from the record, the button its confirm label or its own.
+    private Task<bool> ConfirmAsync(CommandView command, object? shown) =>
+        DialogService.ConfirmDeleteAsync(
+            Localizer, command.ConfirmTitle ?? command.Label, command.ConfirmText!, PlaceholderArguments(), command.ConfirmLabel ?? command.Label);
 
     private async Task DeleteAsync(CommandView command)
     {
+        if (command.ConfirmFields.Count > 0)
+        {
+            IDialogReference asking = await AskValuesAsync(command);
+
+            if (await asking.Result is { Canceled: false, Data: IReadOnlyDictionary<string, object?> values })
+            {
+                await DeleteWithValuesAsync(command, values);
+            }
+
+            return;
+        }
+
         if (!await DialogService.ConfirmDeleteAsync(
-                Localizer, command.ConfirmTitle ?? CommonTexts.Delete, command.ConfirmText ?? ShellTexts.CommandActions.DeleteConfirm, PlaceholderArguments()))
+                Localizer,
+                command.ConfirmTitle ?? CommonTexts.Delete,
+                command.ConfirmText ?? ShellTexts.CommandActions.DeleteConfirm,
+                PlaceholderArguments(),
+                command.ConfirmLabel ?? command.Label))
         {
             return;
         }
@@ -267,6 +312,51 @@ public sealed partial class SerginGeneratedDetailView<TRoot>
             return;
         }
 
+        await LeaveForListAsync();
+    }
+
+    // Opens a delete's confirm asking for its values; answers its reference, which the test seam reads.
+    internal async Task<IDialogReference> AskValuesAsync(CommandView command)
+    {
+        DialogParameters<SerginConfirmValuesDialog> parameters = new()
+        {
+            { dialog => dialog.Text, Localizer.Text(command.ConfirmText ?? ShellTexts.CommandActions.DeleteConfirm, PlaceholderArguments()) },
+            { dialog => dialog.Fields, command.ConfirmFields },
+            { dialog => dialog.ConfirmLabel, command.ConfirmLabel ?? command.Label },
+        };
+
+        return await DialogService.ShowAsync<SerginConfirmValuesDialog>(
+            Localizer.Text(command.ConfirmTitle ?? CommonTexts.Delete, PlaceholderArguments()),
+            parameters,
+            new DialogOptions { MaxWidth = MaxWidth.Small, FullWidth = true, CloseOnEscapeKey = true });
+    }
+
+    // Sends a delete built from the record's id and the values its confirm asked for, at the held version when it is
+    // version-guarded and plainly otherwise. Refused, it shows its errors once and reads the record again: the view stays.
+    // Internal for the delete-with-values test.
+    internal async Task DeleteWithValuesAsync(CommandView command, IReadOnlyDictionary<string, object?> values)
+    {
+        object request = command.BuildFromValues!(Id, values);
+
+        ViewSendResult result = await commands.WhileRunningAsync(
+            command,
+            () => command.RequiresVersion
+                ? command.Invoker.SendVersionedAsync(Dispatcher, request, version)
+                : command.Invoker.SendAsync(Dispatcher, request));
+
+        if (result.IsError)
+        {
+            ErrorPresenter.Notify(result.Errors);
+            await LoadAsync();
+
+            return;
+        }
+
+        await LeaveForListAsync();
+    }
+
+    private async Task LeaveForListAsync()
+    {
         if (Model.Routes.List is { } list)
         {
             await Host.LeaveAsync(list);
@@ -346,8 +436,9 @@ public sealed partial class SerginGeneratedDetailView<TRoot>
             string.Empty, parameters, new DialogOptions { MaxWidth = MaxWidth.Small, FullWidth = true, CloseOnEscapeKey = true });
     }
 
-    // Sends one value; shows every error and reads the record again whatever the outcome. True when it was sent.
-    private async Task<bool> SetPropertyAsync(CommandView command, object? value)
+    // Sends one value; shows every error and reads the record again whatever the outcome, and when it was sent moves the
+    // generation and tells the host. True when it was sent. Internal for the host-changed test.
+    internal async Task<bool> SetPropertyAsync(CommandView command, object? value)
     {
         SetPropertyOutcome outcome = await commands.WhileRunningAsync(
             command, () => setProperty.SendAsync(Dispatcher, command, Id, value, version));
@@ -361,7 +452,14 @@ public sealed partial class SerginGeneratedDetailView<TRoot>
             Snackbar.Add(Localizer.Text(succeeded, PlaceholderArguments()), Severity.Success);
         }
 
-        await ReloadAsync();
+        if (outcome.Status == SetPropertyStatus.Sent)
+        {
+            await ChangedAsync();
+        }
+        else
+        {
+            await ReloadAsync();
+        }
 
         return outcome.Status == SetPropertyStatus.Sent;
     }
