@@ -639,6 +639,41 @@ public static class AggregateViewGuard
         }
     }
 
+    /// <summary>
+    /// A child drawn by its own component (<c>Section&lt;TComponent&gt;()</c>) declares nothing the generated child views would
+    /// read: no routes, list, detail, form or command, each of which would silently do nothing. The component takes the
+    /// root's context as a <c>[Parameter] AggregateViewContext Context</c>.
+    /// </summary>
+    internal static void EnsureSection(DeclaredView view, Type child, ChildViewBuilder declared, Type section)
+    {
+        string[] declarations =
+        [
+            .. declared.DeclaredRoutes.Any ? ["Routes(...)"] : Array.Empty<string>(),
+            .. declared.ListFields is null ? Array.Empty<string>() : ["List(...)"],
+            .. declared.DetailFields is null ? Array.Empty<string>() : ["Detail(...)"],
+            .. declared.Forms.Keys.Select(form => $"Form<{form.Name}>(...)"),
+            .. declared.Commands.Keys.Select(command => $"Command<{command.Name}>()"),
+        ];
+
+        if (declarations.Length > 0)
+        {
+            throw Refuse(
+                view,
+                $"Child<{child.Name}>() is drawn by {section.FullName} (Section<{section.Name}>()), so the generated child views never read "
+                + $"its {string.Join(", ", declarations)}. Remove {(declarations.Length == 1 ? "it" : "them")}, or drop the Section.");
+        }
+
+        PropertyInfo? context = section.GetProperty("Context", BindingFlags.Public | BindingFlags.Instance);
+
+        if (context is null || context.PropertyType != typeof(AggregateViewContext) || context.GetCustomAttribute<ParameterAttribute>() is null)
+        {
+            throw Refuse(
+                view,
+                $"Child<{child.Name}>() is drawn by {section.FullName}, which has no [Parameter] public AggregateViewContext Context to "
+                + "receive the root's record, version, reload and generation. Give it one.");
+        }
+    }
+
     private static void EnsureChildCommands(DeclaredView view, Type child, ChildViewBuilder declared, IReadOnlyCollection<CommandView> commands)
     {
         Type root = view.Builder.Root;

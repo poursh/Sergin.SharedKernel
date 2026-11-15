@@ -45,6 +45,11 @@ namespace Sergin.SharedKernel.Presentation.Blazor.Aggregates;
 /// carries the negation); a record that is none of the declared type, and a view with no record, offer neither. Null for always.
 /// </param>
 /// <param name="ConfirmLabel">The confirm button's text from <c>Confirm(...)</c>, or null for the command's label.</param>
+/// <param name="BuildMove">
+/// Builds a root's move command (<c>IMoveCommand</c>, constructor <c>(Id, NewParentId)</c>) from the record's id and the new
+/// parent's id; null for any other command, and for a hidden one.
+/// </param>
+/// <param name="MoveParentField">The move command's <c>NewParentId</c> field text, which labels its dialog's parent picker; null with no <paramref name="BuildMove"/>.</param>
 public sealed record CommandView(
     Type Request,
     CommandRole Role,
@@ -73,7 +78,9 @@ public sealed record CommandView(
     FormFieldView? ValueField = null,
     Func<Guid, IReadOnlyDictionary<string, object?>, object>? BuildFromValues = null,
     Func<object, bool>? AppliesWhen = null,
-    TextDefinition? ConfirmLabel = null)
+    TextDefinition? ConfirmLabel = null,
+    Func<Guid, Guid, object>? BuildMove = null,
+    FieldText? MoveParentField = null)
 {
     /// <summary>
     /// The values a delete's confirm asks for: its constructor's shown parameters beside the <c>Id</c>, built with

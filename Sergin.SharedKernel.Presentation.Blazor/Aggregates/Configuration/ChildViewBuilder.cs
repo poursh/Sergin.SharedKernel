@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Components;
 using Sergin.SharedKernel.Application.Commands;
 using Sergin.SharedKernel.Domain;
 
@@ -21,6 +22,9 @@ public abstract class ChildViewBuilder : ViewDeclarationBuilder
     internal TextDefinition? SectionTitle { get; private protected set; }
 
     internal ChildViewRoutes DeclaredRoutes { get; private protected set; } = ChildViewRoutes.None;
+
+    /// <summary>The component that draws the child, from <c>Section&lt;TComponent&gt;()</c>; null for the generated section.</summary>
+    internal Type? SectionComponent { get; private protected set; }
 }
 
 /// <summary>What a view configuration declares for <typeparamref name="TChild"/>, a child entity of <typeparamref name="TRoot"/>.</summary>
@@ -46,6 +50,21 @@ public sealed class ChildViewBuilder<TRoot, TChild> : ChildViewBuilder
     {
         ArgumentNullException.ThrowIfNull(title);
         SectionTitle = title;
+        return this;
+    }
+
+    /// <summary>
+    /// Draws the child with <typeparamref name="TComponent"/> in place of the generated child section, where that section
+    /// would render on the root's detail view. The component receives the root's <see cref="AggregateViewContext"/> as its
+    /// <c>[Parameter] AggregateViewContext Context</c> (the record, its version, the reload and the generation). Such a child
+    /// needs only <see cref="Named"/>: its list, GetOne, add and remove requests are neither built nor checked (an unpaged
+    /// <c>IChildListOf</c> is allowed), its commands are not offered by the generated views, and it declares no routes,
+    /// list, detail, form or command.
+    /// </summary>
+    public ChildViewBuilder<TRoot, TChild> Section<TComponent>()
+        where TComponent : IComponent
+    {
+        SectionComponent = typeof(TComponent);
         return this;
     }
 

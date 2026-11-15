@@ -69,6 +69,11 @@ namespace Sergin.SharedKernel.Presentation.Blazor.Aggregates;
 /// and that has a create route: the create command as a Secondary detail-bar action linking to the create route with the
 /// record as the parent (<c>?parentId={id}</c>); null for any other root.
 /// </param>
+/// <param name="Tree">
+/// The root's tree, from its <c>ITreeQuery</c> (no constructor arguments, items with a <see cref="Guid"/> <c>Id</c> and a nullable
+/// <see cref="Guid"/> <c>ParentId</c>): what a move command's dialog picks the new parent from. Null without a tree query, or
+/// when its shape does not fit and nothing needs it.
+/// </param>
 public sealed record AggregateViewModel(
     Type Root,
     Type Configuration,
@@ -109,7 +114,8 @@ public sealed record AggregateViewModel(
     Type? Parent = null,
     BelongsToView? BelongsTo = null,
     string? CreateParent = null,
-    CommandView? ChildCreate = null)
+    CommandView? ChildCreate = null,
+    TreeView? Tree = null)
 {
     /// <summary>The create route's query key that carries the parent's id, as a self-parented create action links with it.</summary>
     public const string ParentIdQueryKey = "parentId";

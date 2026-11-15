@@ -21,6 +21,9 @@ public abstract class AggregateViewBuilder : ViewDeclarationBuilder
     /// <summary>What <c>BelongsTo&lt;TParent, TResponse&gt;(...)</c> declared, or null.</summary>
     internal BelongsToDeclaration? DeclaredBelongsTo { get; private protected set; }
 
+    /// <summary>What <c>Tree&lt;TItem&gt;(...)</c> declared, or null.</summary>
+    internal TreeViewBuilder? DeclaredTree { get; private protected set; }
+
     internal Dictionary<SerginViewSlot, Type> Slots { get; } = [];
 
     internal bool DetailOverviewIsCollapsed { get; private protected set; }
@@ -104,6 +107,21 @@ public sealed class AggregateViewBuilder<TRoot> : AggregateViewBuilder
     /// <summary>How the command <typeparamref name="TCommand"/>, which must be typed to <typeparamref name="TRoot"/>, is offered.</summary>
     public CommandViewBuilder<TCommand> Command<TCommand>()
         where TCommand : IBaseCommand => DeclareCommand<TCommand>();
+
+    /// <summary>
+    /// How the root's tree is shown where a view lists it (the Move dialog's parent picker): <typeparamref name="TItem"/>
+    /// must be the item of the root's <c>ITreeQuery</c>, whose constructor takes no arguments and whose items carry a
+    /// <see cref="Guid"/> <c>Id</c> and a nullable <see cref="Guid"/> <c>ParentId</c>.
+    /// </summary>
+    public AggregateViewBuilder<TRoot> Tree<TItem>(Action<TreeViewBuilder<TItem>> configure)
+    {
+        ArgumentNullException.ThrowIfNull(configure);
+
+        TreeViewBuilder<TItem> tree = DeclaredTree as TreeViewBuilder<TItem> ?? new TreeViewBuilder<TItem>();
+        configure(tree);
+        DeclaredTree = tree;
+        return this;
+    }
 
     /// <summary>Overrides for the detail fields; <typeparamref name="TResponse"/> must be the GetOne query's response.</summary>
     public AggregateViewBuilder<TRoot> Detail<TResponse>(Action<FieldSetBuilder<TResponse>> configure)

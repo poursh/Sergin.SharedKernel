@@ -1,0 +1,18 @@
+@* A root's move command in a dialog: a select of the parents the record may move under, then Cancel and the move. *@
+<MudDialog>
+    <DialogContent>
+        <MudSelect T="Guid?" Value="selected" ValueChanged="Pick" Label="@Localizer.Text(Field.Label)" Placeholder="@PlaceholderShown"
+                   HelperText="@HintShown" ToStringFunc="TitleOf" Disabled="@(!Loaded)" AnchorOrigin="Origin.BottomCenter">
+            @foreach ((Guid Id, string Title, int Depth) candidate in Candidates)
+            {
+                <MudSelectItem T="Guid?" Value="@candidate.Id">
+                    <span style="@IndentOf(candidate.Depth)">@candidate.Title</span>
+                </MudSelectItem>
+            }
+        </MudSelect>
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="Cancel">@Localizer.Text(CommonTexts.Cancel)</MudButton>
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" Disabled="@(!CanConfirm)" OnClick="Confirm">@Localizer.Text(ConfirmLabel)</MudButton>
+    </DialogActions>
+</MudDialog>

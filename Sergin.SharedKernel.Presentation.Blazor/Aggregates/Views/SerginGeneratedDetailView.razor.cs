@@ -26,7 +26,8 @@ namespace Sergin.SharedKernel.Presentation.Blazor.Aggregates.Views;
 /// buttons, a field per visible response property, an action per offered command, and, when a command is schedulable,
 /// the record's scheduled tasks. A configuration's <see cref="SerginViewSlot.DetailFields"/> component replaces the
 /// fields, and its <see cref="SerginViewSlot.DetailEntities"/> component renders above the child sections (<see cref="SerginGeneratedChildSection"/>,
-/// one per child entity with a list query, given the record's version) and the scheduled tasks; the
+/// one per child entity with a list query, given the record's version, or a child's own <c>Section&lt;T&gt;()</c> component,
+/// given <c>Context</c>) and the scheduled tasks; the
 /// <see cref="SerginViewSlot.DetailOverview"/> and <see cref="SerginViewSlot.DetailOverviewSummary"/> components fill the
 /// overview (the entity overview query read once per load, in <c>Context.Overview</c>); all get
 /// <c>Context</c>, an <see cref="AggregateViewContext"/>.
@@ -37,10 +38,12 @@ namespace Sergin.SharedKernel.Presentation.Blazor.Aggregates.Views;
 /// and the record is read again. A delete is confirmed, sent at the held version and leaves for the list; one that takes
 /// values beside the id asks for them in <see cref="SerginConfirmValuesDialog"/> and is built from them, and when refused
 /// shows its errors once and reads the record again. A stale answer reloads the record. Every successful write that keeps
-/// the view open (a transition, a sent set-property value) bumps <see cref="AggregateViewContext.Generation"/>, as the
+/// the view open (a transition, a sent set-property value, a move) bumps <see cref="AggregateViewContext.Generation"/>, as the
 /// header's Reload does, and tells the host through <see cref="SerginViewHost.ChangedAsync"/>, so a tree page reads its
 /// tree again. A schedulable command's button
-/// is a split button holding Schedule… and View schedules (n) for a user who may manage scheduled tasks.
+/// is a split button holding Schedule… and View schedules (n) for a user who may manage scheduled tasks. A move command
+/// opens <see cref="SerginMoveDialog"/>, which reads the root's tree as it opens and offers every parent but the record and
+/// what is below it; the pick is sent at the held version when guarded, plainly otherwise.
 /// A root's set-property command is edited in its edit mode: Dialog, an action opening <see cref="SerginSetPropertyDialog"/>
 /// prefilled from the record; Inline, for a user who holds its permissions, the detail field itself as a select or switch
 /// (sent on change) or, for any other value, a <see cref="GeneratedInlineEditCard"/> below the fields. Each send goes
@@ -110,14 +113,26 @@ public sealed partial class SerginGeneratedDetailView<TRoot>
 
     private IEnumerable<FieldView> VisibleFields => Model.DetailFields.Where(candidate => !candidate.Hidden);
 
-    // A child entity with a list query is a section of the detail, after the entities slot and before the scheduled tasks.
-    private IEnumerable<ChildViewModel> Sections => Model.Children.Where(child => child.List is not null);
+    // A child entity with a list query, or drawn by its own component, is a section of the detail, after the entities slot
+    // and before the scheduled tasks.
+    private IEnumerable<ChildViewModel> Sections => Model.Children.Where(child => child.List is not null || child.Section is not null);
 
-    // Each section is kept by its child type, so a reload asks each to load its rows again without remounting it.
+    // Each section is kept by its child type, so a reload asks each to load its rows again without remounting it; a child's
+    // own component is given the root's context and reloads on its generation.
     private RenderFragment SectionsFragment => builder =>
     {
         foreach (ChildViewModel child in Sections)
         {
+            if (child.Section is { } component)
+            {
+                builder.OpenComponent(7, component);
+                builder.SetKey($"{Id}:{child.Child.FullName}");
+                builder.AddAttribute(8, "Context", Context);
+                builder.CloseComponent();
+
+                continue;
+            }
+
             builder.OpenComponent<SerginGeneratedChildSection>(0);
             builder.SetKey($"{Id}:{child.Child.FullName}");
             builder.AddAttribute(1, nameof(SerginGeneratedChildSection.Model), Model);
@@ -169,7 +184,7 @@ public sealed partial class SerginGeneratedDetailView<TRoot>
                 $"{typeof(TRoot).FullName} has no GetOne query, so its detail view has nothing to load. Add an IGetOneQuery<{typeof(TRoot).Name}, …>.");
         }
 
-        commands = new GeneratedCommandActions(this, RunAsync, DeleteAsync, EditAsync, ConfirmAsync);
+        commands = new GeneratedCommandActions(this, RunAsync, DeleteAsync, EditAsync, ConfirmAsync, MoveAsync);
         setProperty = new GeneratedSetProperty(FormValidator);
         titleField = GeneratedViewSupport.TitleFieldOf(Model.DetailFields, Model.DetailTitleField);
         belongsToModel = Model.BelongsTo is { } belongsTo
@@ -332,6 +347,63 @@ public sealed partial class SerginGeneratedDetailView<TRoot>
         }
 
         await LeaveAfterDeleteAsync();
+    }
+
+    // A move: the parent picked in the dialog, then sent.
+    private async Task MoveAsync(CommandView command)
+    {
+        IDialogReference asking = await AskParentAsync(command);
+
+        if (await asking.Result is { Canceled: false, Data: Guid parentId })
+        {
+            await MoveToAsync(command, parentId);
+        }
+    }
+
+    // Opens a move's parent picker, which reads the tree as it opens; answers its reference, which the move test reads.
+    internal async Task<IDialogReference> AskParentAsync(CommandView command)
+    {
+        DialogParameters<SerginMoveDialog> parameters = new()
+        {
+            { dialog => dialog.Tree, Model.Tree! },
+            { dialog => dialog.Id, Id },
+            { dialog => dialog.Field, command.MoveParentField! },
+            { dialog => dialog.ConfirmLabel, command.Label },
+        };
+
+        return await DialogService.ShowAsync<SerginMoveDialog>(
+            Localizer.Text(command.Label, PlaceholderArguments()),
+            parameters,
+            new DialogOptions { MaxWidth = MaxWidth.Small, FullWidth = true, CloseOnEscapeKey = true });
+    }
+
+    // Sends a move under the picked parent, at the held version when it is version-guarded and plainly otherwise. Sent, it is
+    // a write that keeps the view open (a new generation, the record read again, the host told); refused, it shows its errors
+    // once and reads the record again. Internal for the move test.
+    internal async Task MoveToAsync(CommandView command, Guid parentId)
+    {
+        object request = command.BuildMove!(Id, parentId);
+
+        ViewSendResult result = await commands.WhileRunningAsync(
+            command,
+            () => command.RequiresVersion
+                ? command.Invoker.SendVersionedAsync(Dispatcher, request, version)
+                : command.Invoker.SendAsync(Dispatcher, request));
+
+        if (result.IsError)
+        {
+            ErrorPresenter.Notify(result.Errors);
+            await ReloadAsync();
+
+            return;
+        }
+
+        if (command.SucceededText is { } succeeded)
+        {
+            Snackbar.Add(Localizer.Text(succeeded, PlaceholderArguments()), Severity.Success);
+        }
+
+        await ChangedAsync();
     }
 
     // Opens a delete's confirm asking for its values; answers its reference, which the test seam reads.

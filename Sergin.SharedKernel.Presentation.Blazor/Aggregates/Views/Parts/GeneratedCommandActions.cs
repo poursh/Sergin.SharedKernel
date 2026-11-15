@@ -19,7 +19,8 @@ internal enum ViewLinkPlacement
 /// <summary>
 /// The actions of a generated record view (or of one list row), from its root's commands: an update links to the edit route, a
 /// transition and a delete run through the view's own handlers, and a set-property command in the Dialog edit mode opens
-/// its dialog when the view gave an edit handler (a detail view does, a list row does not); each is disabled while it runs. Commands are offered in
+/// its dialog when the view gave an edit handler (a detail view does, a list row does not), as a move command opens its parent
+/// picker when the view gave a move handler; each is disabled while it runs. Commands are offered in
 /// the model's order, a hidden one not at all (the actions bar puts the danger ones at the far end); each carries its
 /// first required permission, which the bar hides it for. A command of an <c>IReverseOf</c> pair is offered only for a record
 /// its <c>AppliesWhen</c> accepts. A transition declared with <c>Confirm(...)</c> asks first and is sent only when the user
@@ -35,12 +36,14 @@ internal enum ViewLinkPlacement
 /// Asks the user about a command declared with <c>Confirm(...)</c> on the record or row it is offered for; true to send. Null
 /// sends without asking.
 /// </param>
+/// <param name="moveAsync">Asks for a move command's new parent and sends it; null where the view offers no move (a list row).</param>
 internal sealed class GeneratedCommandActions(
     IHandleEvent receiver,
     Func<CommandView, Task> runAsync,
     Func<CommandView, Task> deleteAsync,
     Func<CommandView, Task>? editAsync = null,
-    Func<CommandView, object?, Task<bool>>? confirmAsync = null)
+    Func<CommandView, object?, Task<bool>>? confirmAsync = null,
+    Func<CommandView, Task>? moveAsync = null)
 {
     private readonly HashSet<Type> running = [];
 
@@ -121,6 +124,10 @@ internal sealed class GeneratedCommandActions(
                     {
                         OnClick = EventCallback.Factory.Create(receiver, () => editAsync(command)),
                     },
+                CommandRole.Move when moveAsync is not null && command.BuildMove is not null => Action(command, menuItemsOf) with
+                {
+                    OnClick = EventCallback.Factory.Create(receiver, () => moveAsync(command)),
+                },
                 _ => null,
             };
 

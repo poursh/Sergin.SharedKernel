@@ -24,6 +24,16 @@ internal sealed class ChildViewModelJoin(AggregateViewModelJoin join, Type? root
                 + $"Declare it with Child<{child.Name}>(child => child.Named(...)).");
         }
 
+        // A child drawn by its own component: none of its requests is built or checked, and the generated views offer none.
+        if (declared.SectionComponent is { } section)
+        {
+            AggregateViewGuard.EnsureSection(view, child, declared, section);
+
+            return new ChildViewModel(
+                child, singular, declared.SectionTitle ?? singular, ChildViewRoutes.None, null, null, [], null, null, null, null, null,
+                null, [], null, null, null, [], null, null, [], null, null, [], Section: section);
+        }
+
         Type? getOne = join.Single(requests, typeof(IChildGetOneQuery<,,,>));
         Type? list = join.Single(requests, typeof(IChildListOf<,,>));
         Type? add = join.Single(requests, typeof(IAddChildCommand<,,,>));

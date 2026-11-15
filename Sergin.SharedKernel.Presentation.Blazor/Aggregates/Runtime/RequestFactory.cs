@@ -25,6 +25,7 @@ public static class RequestFactory
 {
     private const string IdParameter = "Id";
     private const string RootIdParameter = "RootId";
+    private const string NewParentIdParameter = "NewParentId";
 
     private static readonly Dictionary<string, object?> noValues = [];
 
@@ -89,6 +90,27 @@ public static class RequestFactory
         Func<Guid, Guid, IReadOnlyDictionary<string, object?>, object> build = ForChildForm(requestType);
 
         return (rootId, id) => build(rootId, id, noValues);
+    }
+
+    /// <summary>Whether the request's one constructor takes only the target's <c>Id</c> and <c>NewParentId</c>, in either order: a move.</summary>
+    public static bool IsMove(Type requestType) =>
+        ConstructorOf(requestType).GetParameters() is [{ } first, { } second]
+        && (IsNamed(first, IdParameter) && IsNamed(second, NewParentIdParameter) || IsNamed(first, NewParentIdParameter) && IsNamed(second, IdParameter));
+
+    /// <summary>A move request whose constructor takes exactly the target's <c>Id</c> and <c>NewParentId</c>, built from the two Guids (the target first).</summary>
+    public static Func<Guid, Guid, object> ForMove(Type requestType)
+    {
+        ConstructorInfo constructor = ConstructorOf(requestType);
+
+        if (!IsMove(requestType))
+        {
+            throw new InvalidOperationException(
+                $"{requestType.FullName} cannot be built from an id and a new parent's id alone: its constructor is ({Describe(constructor)}), not (Id, NewParentId).");
+        }
+
+        Func<Guid, IReadOnlyDictionary<string, object?>, object> build = ForForm(requestType);
+
+        return (id, newParentId) => build(id, new Dictionary<string, object?>(StringComparer.Ordinal) { [NewParentIdParameter] = newParentId });
     }
 
     /// <summary>

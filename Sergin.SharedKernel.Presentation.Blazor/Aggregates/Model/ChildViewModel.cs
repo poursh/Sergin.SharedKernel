@@ -32,6 +32,11 @@ namespace Sergin.SharedKernel.Presentation.Blazor.Aggregates;
 /// <param name="EditCommand">The edit command as an action; null with no <paramref name="Edit"/>.</param>
 /// <param name="Commands">Every command on the child that is an action, sorted by their request types' full names (ordinal).</param>
 /// <param name="ListBodyType">The child list section's body closed over <paramref name="ListItem"/>, made at registry build; null with no list.</param>
+/// <param name="Section">
+/// The component that draws the child in place of the generated section, from <c>Child&lt;T&gt;(child =&gt; child.Section&lt;TComponent&gt;())</c>;
+/// it gets the root's <see cref="AggregateViewContext"/> as <c>Context</c>. Such a child has no list, GetOne, add or edit
+/// request and no commands in its model. Null for a generated child.
+/// </param>
 public sealed record ChildViewModel(
     Type Child,
     TextDefinition Singular,
@@ -57,4 +62,5 @@ public sealed record ChildViewModel(
     TextDefinition? EditTitle,
     CommandView? EditCommand,
     IReadOnlyList<CommandView> Commands,
-    Type? ListBodyType = null);
+    Type? ListBodyType = null,
+    Type? Section = null);
