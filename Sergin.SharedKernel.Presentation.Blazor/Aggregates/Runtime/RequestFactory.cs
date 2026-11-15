@@ -255,9 +255,15 @@ public static class RequestFactory
     }
 
     // Decided once per parameter: a parameter declared nullable whose primitive is a string takes blank text as null (a
-    // cleared optional field is "not given"); a non-nullable one keeps its text so the validators see it.
+    // cleared optional field is "not given"); a non-nullable one keeps its text so the validators see it. A parameter that
+    // carries no single value (a collection, which only a configured field component edits) takes the value as given.
     private static Func<object?, object?> BlankAware(ParameterInfo parameter, NullabilityInfoContext nullability)
     {
+        if (ValueObjects.PrimitiveOf(parameter.ParameterType) is null)
+        {
+            return value => value;
+        }
+
         bool nullable = IsNullable(parameter, nullability);
         Func<object?, object?> convert = ValueObjects.Converter(parameter.ParameterType, neverNull: !nullable);
 

@@ -45,8 +45,10 @@ internal sealed class AggregateViewModelJoin(
         Type? overview = Single(requests, typeof(IOverviewQuery<>));
         Type? entityOverview = Single(requests, typeof(IEntityOverviewQuery<,>));
         Type? audit = Single(requests, typeof(IAuditQuery<,>));
+        Type? tree = Single(requests, typeof(ITreeQuery<>));
 
-        AggregateViewGuard.EnsureConfigured(view, commandViews, getOne, getOneResponse, list, listItem, create, update, overview, entityOverview, audit);
+        AggregateViewGuard.EnsureConfigured(view, commandViews, getOne, getOneResponse, list, listItem, create, update, overview, entityOverview, audit, tree);
+        string? createParent = CreateParentOf(create, update);
 
         IReadOnlyList<FieldView> detailFields = Fields(getOneResponse, CategoryOf(getOne), builder.DetailFields, out string? detailTitle);
         IReadOnlyList<FieldView> listFields = Fields(listItem, CategoryOf(list), builder.ListFields, out string? listTitle);
@@ -90,7 +92,107 @@ internal sealed class AggregateViewModelJoin(
             update is null ? null : builder.Forms.GetValueOrDefault(update)?.DeclaredTitle,
             builder.DetailOverviewIsCollapsed,
             [.. builder.Links],
-            builder.ListParent);
+            builder.ListParent,
+            BelongsToOf(getOneResponse),
+            createParent,
+            ChildCreateOf(create, commandViews));
+    }
+
+    // ---- Parents ----
+
+    /// <summary>
+    /// What <c>BelongsTo&lt;TParent, TResponse&gt;(...)</c> declared, as the model carries it; refused beside
+    /// <c>ListUnder</c> (a record is shown under one parent, by one rule) and for a response other than the GetOne
+    /// query's. The parent's own model is checked once every model is built (<see cref="AggregateViewGuard.EnsureParents"/>).
+    /// </summary>
+    private BelongsToView? BelongsToOf(Type? getOneResponse)
+    {
+        if (builder.DeclaredBelongsTo is not { } declared)
+        {
+            return null;
+        }
+
+        if (builder.ListParent is { } listParent)
+        {
+            throw Refuse(
+                $"BelongsTo<{declared.Parent.Name}, …>() and ListUnder<{listParent.Name}>() both name a parent of {root.Name}; a root "
+                + "listed under a parent takes its trail from the list's parent, so declare one of them.");
+        }
+
+        if (declared.Response != getOneResponse)
+        {
+            throw Refuse(
+                $"BelongsTo<{declared.Parent.Name}, {declared.Response.Name}>() reads the parent from {declared.Response.FullName}, which is "
+                + $"not {root.Name}'s GetOne response ({getOneResponse?.FullName ?? "there is none"}).");
+        }
+
+        return new BelongsToView(declared.Parent, declared.ParentId, declared.ParentName);
+    }
+
+    /// <summary>
+    /// The create command's property filled from the form view's <c>ParentId</c>: the one <c>Parent(...)</c> names, which must
+    /// be a constructor parameter wrapping a <see cref="Guid"/>, else <c>ParentId</c> on a create command under a parent.
+    /// <c>Parent(...)</c> is refused on any form but the create command's, a child's included.
+    /// </summary>
+    private string? CreateParentOf(Type? create, Type? update)
+    {
+        if (update is not null && builder.Forms.GetValueOrDefault(update)?.ParentProperty is { } onUpdate)
+        {
+            throw Refuse(
+                $"Form<{update.Name}>(form => form.Parent(x => x.{onUpdate})) names a parent on the update form; only a create form is "
+                + "given its parent's id. Remove the Parent(...).");
+        }
+
+        if (builder.Children.Values.SelectMany(child => child.Forms.Values).FirstOrDefault(form => form.ParentProperty is not null) is { } childForm)
+        {
+            throw Refuse(
+                $"Form<{childForm.Command.Name}>(form => form.Parent(x => x.{childForm.ParentProperty})) names a parent on a child entity's "
+                + "form, whose root is its route's own id. Remove the Parent(...).");
+        }
+
+        if (create is null)
+        {
+            return null;
+        }
+
+        if (builder.Forms.GetValueOrDefault(create)?.ParentProperty is not { } declared)
+        {
+            return CommandTypes.TargetOf(create)?.Parent is null ? null : nameof(IUnderParent<,>.ParentId);
+        }
+
+        ParameterInfo? parameter = ConstructorOf(create).GetParameters().FirstOrDefault(candidate => candidate.Name == declared);
+
+        if (parameter is null)
+        {
+            throw Refuse(
+                $"Form<{create.Name}>(form => form.Parent(x => x.{declared})) names {declared}, which is no parameter of "
+                + $"{create.FullName}'s constructor, so the form could not fill it.");
+        }
+
+        if (ValueObjects.PrimitiveOf(parameter.ParameterType) != typeof(Guid))
+        {
+            throw Refuse(
+                $"Form<{create.Name}>(form => form.Parent(x => x.{declared})) names a parameter of {parameter.ParameterType.FullName}, "
+                + "which wraps no Guid; the parent is given as a Guid id.");
+        }
+
+        return declared;
+    }
+
+    /// <summary>
+    /// The self-parented create action: the create command, drawn Secondary, on a root whose create command is under the
+    /// root itself and that has a create route to link to; null otherwise, or when the create command is hidden.
+    /// </summary>
+    private CommandView? ChildCreateOf(Type? create, IReadOnlyCollection<CommandView> commandViews)
+    {
+        if (create is null || builder.DeclaredRoutes.Create is null || CommandTypes.TargetOf(create)?.Parent != root)
+        {
+            return null;
+        }
+
+        CommandView command = commandViews.Single(candidate => candidate.Request == create);
+
+        return command.Hidden ? null : command with { Kind = SerginActionKind.Secondary };
     }
 
     // ---- Children ----
@@ -646,6 +748,12 @@ internal sealed class AggregateViewModelJoin(
                 .Where(parameter => !declaredByType.Contains(parameter.Name!) && !hidden.Contains(parameter.Name!)),
         ];
 
+        // The parent property is filled from the form view's ParentId, never rendered.
+        if (declared?.ParentProperty is { } parentProperty)
+        {
+            shown = [.. shown.Where(parameter => parameter.Name != parentProperty)];
+        }
+
         IEnumerable<string> pickerNames = declared?.ChildPickers.Keys ?? Enumerable.Empty<string>();
 
         if (pickerNames.FirstOrDefault(name => shown.All(parameter => parameter.Name != name)) is { } unknown)
@@ -653,15 +761,47 @@ internal sealed class AggregateViewModelJoin(
             throw Refuse($"ChildPicker(x => x.{unknown}) on {command.FullName} names no shown field of its form.");
         }
 
-        return [.. shown.Select(parameter => FormFieldOf(command, parameter, declared?.ChildPickers.GetValueOrDefault(parameter.Name!), getOneResponse))];
+        IEnumerable<string> overrideNames = declared?.FieldOverrides.Keys ?? Enumerable.Empty<string>();
+
+        if (overrideNames.FirstOrDefault(name => shown.All(parameter => parameter.Name != name)) is { } unknownField)
+        {
+            throw Refuse($"Field(x => x.{unknownField}) on the form of {command.FullName} names no shown field of its form.");
+        }
+
+        return
+        [
+            .. shown.Select(parameter => FormFieldOf(
+                command,
+                parameter,
+                declared?.ChildPickers.GetValueOrDefault(parameter.Name!),
+                getOneResponse,
+                declared?.FieldOverrides.GetValueOrDefault(parameter.Name!))),
+        ];
     }
 
-    private FormFieldView FormFieldOf(Type command, ParameterInfo parameter, ChildPickerDeclaration? picker, Type? getOneResponse)
+    private FormFieldView FormFieldOf(
+        Type command, ParameterInfo parameter, ChildPickerDeclaration? picker, Type? getOneResponse, FormFieldOverride? overridden)
     {
         string name = parameter.Name!;
         TextCategory? category = commands.CategoryOf(command);
-        FieldText label = (category is null ? null : texts.FindField(category, name)) ?? throw Refuse(
+        FieldText declaredLabel = (category is null ? null : texts.FindField(category, name)) ?? throw Refuse(
             $"{command.FullName}.{name} is a form field with no FieldText in {category?.Prefix ?? "any category"}.");
+        FieldText label = overridden?.Label is { } replaced ? declaredLabel with { Label = replaced } : declaredLabel;
+
+        // A component edits the value as it is: no generated input, so no primitive is needed (a collection is allowed).
+        if (overridden?.Component is { } component)
+        {
+            return new FormFieldView(
+                name,
+                label,
+                parameter.ParameterType,
+                FormInputKind.Component,
+                null,
+                null,
+                null,
+                ValueObjects.PrimitiveOf(parameter.ParameterType),
+                Component: component);
+        }
 
         if (picker is not null)
         {

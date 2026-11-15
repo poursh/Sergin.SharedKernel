@@ -14,6 +14,9 @@ public enum FormInputKind
 
     /// <summary>A typed id of a child entity: a parent picker, then the child list of the chosen parent.</summary>
     ChildPicker,
+
+    /// <summary>A component the configuration names with <c>Field(...).Component&lt;T&gt;()</c>, in place of a generated input.</summary>
+    Component,
 }
 
 /// <summary>
@@ -22,7 +25,7 @@ public enum FormInputKind
 /// configuration marks <c>NotShown(...)</c>.
 /// </summary>
 /// <param name="Name">The parameter (and property) name.</param>
-/// <param name="Label">Its declared texts.</param>
+/// <param name="Label">Its declared texts; the label replaced by the configuration's <c>Field(...).Label(...)</c> when it declares one.</param>
 /// <param name="ValueType">The constructor parameter's type.</param>
 /// <param name="Kind">The input rendered.</param>
 /// <param name="PickerRoot">For a <see cref="FormInputKind.Picker"/>, the root offered; for a <see cref="FormInputKind.ChildPicker"/>, the child entity type.</param>
@@ -38,6 +41,7 @@ public enum FormInputKind
 /// <param name="ParentFirst">A child picker's placeholder while no parent is chosen; null for any other input.</param>
 /// <param name="EnumValues">A select's values, in declaration order; null for any other input.</param>
 /// <param name="ValueTexts">What a select's items show for each value, from the enum's declared value texts; null when none is declared or for any other input.</param>
+/// <param name="Component">For a <see cref="FormInputKind.Component"/>, the component that edits the value; null for any other input.</param>
 public sealed record FormFieldView(
     string Name,
     FieldText Label,
@@ -52,7 +56,8 @@ public sealed record FormFieldView(
     FormParentLabel? ParentLabel = null,
     TextDefinition? ParentFirst = null,
     IReadOnlyList<object>? EnumValues = null,
-    IReadOnlyDictionary<object, TextDefinition>? ValueTexts = null);
+    IReadOnlyDictionary<object, TextDefinition>? ValueTexts = null,
+    Type? Component = null);
 
 /// <summary>A child picker's parent select: its label, and its placeholder or null.</summary>
 public sealed record FormParentLabel(TextDefinition Label, TextDefinition? Placeholder);

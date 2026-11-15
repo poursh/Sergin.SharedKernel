@@ -24,7 +24,8 @@ internal enum ViewLinkPlacement
 /// first required permission, which the bar hides it for. A command of an <c>IReverseOf</c> pair is offered only for a record
 /// its <c>AppliesWhen</c> accepts. A transition declared with <c>Confirm(...)</c> asks first and is sent only when the user
 /// agrees. A list row offers no delete that asks for values (<see cref="CommandView.ConfirmFields"/>). The view's declared
-/// links are Secondary actions that carry no permission.
+/// links are Secondary actions that carry no permission. On a detail bar, a self-parented root's create command links to a
+/// new record under this one, carrying the create command's permission.
 /// </summary>
 /// <param name="receiver">The view, so a click re-renders it.</param>
 /// <param name="runAsync">Sends a transition.</param>
@@ -70,6 +71,10 @@ internal sealed class GeneratedCommandActions(
     /// <param name="record">The loaded record or list row, which a command's <c>AppliesWhen</c> reads; null offers none of those commands.</param>
     /// <param name="links">Whether and where the model's links are offered.</param>
     /// <param name="row">A list row's actions: a delete that asks for values is not offered, a row having no dialog to ask with.</param>
+    /// <param name="childCreate">
+    /// The detail bar's actions: a self-parented root's create command (<see cref="AggregateViewModel.ChildCreate"/>) is offered as
+    /// a Secondary link to the create route with this record as the parent.
+    /// </param>
     public IReadOnlyList<SerginPageAction> For(
         AggregateViewModel model,
         Guid id,
@@ -79,7 +84,8 @@ internal sealed class GeneratedCommandActions(
         Func<CommandView, Task>? delete = null,
         object? record = null,
         ViewLinkPlacement links = ViewLinkPlacement.None,
-        bool row = false)
+        bool row = false,
+        bool childCreate = false)
     {
         ArgumentNullException.ThrowIfNull(model);
 
@@ -122,6 +128,11 @@ internal sealed class GeneratedCommandActions(
             {
                 actions.Add(action);
             }
+        }
+
+        if (childCreate && model.ChildCreate is { } create && model.ChildCreateHref(id) is { } href)
+        {
+            actions.Add(Action(create, menuItemsOf) with { Href = href });
         }
 
         return WithLinks(model, id, actions, links);

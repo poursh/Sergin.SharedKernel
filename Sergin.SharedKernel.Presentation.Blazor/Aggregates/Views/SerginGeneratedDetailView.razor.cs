@@ -59,6 +59,7 @@ public sealed partial class SerginGeneratedDetailView<TRoot>
     private GeneratedCommandActions commands = default!;
     private FieldView? titleField;
     private object? overview;
+    private AggregateViewModel? belongsToModel;
     private readonly Dictionary<Type, SerginGeneratedChildSection> childSections = [];
     private readonly Dictionary<string, CommandView> inlineChoices = new(StringComparer.Ordinal);
     private GeneratedSetProperty setProperty = default!;
@@ -147,14 +148,16 @@ public sealed partial class SerginGeneratedDetailView<TRoot>
     private string DisplayText => GeneratedViewSupport.DisplayOf(record, titleField, Id);
 
     // The list section step — the nav entry naming the list route, else the list's title — then the record, or the
-    // root's name until it loads and beside the problem panel.
+    // root's name until it loads and beside the problem panel. A record that belongs to a parent (BelongsTo) has the
+    // parent's list step and the parent, linking to its detail, in place of its own list step.
     private IReadOnlyList<SerginBreadcrumb> Trail =>
     [
-        .. ListStep(),
+        .. belongsToModel is null ? ListStep() : ParentSteps(),
         record is null ? new(Model.Singular) : SerginBreadcrumb.Data(DisplayText),
     ];
 
-    private IReadOnlyList<SerginPageAction> Actions => record is null ? [] : commands.For(Model, Id, MenuItemsOf, record: record, links: ViewLinkPlacement.AfterCommands);
+    private IReadOnlyList<SerginPageAction> Actions =>
+        record is null ? [] : commands.For(Model, Id, MenuItemsOf, record: record, links: ViewLinkPlacement.AfterCommands, childCreate: true);
 
     protected override async Task OnInitializedAsync()
     {
@@ -169,6 +172,10 @@ public sealed partial class SerginGeneratedDetailView<TRoot>
         commands = new GeneratedCommandActions(this, RunAsync, DeleteAsync, EditAsync, ConfirmAsync);
         setProperty = new GeneratedSetProperty(FormValidator);
         titleField = GeneratedViewSupport.TitleFieldOf(Model.DetailFields, Model.DetailTitleField);
+        belongsToModel = Model.BelongsTo is { } belongsTo
+            ? Views.Find(belongsTo.Parent) ?? throw new InvalidOperationException(
+                $"{typeof(TRoot).FullName} belongs to {belongsTo.Parent.FullName}, which has no view configuration.")
+            : null;
         await LoadInlineCommandsAsync();
 
         canManageSchedules = Model.HasSchedulableCommand && await ScopeAuthorization.CurrentUserHasAsync(ScheduledTaskPermissions.Manage);
@@ -188,6 +195,12 @@ public sealed partial class SerginGeneratedDetailView<TRoot>
 
     private IEnumerable<SerginBreadcrumb> ListStep() =>
         GeneratedViewSupport.ListStep(Model, Catalog) is { } step ? [step] : [];
+
+    // The parent's list step, then the parent as stored linking to its detail, once the record names one.
+    private IEnumerable<SerginBreadcrumb> ParentSteps() =>
+        GeneratedViewSupport.ParentSteps(belongsToModel!, Catalog, ParentIdOfRecord, record is null ? null : Model.BelongsTo!.ParentName(record));
+
+    private Guid? ParentIdOfRecord => record is null ? null : Model.BelongsTo?.ParentId(record);
 
     // Keeps the version the record was read at (a Versioned() root's), so a guarded write can say which record it means.
     private async Task LoadAsync()
@@ -305,6 +318,12 @@ public sealed partial class SerginGeneratedDetailView<TRoot>
             return;
         }
 
+        await DeleteConfirmedAsync(command);
+    }
+
+    // Sends a confirmed delete from the record's id; sent, it leaves. Internal for the leave-target test.
+    internal async Task DeleteConfirmedAsync(CommandView command)
+    {
         ViewSendResult result = await commands.WhileRunningAsync(command, () => SendAsync(command));
 
         if (await GeneratedViewSupport.FailedAsync(result, ErrorPresenter, LoadAsync))
@@ -312,7 +331,7 @@ public sealed partial class SerginGeneratedDetailView<TRoot>
             return;
         }
 
-        await LeaveForListAsync();
+        await LeaveAfterDeleteAsync();
     }
 
     // Opens a delete's confirm asking for its values; answers its reference, which the test seam reads.
@@ -352,14 +371,20 @@ public sealed partial class SerginGeneratedDetailView<TRoot>
             return;
         }
 
-        await LeaveForListAsync();
+        await LeaveAfterDeleteAsync();
     }
 
-    private async Task LeaveForListAsync()
+    // Where a deleted record leaves to: for one that belongs to a parent, the parent's detail, else the parent's list, else
+    // the home page; for any other, its own list, or nowhere (it stays) without one.
+    private async Task LeaveAfterDeleteAsync()
     {
-        if (Model.Routes.List is { } list)
+        string? target = belongsToModel is null
+            ? Model.Routes.List
+            : GeneratedViewSupport.ParentLeaveHref(belongsToModel, ParentIdOfRecord);
+
+        if (target is not null)
         {
-            await Host.LeaveAsync(list);
+            await Host.LeaveAsync(target);
         }
     }
 

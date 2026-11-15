@@ -10,7 +10,9 @@ namespace Sergin.SharedKernel.Presentation.Blazor.Aggregates.Views.Parts;
 /// One <see cref="FormFieldView"/> of a generated form, bound to its <see cref="GeneratedFormValues"/>: a text, number,
 /// switch, date or select input for the primitive the field wraps; a picker over another root's list (its first
 /// <see cref="PickerOptions.MaxOptions"/> records); or, for a child entity, a parent picker then the chosen parent's
-/// children, disabled until a parent is chosen. Every input validates its field through <see cref="Validate"/>.
+/// children, disabled until a parent is chosen; or the configuration's component (<c>Field(...).Component&lt;T&gt;()</c>), given
+/// the value, a <c>ValueChanged</c> that stores the new one, and the field. Every generated input validates its field through
+/// <see cref="Validate"/>; a component's value is validated by the pipeline on submit.
 /// </summary>
 public sealed partial class GeneratedInput
 {
@@ -80,6 +82,14 @@ public sealed partial class GeneratedInput
 
     private bool SwitchValue => Values.ValueOf(Field.Name) is true;
 
+    // What a configured component receives: the current value, the callback storing a new one, and its field.
+    private Dictionary<string, object?> ComponentParameters => new(StringComparer.Ordinal)
+    {
+        ["Value"] = Values.ValueOf(Field.Name),
+        ["ValueChanged"] = EventCallback.Factory.Create<object?>(this, OnComponentChanged),
+        [nameof(Field)] = Field,
+    };
+
     private DateTime? DateValue => Values.ValueOf(Field.Name) switch
     {
         DateOnly date => date.ToDateTime(TimeOnly.MinValue),
@@ -142,6 +152,8 @@ public sealed partial class GeneratedInput
     private void OnSelectChanged(object? value) => Values.Set(Field.Name, value);
 
     private void OnGuidChanged(Guid value) => Values.Set(Field.Name, value);
+
+    private void OnComponentChanged(object? value) => Values.Set(Field.Name, value);
 
     // A new parent empties the child's value and lists the parent's children.
     private async Task OnParentChangedAsync(Guid parent)

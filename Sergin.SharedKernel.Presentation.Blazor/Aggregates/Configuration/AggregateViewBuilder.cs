@@ -18,6 +18,9 @@ public abstract class AggregateViewBuilder : ViewDeclarationBuilder
     /// <summary>The parent root a <c>ListUnder&lt;TParent&gt;</c> named, or null.</summary>
     internal Type? ListParent { get; private protected set; }
 
+    /// <summary>What <c>BelongsTo&lt;TParent, TResponse&gt;(...)</c> declared, or null.</summary>
+    internal BelongsToDeclaration? DeclaredBelongsTo { get; private protected set; }
+
     internal Dictionary<SerginViewSlot, Type> Slots { get; } = [];
 
     internal bool DetailOverviewIsCollapsed { get; private protected set; }
@@ -48,12 +51,18 @@ public sealed class AggregateViewBuilder<TRoot> : AggregateViewBuilder
 
     /// <summary>
     /// Where the root's pages live; <paramref name="detail"/> and <paramref name="edit"/> build a record's route from its
-    /// id. Each must match a routable component's <c>[Route]</c>.
+    /// id. Each must match a routable component's <c>[Route]</c>. <paramref name="list"/> is the page of the root's
+    /// <c>IListOf</c> query or, for a root read as a tree (<c>ITreeQuery</c>), the tree's page; a root with neither, such
+    /// as one that belongs to a parent (<see cref="BelongsTo{TParent, TResponse}"/>), names none.
     /// </summary>
     public AggregateViewBuilder<TRoot> Routes(
-        string list, Func<Guid, string> detail, string? create = null, Func<Guid, string>? edit = null)
+        string? list = null, Func<Guid, string>? detail = null, string? create = null, Func<Guid, string>? edit = null)
     {
-        ArgumentException.ThrowIfNullOrWhiteSpace(list);
+        if (list is not null)
+        {
+            ArgumentException.ThrowIfNullOrWhiteSpace(list);
+        }
+
         ArgumentNullException.ThrowIfNull(detail);
         DeclaredRoutes = new AggregateViewRoutes(list, detail, create, edit, DeclaredRoutes.ListUnderParent);
         return this;
@@ -69,6 +78,26 @@ public sealed class AggregateViewBuilder<TRoot> : AggregateViewBuilder
         ArgumentNullException.ThrowIfNull(list);
         ListParent = typeof(TParent);
         DeclaredRoutes = DeclaredRoutes with { ListUnderParent = list };
+        return this;
+    }
+
+    /// <summary>
+    /// The record belongs to a record of <typeparamref name="TParent"/> (a role to its owner scope, a scope to its parent
+    /// scope), read from <typeparamref name="TResponse"/>, the GetOne query's response: <paramref name="parentId"/> is the
+    /// parent's id (null for a record with no parent) and <paramref name="parentName"/> its name as stored. The detail
+    /// trail is the parent's list step, the parent linking to its detail, then the record; a delete leaves for the
+    /// parent's detail, else the parent's list, else the home page; and a create form given the parent's id names it in
+    /// its trail and cancels to it. The parent needs a view configuration with a detail route; a root listed under a
+    /// parent (<see cref="ListUnder{TParent}"/>) declares no <c>BelongsTo</c>.
+    /// </summary>
+    public AggregateViewBuilder<TRoot> BelongsTo<TParent, TResponse>(Func<TResponse, Guid?> parentId, Func<TResponse, string?> parentName)
+        where TParent : class, IAggregateRoot
+    {
+        ArgumentNullException.ThrowIfNull(parentId);
+        ArgumentNullException.ThrowIfNull(parentName);
+
+        DeclaredBelongsTo = new BelongsToDeclaration(
+            typeof(TParent), typeof(TResponse), record => parentId((TResponse)record), record => parentName((TResponse)record));
         return this;
     }
 
@@ -147,3 +176,6 @@ public sealed class AggregateViewBuilder<TRoot> : AggregateViewBuilder
         return this;
     }
 }
+
+/// <summary>A <c>BelongsTo&lt;TParent, TResponse&gt;(...)</c> declaration: the parent root, the response it reads, and its two readers.</summary>
+internal sealed record BelongsToDeclaration(Type Parent, Type Response, Func<object, Guid?> ParentId, Func<object, string?> ParentName);

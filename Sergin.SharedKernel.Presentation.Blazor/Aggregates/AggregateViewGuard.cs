@@ -168,7 +168,8 @@ public static class AggregateViewGuard
         Type? update,
         Type? overview,
         Type? entityOverview,
-        Type? audit)
+        Type? audit,
+        Type? tree = null)
     {
         AggregateViewBuilder builder = view.Builder;
 
@@ -194,9 +195,13 @@ public static class AggregateViewGuard
             throw Refuse(view, $"its routes promise a {builder.Root.Name} detail page, but no IGetOneQuery<{builder.Root.Name}, …> exists to load it.");
         }
 
-        if (routes.List is not null && list is null)
+        // A root read as a tree names the tree's page as its list route: the trail's list step and where a delete leaves to.
+        if (routes.List is not null && list is null && tree is null)
         {
-            throw Refuse(view, $"its routes promise a {builder.Root.Name} list page, but no IListOf<{builder.Root.Name}> query exists to fill it.");
+            throw Refuse(
+                view,
+                $"its routes promise a {builder.Root.Name} list page, but no IListOf<{builder.Root.Name}> query exists to fill it "
+                + $"(nor an ITreeQuery<{builder.Root.Name}>, whose page a list route may name).");
         }
 
         if (routes.Create is not null && create is null)
@@ -276,12 +281,24 @@ public static class AggregateViewGuard
 
     /// <summary>
     /// A root listed under a parent shows the parent in its trail, loaded through the parent's own model: the parent needs a
-    /// view configuration and a GetOne query.
+    /// view configuration and a GetOne query. A root that belongs to a parent (<c>BelongsTo</c>) links its trail and its
+    /// delete to the parent's detail page: the parent needs a view configuration with a detail route.
     /// </summary>
     internal static void EnsureParents(IReadOnlyDictionary<Type, AggregateViewModel> models)
     {
         foreach (AggregateViewModel model in models.Values)
         {
+            if (model.BelongsTo is { } belongsTo
+                && models.GetValueOrDefault(belongsTo.Parent) is not { Routes.Detail: not null })
+            {
+                throw new InvalidOperationException(
+                    $"Aggregate view configuration {model.Configuration.FullName}: BelongsTo<{belongsTo.Parent.Name}, …>() names "
+                    + $"{belongsTo.Parent.FullName}, which "
+                    + (models.ContainsKey(belongsTo.Parent) ? "declares no detail route" : "no aggregate view configuration declares")
+                    + $"; {model.Root.Name}'s trail and delete link to the parent's detail page. Give {belongsTo.Parent.Name} a view "
+                    + "configuration with Routes(detail: …).");
+            }
+
             if (model.Parent is not { } parent)
             {
                 continue;

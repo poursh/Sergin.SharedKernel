@@ -16,6 +16,12 @@ public abstract class FormViewBuilder
 
     /// <summary>The child pickers declared, by field name.</summary>
     internal Dictionary<string, ChildPickerDeclaration> ChildPickers { get; } = new(StringComparer.Ordinal);
+
+    /// <summary>The field overrides declared with <c>Field(...)</c>, by field name.</summary>
+    internal Dictionary<string, FormFieldOverride> FieldOverrides { get; } = new(StringComparer.Ordinal);
+
+    /// <summary>The property <c>Parent(...)</c> named, filled from the form view's <c>ParentId</c>; null when none.</summary>
+    internal string? ParentProperty { get; private protected set; }
 }
 
 /// <summary>Overrides for the generated form of the root's create or update command.</summary>
@@ -34,6 +40,32 @@ public sealed class FormViewBuilder<TCommand> : FormViewBuilder
 
         DeclaredTitle = title;
         return this;
+    }
+
+    /// <summary>
+    /// The create command's property that holds the parent's id (a role's owner scope): it is not rendered, and is filled
+    /// from the form view's <c>ParentId</c>, which the page reads from its route or query. It must be a constructor
+    /// parameter whose type wraps a <see cref="Guid"/>. A create command that is <c>IUnderParent&lt;…&gt;</c> has its
+    /// <c>ParentId</c> as its parent property without declaring it.
+    /// </summary>
+    public FormViewBuilder<TCommand> Parent(Expression<Func<TCommand, object?>> property)
+    {
+        ParentProperty = ViewExpressions.PropertyOf(property, nameof(Parent));
+        return this;
+    }
+
+    /// <summary>Overrides for the form field of <paramref name="property"/>: its label, or a component that edits it.</summary>
+    public FormFieldBuilder Field(Expression<Func<TCommand, object?>> property)
+    {
+        string name = ViewExpressions.PropertyOf(property, nameof(Field));
+
+        if (!FieldOverrides.TryGetValue(name, out FormFieldOverride? field))
+        {
+            field = new FormFieldOverride(name);
+            FieldOverrides.Add(name, field);
+        }
+
+        return new FormFieldBuilder(field);
     }
 
     /// <summary>

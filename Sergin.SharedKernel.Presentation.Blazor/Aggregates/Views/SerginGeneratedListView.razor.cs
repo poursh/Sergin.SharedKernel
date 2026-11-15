@@ -81,6 +81,14 @@ public sealed partial class SerginGeneratedListView<TRoot>
     {
         Model = Views.For<TRoot>();
 
+        // A list route with no list query names a tree's page (the guard admits nothing else): that page is the tree's own.
+        if (Model.List is null && Model.Routes.List is not null)
+        {
+            throw new InvalidOperationException(
+                $"{typeof(TRoot).FullName} is read as a tree (ITreeQuery<{typeof(TRoot).Name}>), not listed: its list route is the "
+                + "tree's page, which a generated list view does not render.");
+        }
+
         if (!Model.Slots.ContainsKey(SerginViewSlot.ListBody))
         {
             bodyType = Model.ListBodyType ?? throw new InvalidOperationException(
