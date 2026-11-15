@@ -151,7 +151,7 @@ public static class AggregateViewGuard
         }
 
         // Before the routes: a parented list's own route rule names the real mistake.
-        EnsureListParent(view, list);
+        EnsureListParent(view, list, overview);
 
         AggregateViewRoutes routes = builder.DeclaredRoutes;
 
@@ -178,9 +178,10 @@ public static class AggregateViewGuard
 
     /// <summary>
     /// A list query under a parent (<c>IUnderParent</c>) is routed with <c>ListUnder&lt;TParent&gt;</c> naming that parent, and
-    /// nothing else is: its list route needs the parent's id, which a plain list route cannot carry.
+    /// nothing else is: its list route needs the parent's id, which a plain list route cannot carry. Such a root has no
+    /// <c>IOverviewQuery</c>: an overview is of the whole collection, and the list would send it without the parent's id.
     /// </summary>
-    private static void EnsureListParent(DeclaredView view, Type? list)
+    private static void EnsureListParent(DeclaredView view, Type? list, Type? overview)
     {
         AggregateViewBuilder builder = view.Builder;
         string root = builder.Root.Name;
@@ -219,6 +220,14 @@ public static class AggregateViewGuard
         if (builder.DeclaredRoutes.List is not null)
         {
             throw Refuse(view, $"{root} is listed under a {parent.Name} with ListUnder<{parent.Name}>(…), so Routes(list: …) has no page to name.");
+        }
+
+        if (overview is not null)
+        {
+            throw Refuse(
+                view,
+                $"{root} is listed under a {parent.Name} with ListUnder<{parent.Name}>(…), but {overview.FullName} is an overview of "
+                + $"every {root}, which its list would send without the {parent.Name}'s id. Remove the IOverviewQuery<{root}>.");
         }
 
         // Sampled with a distinct id: a route that drops it would list every parent's records under the same address.
@@ -304,10 +313,20 @@ public static class AggregateViewGuard
     /// How a set-property command is edited. A child's on a page of its own, declared <c>Edit(SerginEditMode.Page)</c>. A
     /// root's, unless <c>Hidden()</c>, in a dialog or inline: its constructor must be <c>(Id, value)</c>, <c>Page</c> is
     /// refused (a root has no edit page for one value), and <c>Inline</c> needs a GetOne response property named after the
-    /// value, which the detail shows and edits in place.
+    /// value, which the detail shows and edits in place. An inline choice (a bool or enum value) becomes that detail field
+    /// itself, so the field must render: neither <c>Hidden()</c> in <paramref name="detailFields"/> nor replaced by a
+    /// <see cref="SerginViewSlot.DetailFields"/> component in <paramref name="slots"/>.
     /// </summary>
     internal static void EnsureEditable(
-        DeclaredView view, Type request, CommandRole role, bool child, SerginEditMode mode, bool hidden, Type? getOneResponse)
+        DeclaredView view,
+        Type request,
+        CommandRole role,
+        bool child,
+        SerginEditMode mode,
+        bool hidden,
+        Type? getOneResponse,
+        FieldSetBuilder? detailFields,
+        IReadOnlyDictionary<SerginViewSlot, Type> slots)
     {
         if (role != CommandRole.SetProperty)
         {
@@ -352,9 +371,15 @@ public static class AggregateViewGuard
                 + $"child entity's; declare Command<{request.Name}>().Edit(SerginEditMode.Dialog) (the default) or Edit(SerginEditMode.Inline).");
         }
 
-        string value = parameters.Single(parameter => !IsNamed(parameter, "Id")).Name!;
+        ParameterInfo valueParameter = parameters.Single(parameter => !IsNamed(parameter, "Id"));
+        string value = valueParameter.Name!;
 
-        if (mode == SerginEditMode.Inline && getOneResponse?.GetProperty(value, BindingFlags.Public | BindingFlags.Instance) is null)
+        if (mode != SerginEditMode.Inline)
+        {
+            return;
+        }
+
+        if (getOneResponse?.GetProperty(value, BindingFlags.Public | BindingFlags.Instance) is not { } property)
         {
             throw Refuse(
                 view,
@@ -362,6 +387,43 @@ public static class AggregateViewGuard
                 + $"{root}'s GetOne response {getOneResponse?.FullName ?? "(there is none)"} has no property {value} to show it from. "
                 + "Add one, or leave the command in its dialog.");
         }
+
+        if (IsChoice(valueParameter.ParameterType))
+        {
+            EnsureInlineChoiceRenders(view, request, property.Name, detailFields, slots);
+        }
+    }
+
+    /// <summary>An inline choice is its detail field turned into a select or switch: a hidden or replaced field leaves it nowhere to render.</summary>
+    private static void EnsureInlineChoiceRenders(
+        DeclaredView view, Type request, string field, FieldSetBuilder? detailFields, IReadOnlyDictionary<SerginViewSlot, Type> slots)
+    {
+        if (slots.TryGetValue(SerginViewSlot.DetailFields, out Type? slot))
+        {
+            throw Refuse(
+                view,
+                $"{request.FullName} is declared Edit(SerginEditMode.Inline) with a choice, which renders as the detail field {field} "
+                + $"itself, but the {nameof(SerginViewSlot.DetailFields)} slot ({slot.FullName}) replaces the detail fields, so it would "
+                + "render nowhere. Leave the command in its dialog, or remove the slot.");
+        }
+
+        if (detailFields?.Overrides.GetValueOrDefault(field) is { Hidden: true })
+        {
+            throw Refuse(
+                view,
+                $"{request.FullName} is declared Edit(SerginEditMode.Inline) with a choice, which renders as the detail field {field} "
+                + $"itself, but that field is hidden (Field(x => x.{field}).Hidden()), so it would render nowhere. Show the field, or "
+                + "leave the command in its dialog.");
+        }
+    }
+
+    // A bool or enum value, or a value object wrapping one: the kinds an inline edit renders as a switch or select.
+    private static bool IsChoice(Type type)
+    {
+        Type? primitive = ValueObjects.PrimitiveOf(type);
+        primitive = primitive is null ? null : Nullable.GetUnderlyingType(primitive) ?? primitive;
+
+        return primitive == typeof(bool) || primitive is { IsEnum: true };
     }
 
     private static bool IsNamed(ParameterInfo parameter, string name) => string.Equals(parameter.Name, name, StringComparison.OrdinalIgnoreCase);
@@ -396,6 +458,14 @@ public static class AggregateViewGuard
                 + $"or Command<{partner.Name}>(), not {(declaredHere ? "both" : "neither")}.");
         }
     }
+
+    /// <summary>A child's <c>IReverseOf</c> pair may not declare <c>AppliesWhen</c>: child views do not apply it, so both are offered.</summary>
+    internal static void RefuseChildAppliesWhen(DeclaredView view, Type child, Type request, Type partner) =>
+        throw Refuse(
+            view,
+            $"{request.FullName} and {partner.FullName} are an IReverseOf pair on the child entity {child.Name}, and "
+            + $"Command<{request.Name}>() declares AppliesWhen<TRecord>(...), which child views do not apply: both commands of a "
+            + "child pair are offered. Remove the AppliesWhen.");
 
     /// <summary>A command that edits a child on a page of its own: its update, or one declared <c>Edit(SerginEditMode.Page)</c>.</summary>
     internal static bool IsEditCommand(CommandView command) =>

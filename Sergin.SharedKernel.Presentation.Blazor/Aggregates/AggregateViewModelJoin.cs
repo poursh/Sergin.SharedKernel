@@ -204,7 +204,7 @@ internal sealed class AggregateViewModelJoin(
             declarations.Commands.TryGetValue(request, out CommandViewBuilder? declared);
             SerginEditMode mode = declared?.DeclaredEditMode ?? SerginEditMode.Dialog;
             bool hidden = declared?.IsHidden ?? false;
-            AggregateViewGuard.EnsureEditable(view, request, role, child, mode, hidden, getOneResponse);
+            AggregateViewGuard.EnsureEditable(view, request, role, child, mode, hidden, getOneResponse, declarations.DetailFields, builder.Slots);
 
             if (declared?.DisabledRecord is { } disabledRecord)
             {
@@ -216,7 +216,7 @@ internal sealed class AggregateViewModelJoin(
                 AggregateViewGuard.EnsureDisabledRecord(view, request, nameof(CommandViewBuilder<IBaseCommand>.AppliesWhen), appliesRecord, records);
             }
 
-            Func<object, bool>? appliesWhen = AppliesWhenOf(request, declared, declarations, candidates, hidden);
+            Func<object, bool>? appliesWhen = AppliesWhenOf(request, declared, declarations, candidates, hidden, child);
 
             CommandSettings settings = commands.For(request);
             FormFieldView? valueField = role == CommandRole.SetProperty && !child && !hidden ? ValueFieldOf(request, declarations, getOneResponse) : null;
@@ -265,15 +265,16 @@ internal sealed class AggregateViewModelJoin(
 
     /// <summary>
     /// When <paramref name="request"/> is offered: its own <c>AppliesWhen</c>, or the negation of its <c>IReverseOf</c>
-    /// partner's; null for a command that declares none and has no pair. The two commands of a pair declare it on exactly
-    /// one (a hidden command is not offered, so a pair with one needs none).
+    /// partner's; null for a command that declares none and has no pair. The two commands of a root's pair declare it on
+    /// exactly one (a hidden command is not offered, so a pair with one needs none). A child's pair declares none, which
+    /// <see cref="ChildViewModelJoin"/> checks: child views do not apply it, so both commands are offered.
     /// </summary>
     private Func<object, bool>? AppliesWhenOf(
-        Type request, CommandViewBuilder? declared, ViewDeclarationBuilder declarations, Type[] candidates, bool hidden)
+        Type request, CommandViewBuilder? declared, ViewDeclarationBuilder declarations, Type[] candidates, bool hidden, bool child)
     {
         Type? partner = ReversePartnerOf(request, candidates);
 
-        if (partner is null)
+        if (partner is null || child)
         {
             return declared?.DeclaredAppliesWhen;
         }
@@ -291,7 +292,7 @@ internal sealed class AggregateViewModelJoin(
     }
 
     /// <summary>The other command of an <c>IReverseOf</c> pair among <paramref name="candidates"/>, whichever side declares it; null with none.</summary>
-    private static Type? ReversePartnerOf(Type request, Type[] candidates) =>
+    internal static Type? ReversePartnerOf(Type request, IReadOnlyCollection<Type> candidates) =>
         candidates.FirstOrDefault(other => other != request && (Reverses(request, other) || Reverses(other, request)));
 
     private static bool Reverses(Type reverse, Type reversed) =>

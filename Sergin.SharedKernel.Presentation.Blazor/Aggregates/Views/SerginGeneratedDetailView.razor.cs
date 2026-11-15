@@ -331,7 +331,8 @@ public sealed partial class SerginGeneratedDetailView<TRoot>
     // The record's value of the command's property, as its input edits it; null when the record has none.
     private object? ValueOf(CommandView command) => recordValues.GetValueOrDefault(command.ValueField!.Name);
 
-    private async Task EditAsync(CommandView command)
+    // Opens the command's dialog; answers its reference, which the test seam reads (the action ignores it).
+    internal async Task<IDialogReference> EditAsync(CommandView command)
     {
         DialogParameters<SerginSetPropertyDialog> parameters = new()
         {
@@ -341,19 +342,19 @@ public sealed partial class SerginGeneratedDetailView<TRoot>
             { dialog => dialog.Submit, value => SetPropertyAsync(command, value) },
         };
 
-        await DialogService.ShowAsync<SerginSetPropertyDialog>(
+        return await DialogService.ShowAsync<SerginSetPropertyDialog>(
             string.Empty, parameters, new DialogOptions { MaxWidth = MaxWidth.Small, FullWidth = true, CloseOnEscapeKey = true });
     }
 
     // Sends one value; shows every error and reads the record again whatever the outcome. True when it was sent.
     private async Task<bool> SetPropertyAsync(CommandView command, object? value)
     {
-        SetPropertyStatus status = await commands.WhileRunningAsync(
-            command, () => setProperty.SubmitAsync(Dispatcher, command, Id, value, version));
+        SetPropertyOutcome outcome = await commands.WhileRunningAsync(
+            command, () => setProperty.SendAsync(Dispatcher, command, Id, value, version));
 
-        if (status != SetPropertyStatus.Sent)
+        if (outcome.Status != SetPropertyStatus.Sent)
         {
-            ErrorPresenter.Notify(setProperty.Errors);
+            ErrorPresenter.Notify(outcome.Errors);
         }
         else if (command.SucceededText is { } succeeded)
         {
@@ -362,7 +363,7 @@ public sealed partial class SerginGeneratedDetailView<TRoot>
 
         await ReloadAsync();
 
-        return status == SetPropertyStatus.Sent;
+        return outcome.Status == SetPropertyStatus.Sent;
     }
 
     // The record's properties (value objects read through, by the model's compiled reader) fill a text's placeholders,
