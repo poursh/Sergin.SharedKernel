@@ -99,6 +99,12 @@ public sealed partial class SerginGeneratedFormView<TRoot>
             : Model.Routes.List ?? "/";
 
     // The parent a create form is given; an edit form has none.
+    // The node the surrounding tree selects: the record on edit, the new record's parent on create (none selects nothing).
+    private string? TreeNode => IsEdit ? Id?.ToString() : ParentId?.ToString();
+
+    // The tail the tree's trail shows on create: only a declared create title, which has no placeholder to fill.
+    private TextDefinition? TreeTail => IsEdit ? null : Model.CreateTitle;
+
     private Guid? CreateParentId => IsEdit || Model.CreateParent is null ? null : ParentId;
 
     // The list section step, then — editing — the record linking to its detail page (the root's name until it loads),

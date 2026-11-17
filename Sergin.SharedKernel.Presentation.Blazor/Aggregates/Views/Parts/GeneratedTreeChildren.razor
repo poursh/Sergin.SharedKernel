@@ -1,0 +1,23 @@
+@* The children of a tree root's record, generated from its tree: see the code-behind. *@
+<MudText Typo="Typo.h6" Class="mt-6 mb-2">@Localizer.Text(Tree.ChildrenTitle)</MudText>
+<SerginProblemPanel Problem="problem" />
+@if (problem is null)
+{
+    @if (descendants.Count == 0)
+    {
+        <MudText Typo="Typo.body2">@Localizer.Text(Tree.ChildrenEmpty)</MudText>
+    }
+    else
+    {
+        <MudSimpleTable Hover="true" Dense="true">
+            <tbody>
+                @foreach ((object Item, Guid Id, string Title, int Depth) child in descendants)
+                {
+                    <tr @key="child.Id">
+                        <td style="@Indent(child.Depth)"><MudLink Href="@NodeHref(child.Id)">@child.Title</MudLink></td>
+                    </tr>
+                }
+            </tbody>
+        </MudSimpleTable>
+    }
+}

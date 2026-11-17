@@ -47,7 +47,12 @@ public sealed partial class GeneratedField
 
     private object? Value => Field.Get(Record);
 
-    private string? Href => Field.Href?.Invoke(Record);
+    private bool IsEmpty => Value is null || Value is string text && string.IsNullOrWhiteSpace(text);
+
+    // A null or blank value shows WhenEmpty's text, unlinked; with none declared, a null value is shown plain and Href is not asked.
+    private string? EmptyText => IsEmpty && Field.WhenEmpty is { } whenEmpty ? Localizer.Text(whenEmpty) : null;
+
+    private string? Href => Value is null ? null : Field.Href?.Invoke(Record);
 
     private Dictionary<string, object?> ComponentParameters => new(StringComparer.Ordinal)
     {

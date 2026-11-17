@@ -1,5 +1,9 @@
 @typeparam TRoot
 @* The detail view of a configured root, generated from its model: see the code-behind. *@
+@if (Model.Tree is not null)
+{
+    <SerginTreeSelect Node="@Id.ToString()" />
+}
 <SerginAggregateDetailView TitleText="Model.Singular" Trail="Trail" Problem="problem" Ready="@(record is not null)" Actions="Actions"
                            FieldsTitleData="@(record is null ? null : DisplayText)"
                            Overview="OverviewFragment" OverviewSummary="OverviewSummaryFragment" OverviewCollapsed="Model.DetailOverviewCollapsed">
@@ -36,6 +40,10 @@
                 <GeneratedInlineEditCard @key="command.Request" Command="command" Id="Id" Value="ValueOf(command)"
                                          OnSubmit="InlineSubmitted(command)" Busy="commands.IsRunning(command)" />
             }
+        }
+        @if (Model.Tree is not null && Model.Routes.Detail is not null && record is not null)
+        {
+            <GeneratedTreeChildren Tree="Model.Tree" NodeId="Id" NodeHref="Model.Routes.Detail" Generation="Context.Generation" />
         }
         @if (record is not null && EntitiesSlot is not null)
         {

@@ -23,6 +23,10 @@ else if (Field.Component is not null)
 {
     <SerginDetailField LabelText="Field.Label"><DynamicComponent Type="Field.Component" Parameters="ComponentParameters" /></SerginDetailField>
 }
+else if (EmptyText is not null)
+{
+    <SerginDetailField LabelText="Field.Label" Value="@EmptyText" />
+}
 else if (Href is not null)
 {
     <SerginDetailField LabelText="Field.Label"><MudLink Href="@Href">@Text</MudLink></SerginDetailField>

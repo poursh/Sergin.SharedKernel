@@ -149,7 +149,15 @@ internal sealed class AggregateViewModelJoin(
             item!,
             record => (Guid)id(record)!,
             record => parentId(record) as Guid?,
-            title);
+            title,
+            declared?.IconOf,
+            declared?.FilterPlaceholder ?? ShellTexts.Trees.FilterPlaceholder,
+            declared?.EmptyText ?? ShellTexts.Trees.NothingToShow,
+            declared?.PromptTitle ?? ShellTexts.Trees.SelectPrompt,
+            declared?.PromptHint,
+            declared?.PromptIcon ?? Icons.Material.Outlined.AccountTree,
+            declared?.ChildrenTitle ?? ShellTexts.Trees.Children,
+            declared?.ChildrenEmpty ?? ShellTexts.Trees.NoChildren);
     }
 
     // What keeps a tree query from feeding a view, or null when it fits.
@@ -686,7 +694,8 @@ internal sealed class AggregateViewModelJoin(
                 named?.Order ?? index,
                 named?.Format,
                 named?.FormatPlaceholder ?? "Value",
-                ValueTextsOf(record, property, category, named, hidden)));
+                ValueTextsOf(record, property, category, named, hidden),
+                named?.WhenEmpty));
 
             // A string, or a value object wrapping one: the record's name as stored.
             title ??= ValueObjects.PrimitiveOf(property.PropertyType) == typeof(string) ? property.Name : null;
