@@ -435,6 +435,11 @@ internal sealed class AggregateViewModelJoin(
                 AggregateViewGuard.EnsureConfirmAsked(view, request, role, child);
             }
 
+            if (declared?.IsConfirmDeleteDeclared == true)
+            {
+                AggregateViewGuard.EnsureConfirmDeleteOnDelete(view, request, role, child);
+            }
+
             Func<object, bool>? appliesWhen = AppliesWhenOf(request, declared, declarations, candidates, hidden, child);
 
             CommandSettings settings = commands.For(request);

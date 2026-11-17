@@ -27,6 +27,9 @@ public abstract class CommandViewBuilder
     /// <summary>Whether <c>Confirm(...)</c> was declared (not only <c>ConfirmDelete(...)</c>), which the guard checks is asked somewhere.</summary>
     internal bool IsConfirmDeclared { get; private protected set; }
 
+    /// <summary>Whether <c>ConfirmDelete(...)</c> or <c>ConfirmDeleteMany(...)</c> was declared, which the guard checks is on a delete or a removal.</summary>
+    internal bool IsConfirmDeleteDeclared { get; private protected set; }
+
     internal TextDefinition? DeclaredBulkSucceededText { get; private protected set; }
 
     internal TextDefinition? ConfirmManyTitle { get; private protected set; }
@@ -102,6 +105,7 @@ public sealed class CommandViewBuilder<TCommand> : CommandViewBuilder
         ArgumentNullException.ThrowIfNull(text);
         ConfirmTitle = title;
         ConfirmText = text;
+        IsConfirmDeleteDeclared = true;
         return this;
     }
 
@@ -140,6 +144,7 @@ public sealed class CommandViewBuilder<TCommand> : CommandViewBuilder
         ArgumentNullException.ThrowIfNull(text);
         ConfirmManyTitle = title;
         ConfirmManyText = text;
+        IsConfirmDeleteDeclared = true;
         return this;
     }
 

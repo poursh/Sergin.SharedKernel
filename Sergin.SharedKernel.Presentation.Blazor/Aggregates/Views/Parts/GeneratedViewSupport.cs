@@ -129,7 +129,13 @@ internal static class GeneratedViewSupport
     {
         ArgumentNullException.ThrowIfNull(command);
 
-        object request = command.BuildFromId!(id);
+        return SendAsync(dispatcher, command, command.BuildFromId!(id), version);
+    }
+
+    /// <summary>Sends <paramref name="request"/>, built for <paramref name="command"/>, at <paramref name="version"/> only when the command is version-guarded.</summary>
+    public static Task<ViewSendResult> SendAsync(ISerginDispatcher dispatcher, CommandView command, object request, RowVersion? version)
+    {
+        ArgumentNullException.ThrowIfNull(command);
 
         return command.RequiresVersion
             ? command.Invoker.SendVersionedAsync(dispatcher, request, version)

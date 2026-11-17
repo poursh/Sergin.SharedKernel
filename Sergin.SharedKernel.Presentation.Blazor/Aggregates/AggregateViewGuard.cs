@@ -106,6 +106,23 @@ public static class AggregateViewGuard
     }
 
     /// <summary>
+    /// <c>ConfirmDelete(...)</c> and <c>ConfirmDeleteMany(...)</c> word a root's delete or a child's removal; on any other
+    /// command they are ignored (an update) or ask with delete texts (a transition, which declares <c>Confirm(...)</c>).
+    /// </summary>
+    internal static void EnsureConfirmDeleteOnDelete(DeclaredView view, Type request, CommandRole role, bool child)
+    {
+        bool deletes = child ? role == CommandRole.RemoveChild : role == CommandRole.Delete;
+
+        if (!deletes)
+        {
+            throw Refuse(
+                view,
+                $"Command<{request.Name}>().ConfirmDelete(...) words a delete confirm on {request.FullName}, a {(child ? "child " : string.Empty)}{role} "
+                + "command: only a root's delete and a child's removal take one. Use Confirm(...) for a transition, or remove it.");
+        }
+    }
+
+    /// <summary>
     /// A schedulable command's Schedule… and View schedules entries build the command from the record's id, so a shown one
     /// must be id-only (a list's bulk schedule already skips one that is not).
     /// </summary>
