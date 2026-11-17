@@ -1,0 +1,10 @@
+@typeparam TRoot
+@* What a tree page shows while no node is selected, from the root's tree prompt: see the code-behind. *@
+<div class="pa-8 text-center">
+    <MudIcon Icon="@tree.PromptIcon" Size="Size.Large" Class="mb-2" />
+    <MudText Typo="Typo.h6">@Localizer.Text(tree.PromptTitle)</MudText>
+    @if (tree.PromptHint is { } hint)
+    {
+        <MudText Typo="Typo.body2" Class="mud-text-secondary">@Localizer.Text(hint)</MudText>
+    }
+</div>

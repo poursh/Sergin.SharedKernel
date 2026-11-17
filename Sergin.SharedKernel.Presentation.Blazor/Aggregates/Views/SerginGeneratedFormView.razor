@@ -1,5 +1,9 @@
 @typeparam TRoot
 @* The create or edit form of a configured root, generated from its model: see the code-behind. *@
+@if (Model.Tree is not null)
+{
+    <SerginTreeSelect Node="@TreeNode" TailText="@(IsEdit ? null : TitleText)" />
+}
 <SerginFormView TitleText="TitleText" TitleArguments="TitleArguments" Trail="Trail" Problem="problem" Ready="Ready"
                 Model="values" Validation="validation" OnSubmit="OnSubmit" Submitting="submitting"
                 SubmitLabelText="@(IsEdit ? CommonTexts.Save : CommonTexts.Create)" CancelHref="@CancelHref">

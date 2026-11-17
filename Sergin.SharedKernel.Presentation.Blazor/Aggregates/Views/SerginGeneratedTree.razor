@@ -1,0 +1,10 @@
+@typeparam TRoot
+@* The tree layout body of a configured root, generated from its model: see the code-behind. *@
+<SerginAggregateTree TNode="object" TitleText="model.Title" Trail="parts.Trail" Href="@parts.Href" LayoutKey="@parts.LayoutKey" GroupKey="@parts.GroupKey"
+                     Load="LoadAsync" NodeId="IdOf" ParentId="ParentIdOf" NodeLabel="parts.Tree.TitleOf" NodeIcon="parts.Tree.IconOf" NodeHref="HrefOf"
+                     AddChild="@(parts.AddChild is null ? null : AddChildOf)" Delete="@(parts.Delete is null ? null : DeleteAsync)"
+                     DeletePermission="parts.Delete?.Permissions.FirstOrDefault()" DeleteAnyScope="@(parts.Delete?.AnyScope ?? false)"
+                     DeleteTitleText="parts.Delete?.ConfirmTitle" LoadAudit="@(model.Audit is null ? null : LoadAuditAsync)"
+                     FilterPlaceholderText="parts.Tree.FilterPlaceholder" EmptyMessage="parts.Tree.Empty" AdditionalGroups="AdditionalGroups">
+    @ChildContent
+</SerginAggregateTree>
