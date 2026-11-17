@@ -14,21 +14,25 @@ internal enum SetPropertyStatus
     /// <summary>Someone changed the record after the view read it: nothing was saved.</summary>
     Stale,
 
-    /// <summary>The value was refused (by the validator before sending, or by the pipeline), or the send failed otherwise.</summary>
+    /// <summary>The pipeline refused the command, or the send failed otherwise.</summary>
     Failed,
+
+    /// <summary>The validator refused the value before anything was sent.</summary>
+    Invalid,
 }
+
+/// <summary>One send's outcome: its status and its own errors (empty when <see cref="SetPropertyStatus.Sent"/>).</summary>
+internal sealed record SetPropertyOutcome(SetPropertyStatus Status, IReadOnlyList<Error> Errors);
 
 /// <summary>
 /// The decisions behind a root's set-property command, apart from the views that offer it (a dialog, an inline card, an
 /// inline choice): the command built from the record's id and one value, that value checked by the pipeline's own
-/// validator before anything is sent, then the send, at the held version when the command is version-guarded. After
-/// <see cref="SubmitAsync"/>, <see cref="Errors"/> holds what it answered; the view shows them and reads the record again.
+/// validator before anything is sent, then the send, at the held version when the command is version-guarded. Each
+/// <see cref="SendAsync"/> answers its own <see cref="SetPropertyOutcome"/>, so two sends in flight never share errors;
+/// the view shows them and reads the record again.
 /// </summary>
 internal sealed class GeneratedSetProperty(ISerginFormValidator validator)
 {
-    /// <summary>The errors of the last submit; empty after one that was sent.</summary>
-    public IReadOnlyList<Error> Errors { get; private set; } = [];
-
     /// <summary>The command <paramref name="command"/> sets <paramref name="value"/> with on the record <paramref name="id"/>.</summary>
     public static object Build(CommandView command, Guid id, object? value)
     {
@@ -54,7 +58,7 @@ internal sealed class GeneratedSetProperty(ISerginFormValidator validator)
     /// Sends the command setting <paramref name="value"/>, unless the validator refuses the value (then nothing is sent and
     /// its messages are the errors): versioned at <paramref name="version"/> when the command requires one, plainly otherwise.
     /// </summary>
-    public async Task<SetPropertyStatus> SubmitAsync(
+    public async Task<SetPropertyOutcome> SendAsync(
         ISerginDispatcher dispatcher, CommandView command, Guid id, object? value, RowVersion? version)
     {
         ArgumentNullException.ThrowIfNull(dispatcher);
@@ -65,8 +69,7 @@ internal sealed class GeneratedSetProperty(ISerginFormValidator validator)
 
         if (messages.Count > 0)
         {
-            Errors = [.. messages.Select(message => Error.Validation(name, message))];
-            return SetPropertyStatus.Failed;
+            return new SetPropertyOutcome(SetPropertyStatus.Invalid, [.. messages.Select(message => Error.Validation(name, message))]);
         }
 
         object request = Build(command, id, value);
@@ -74,14 +77,13 @@ internal sealed class GeneratedSetProperty(ISerginFormValidator validator)
             ? await command.Invoker.SendVersionedAsync(dispatcher, request, version)
             : await command.Invoker.SendAsync(dispatcher, request);
 
-        Errors = result.Errors;
-
         if (!result.IsError)
         {
-            return SetPropertyStatus.Sent;
+            return new SetPropertyOutcome(SetPropertyStatus.Sent, []);
         }
 
-        return result.Errors.Any(VersionErrors.IsStale) ? SetPropertyStatus.Stale : SetPropertyStatus.Failed;
+        return new SetPropertyOutcome(
+            result.Errors.Any(VersionErrors.IsStale) ? SetPropertyStatus.Stale : SetPropertyStatus.Failed, result.Errors);
     }
 
     private static FormFieldView ValueFieldOf(CommandView command) =>

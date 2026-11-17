@@ -96,6 +96,16 @@ public sealed class FieldBuilder<T>
         return this;
     }
 
+    /// <summary>
+    /// Shown: a field hidden by default (a <see cref="Guid"/> property, or one named <c>Id</c>) is rendered too. Naming a
+    /// field already shows it; this says so explicitly, and undoes an earlier <see cref="Hidden"/>.
+    /// </summary>
+    public FieldBuilder<T> Shown()
+    {
+        field.Hidden = false;
+        return this;
+    }
+
     /// <summary>Not shown.</summary>
     public FieldBuilder<T> Hidden()
     {

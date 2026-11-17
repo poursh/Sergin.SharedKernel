@@ -45,8 +45,11 @@ internal sealed class AggregateViewModelJoin(
         Type? overview = Single(requests, typeof(IOverviewQuery<>));
         Type? entityOverview = Single(requests, typeof(IEntityOverviewQuery<,>));
         Type? audit = Single(requests, typeof(IAuditQuery<,>));
+        Type? tree = Single(requests, typeof(ITreeQuery<>));
 
-        AggregateViewGuard.EnsureConfigured(view, commandViews, getOne, getOneResponse, list, listItem, create, update, overview, entityOverview, audit);
+        AggregateViewGuard.EnsureConfigured(view, commandViews, getOne, getOneResponse, list, listItem, create, update, overview, entityOverview, audit, tree);
+        TreeView? treeView = TreeOf(tree, commandViews.FirstOrDefault(command => command is { Role: CommandRole.Move, Hidden: false }));
+        string? createParent = CreateParentOf(create, update);
 
         IReadOnlyList<FieldView> detailFields = Fields(getOneResponse, CategoryOf(getOne), builder.DetailFields, out string? detailTitle);
         IReadOnlyList<FieldView> listFields = Fields(listItem, CategoryOf(list), builder.ListFields, out string? listTitle);
@@ -90,7 +93,218 @@ internal sealed class AggregateViewModelJoin(
             update is null ? null : builder.Forms.GetValueOrDefault(update)?.DeclaredTitle,
             builder.DetailOverviewIsCollapsed,
             [.. builder.Links],
-            builder.ListParent);
+            builder.ListParent,
+            BelongsToOf(getOneResponse),
+            createParent,
+            ChildCreateOf(create, commandViews),
+            treeView);
+    }
+
+    // ---- Trees ----
+
+    private const string MoveParentProperty = nameof(IMoveCommand<,>.NewParentId);
+
+    /// <summary>
+    /// The root's tree from its <c>ITreeQuery</c>: built with no arguments, answering a collection of items that carry a
+    /// <see cref="Guid"/> <c>Id</c> and a nullable <see cref="Guid"/> <c>ParentId</c>, titled by <c>Tree&lt;T&gt;(...)</c>'s
+    /// <c>Title</c> or the item's first <see cref="string"/> property. When something needs the tree (a <c>Tree&lt;T&gt;(...)</c>
+    /// declaration, or a shown <paramref name="move"/>), a missing or misshapen one is refused; otherwise it is null.
+    /// </summary>
+    private TreeView? TreeOf(Type? tree, CommandView? move)
+    {
+        TreeViewBuilder? declared = builder.DeclaredTree;
+        bool needed = move is not null || declared is not null;
+        string needer = move is not null
+            ? $"{move.Request.FullName} is a Move command, whose dialog picks the new parent from {root.Name}'s tree"
+            : $"Tree<{declared?.Item.Name}>() declares how {root.Name}'s tree is shown";
+        string hide = move is null ? string.Empty : $", or Command<{move.Request.Name}>().Hidden() the move";
+
+        if (tree is null)
+        {
+            return needed ? throw Refuse($"{needer}, but no ITreeQuery<{root.Name}> exists to read it. Add one{hide}.") : null;
+        }
+
+        Type? item = TreeItemOf(tree);
+
+        if (declared is not null && item != declared.Item)
+        {
+            throw Refuse(
+                $"Tree<{declared.Item.Name}>() names {declared.Item.FullName}, which is not the item of {root.Name}'s tree query "
+                + $"{tree.FullName} ({item?.FullName ?? "it answers no collection"}).");
+        }
+
+        string? problem = TreeProblemOf(tree, item, declared);
+
+        if (problem is not null)
+        {
+            return needed ? throw Refuse($"{needer}, but {root.Name}'s tree query {tree.FullName} does not fit: {problem}{hide}.") : null;
+        }
+
+        Func<object, object?> id = ValueObjects.UnwrappedGetter(GuidProperty(item!, "Id")!);
+        Func<object, object?> parentId = ValueObjects.UnwrappedGetter(GuidProperty(item!, "ParentId")!);
+        Func<object, string> title = declared?.TitleOf ?? StringReader(FirstStringProperty(item!)!);
+
+        return new TreeView(
+            Request(tree, RequestFactory.ForNone)!,
+            item!,
+            record => (Guid)id(record)!,
+            record => parentId(record) as Guid?,
+            title);
+    }
+
+    // What keeps a tree query from feeding a view, or null when it fits.
+    private static string? TreeProblemOf(Type tree, Type? item, TreeViewBuilder? declared)
+    {
+        if (!RequestFactory.IsParameterless(tree))
+        {
+            return "its constructor takes arguments, and a view builds it with none";
+        }
+
+        if (item is null)
+        {
+            return "it answers no collection of items";
+        }
+
+        if (GuidProperty(item, "Id") is null)
+        {
+            return $"its item {item.FullName} has no Guid Id";
+        }
+
+        if (GuidProperty(item, "ParentId") is null)
+        {
+            return $"its item {item.FullName} has no Guid? ParentId to place each item under its parent";
+        }
+
+        return declared?.TitleOf is null && FirstStringProperty(item) is null
+            ? $"its item {item.FullName} has no string property to title it by; declare Tree<{item.Name}>(tree => tree.Title(...))"
+            : null;
+    }
+
+    private static Func<object, string> StringReader(PropertyInfo property)
+    {
+        Func<object, object?> get = ValueObjects.UnwrappedGetter(property);
+
+        return record => get(record) as string ?? string.Empty;
+    }
+
+    // The T of the IEnumerable<T> a tree query's response is or implements.
+    private static Type? TreeItemOf(Type tree) =>
+        ResponseOf(tree) is not { } response
+            ? null
+            : new[] { response }.Concat(response.GetInterfaces())
+                .FirstOrDefault(candidate => candidate.IsGenericType && candidate.GetGenericTypeDefinition() == typeof(IEnumerable<>))
+                ?.GetGenericArguments()[0];
+
+    // A public property wrapping a Guid, nullable or not, or null.
+    private static PropertyInfo? GuidProperty(Type item, string name)
+    {
+        PropertyInfo? property = item.GetProperty(name, BindingFlags.Public | BindingFlags.Instance);
+        Type? primitive = property is null ? null : ValueObjects.PrimitiveOf(property.PropertyType);
+
+        return primitive == typeof(Guid) ? property : null;
+    }
+
+    private static PropertyInfo? FirstStringProperty(Type item) =>
+        item.GetProperties(BindingFlags.Public | BindingFlags.Instance)
+            .Where(property => property.GetIndexParameters().Length == 0)
+            .OrderBy(property => property.MetadataToken)
+            .FirstOrDefault(property => ValueObjects.PrimitiveOf(property.PropertyType) == typeof(string));
+
+    // ---- Parents ----
+
+    /// <summary>
+    /// What <c>BelongsTo&lt;TParent, TResponse&gt;(...)</c> declared, as the model carries it; refused beside
+    /// <c>ListUnder</c> (a record is shown under one parent, by one rule) and for a response other than the GetOne
+    /// query's. The parent's own model is checked once every model is built (<see cref="AggregateViewGuard.EnsureParents"/>).
+    /// </summary>
+    private BelongsToView? BelongsToOf(Type? getOneResponse)
+    {
+        if (builder.DeclaredBelongsTo is not { } declared)
+        {
+            return null;
+        }
+
+        if (builder.ListParent is { } listParent)
+        {
+            throw Refuse(
+                $"BelongsTo<{declared.Parent.Name}, …>() and ListUnder<{listParent.Name}>() both name a parent of {root.Name}; a root "
+                + "listed under a parent takes its trail from the list's parent, so declare one of them.");
+        }
+
+        if (declared.Response != getOneResponse)
+        {
+            throw Refuse(
+                $"BelongsTo<{declared.Parent.Name}, {declared.Response.Name}>() reads the parent from {declared.Response.FullName}, which is "
+                + $"not {root.Name}'s GetOne response ({getOneResponse?.FullName ?? "there is none"}).");
+        }
+
+        return new BelongsToView(declared.Parent, declared.ParentId, declared.ParentName);
+    }
+
+    /// <summary>
+    /// The create command's property filled from the form view's <c>ParentId</c>: the one <c>Parent(...)</c> names, which must
+    /// be a constructor parameter wrapping a <see cref="Guid"/>, else <c>ParentId</c> on a create command under a parent.
+    /// <c>Parent(...)</c> is refused on any form but the create command's, a child's included.
+    /// </summary>
+    private string? CreateParentOf(Type? create, Type? update)
+    {
+        if (update is not null && builder.Forms.GetValueOrDefault(update)?.ParentProperty is { } onUpdate)
+        {
+            throw Refuse(
+                $"Form<{update.Name}>(form => form.Parent(x => x.{onUpdate})) names a parent on the update form; only a create form is "
+                + "given its parent's id. Remove the Parent(...).");
+        }
+
+        if (builder.Children.Values.SelectMany(child => child.Forms.Values).FirstOrDefault(form => form.ParentProperty is not null) is { } childForm)
+        {
+            throw Refuse(
+                $"Form<{childForm.Command.Name}>(form => form.Parent(x => x.{childForm.ParentProperty})) names a parent on a child entity's "
+                + "form, whose root is its route's own id. Remove the Parent(...).");
+        }
+
+        if (create is null)
+        {
+            return null;
+        }
+
+        if (builder.Forms.GetValueOrDefault(create)?.ParentProperty is not { } declared)
+        {
+            return CommandTypes.TargetOf(create)?.Parent is null ? null : nameof(IUnderParent<,>.ParentId);
+        }
+
+        ParameterInfo? parameter = ConstructorOf(create).GetParameters().FirstOrDefault(candidate => candidate.Name == declared);
+
+        if (parameter is null)
+        {
+            throw Refuse(
+                $"Form<{create.Name}>(form => form.Parent(x => x.{declared})) names {declared}, which is no parameter of "
+                + $"{create.FullName}'s constructor, so the form could not fill it.");
+        }
+
+        if (ValueObjects.PrimitiveOf(parameter.ParameterType) != typeof(Guid))
+        {
+            throw Refuse(
+                $"Form<{create.Name}>(form => form.Parent(x => x.{declared})) names a parameter of {parameter.ParameterType.FullName}, "
+                + "which wraps no Guid; the parent is given as a Guid id.");
+        }
+
+        return declared;
+    }
+
+    /// <summary>
+    /// The self-parented create action: the create command, drawn Secondary, on a root whose create command is under the
+    /// root itself and that has a create route to link to; null otherwise, or when the create command is hidden.
+    /// </summary>
+    private CommandView? ChildCreateOf(Type? create, IReadOnlyCollection<CommandView> commandViews)
+    {
+        if (create is null || builder.DeclaredRoutes.Create is null || CommandTypes.TargetOf(create)?.Parent != root)
+        {
+            return null;
+        }
+
+        CommandView command = commandViews.Single(candidate => candidate.Request == create);
+
+        return command.Hidden ? null : command with { Kind = SerginActionKind.Secondary };
     }
 
     // ---- Children ----
@@ -204,7 +418,7 @@ internal sealed class AggregateViewModelJoin(
             declarations.Commands.TryGetValue(request, out CommandViewBuilder? declared);
             SerginEditMode mode = declared?.DeclaredEditMode ?? SerginEditMode.Dialog;
             bool hidden = declared?.IsHidden ?? false;
-            AggregateViewGuard.EnsureEditable(view, request, role, child, mode, hidden, getOneResponse);
+            AggregateViewGuard.EnsureEditable(view, request, role, child, mode, hidden, getOneResponse, declarations.DetailFields, builder.Slots);
 
             if (declared?.DisabledRecord is { } disabledRecord)
             {
@@ -216,10 +430,18 @@ internal sealed class AggregateViewModelJoin(
                 AggregateViewGuard.EnsureDisabledRecord(view, request, nameof(CommandViewBuilder<IBaseCommand>.AppliesWhen), appliesRecord, records);
             }
 
-            Func<object, bool>? appliesWhen = AppliesWhenOf(request, declared, declarations, candidates, hidden);
+            if (declared?.IsConfirmDeclared == true)
+            {
+                AggregateViewGuard.EnsureConfirmAsked(view, request, role, child);
+            }
+
+            Func<object, bool>? appliesWhen = AppliesWhenOf(request, declared, declarations, candidates, hidden, child);
 
             CommandSettings settings = commands.For(request);
             FormFieldView? valueField = role == CommandRole.SetProperty && !child && !hidden ? ValueFieldOf(request, declarations, getOneResponse) : null;
+            IReadOnlyList<FormFieldView> confirmFields = role == CommandRole.Delete && !child && !hidden ? ConfirmFieldsOf(request, declarations, getOneResponse) : [];
+            bool shownMove = role == CommandRole.Move && !child && !hidden;
+            FieldText? moveParentField = shownMove ? MoveParentFieldOf(request) : null;
             (TextDefinition? defaultLabel, string? defaultIcon) = DefaultsOf(role);
 
             // A set-property command is named by the value it sets, unless it declares a verb (Rename).
@@ -258,22 +480,86 @@ internal sealed class AggregateViewModelJoin(
                 declared?.DeclaredDisabledReason,
                 child && RequestFactory.IsChildIdOnly(request) ? RequestFactory.ForChildId(request) : null,
                 valueField,
-                valueField is null ? null : RequestFactory.ForForm(request),
-                appliesWhen);
+                valueField is null && confirmFields.Count == 0 ? null : RequestFactory.ForForm(request),
+                appliesWhen,
+                declared?.ConfirmLabel,
+                shownMove ? RequestFactory.ForMove(request) : null,
+                moveParentField)
+            {
+                ConfirmFields = confirmFields,
+            };
         }
     }
 
     /// <summary>
+    /// A shown move's parent picker label: the <c>NewParentId</c> field text in the command's category. Refused when its
+    /// constructor is not <c>(Id, NewParentId)</c>, which the dialog builds it from, or when the field text is missing.
+    /// </summary>
+    private FieldText MoveParentFieldOf(Type request)
+    {
+        if (!RequestFactory.IsMove(request))
+        {
+            throw Refuse(
+                $"{request.FullName} is a Move command, which a generated view sends from the record's id and the new parent's id, "
+                + $"but its constructor is ({string.Join(", ", ConstructorOf(request).GetParameters().Select(parameter => parameter.Name))}), "
+                + $"not (Id, NewParentId). Give it that constructor, or Command<{request.Name}>().Hidden() it.");
+        }
+
+        TextCategory? category = commands.CategoryOf(request);
+
+        return (category is null ? null : texts.FindField(category, MoveParentProperty)) ?? throw Refuse(
+            $"{request.FullName}.{MoveParentProperty} labels the Move dialog's parent picker, but has no FieldText in "
+            + $"{category?.Prefix ?? "any category"}. Declare one, or Command<{request.Name}>().Hidden() the command.");
+    }
+
+    /// <summary>
+    /// The values a root's delete asks for in its confirm: none for an id-only delete; for one whose constructor is the
+    /// <c>Id</c> and further values, each of those as a form field. A further value marked <c>NotShown</c> is refused, as the
+    /// dialog could not fill it; a constructor without exactly one <c>Id</c> is left to the id-only refusal.
+    /// </summary>
+    private IReadOnlyList<FormFieldView> ConfirmFieldsOf(Type request, ViewDeclarationBuilder declarations, Type? getOneResponse)
+    {
+        if (RequestFactory.IsIdOnly(request))
+        {
+            return [];
+        }
+
+        ParameterInfo[] parameters = ConstructorOf(request).GetParameters();
+
+        if (parameters.Count(parameter => string.Equals(parameter.Name, "Id", StringComparison.OrdinalIgnoreCase)) != 1)
+        {
+            return [];
+        }
+
+        IReadOnlyList<FormFieldView> fields = FormFields(request, declarations, getOneResponse);
+        string[] unshown =
+        [
+            .. parameters
+                .Where(parameter => !string.Equals(parameter.Name, "Id", StringComparison.OrdinalIgnoreCase))
+                .Select(parameter => parameter.Name!)
+                .Where(name => fields.All(field => field.Name != name)),
+        ];
+
+        if (unshown.Length > 0)
+        {
+            AggregateViewGuard.RefuseUnshownConfirmValues(view, request, unshown);
+        }
+
+        return fields;
+    }
+
+    /// <summary>
     /// When <paramref name="request"/> is offered: its own <c>AppliesWhen</c>, or the negation of its <c>IReverseOf</c>
-    /// partner's; null for a command that declares none and has no pair. The two commands of a pair declare it on exactly
-    /// one (a hidden command is not offered, so a pair with one needs none).
+    /// partner's; null for a command that declares none and has no pair. The two commands of a root's pair declare it on
+    /// exactly one (a hidden command is not offered, so a pair with one needs none). A child's pair declares none, which
+    /// <see cref="ChildViewModelJoin"/> checks: child views do not apply it, so both commands are offered.
     /// </summary>
     private Func<object, bool>? AppliesWhenOf(
-        Type request, CommandViewBuilder? declared, ViewDeclarationBuilder declarations, Type[] candidates, bool hidden)
+        Type request, CommandViewBuilder? declared, ViewDeclarationBuilder declarations, Type[] candidates, bool hidden, bool child)
     {
         Type? partner = ReversePartnerOf(request, candidates);
 
-        if (partner is null)
+        if (partner is null || child)
         {
             return declared?.DeclaredAppliesWhen;
         }
@@ -291,7 +577,7 @@ internal sealed class AggregateViewModelJoin(
     }
 
     /// <summary>The other command of an <c>IReverseOf</c> pair among <paramref name="candidates"/>, whichever side declares it; null with none.</summary>
-    private static Type? ReversePartnerOf(Type request, Type[] candidates) =>
+    internal static Type? ReversePartnerOf(Type request, IReadOnlyCollection<Type> candidates) =>
         candidates.FirstOrDefault(other => other != request && (Reverses(request, other) || Reverses(other, request)));
 
     private static bool Reverses(Type reverse, Type reversed) =>
@@ -599,6 +885,12 @@ internal sealed class AggregateViewModelJoin(
                 .Where(parameter => !declaredByType.Contains(parameter.Name!) && !hidden.Contains(parameter.Name!)),
         ];
 
+        // The parent property is filled from the form view's ParentId, never rendered.
+        if (declared?.ParentProperty is { } parentProperty)
+        {
+            shown = [.. shown.Where(parameter => parameter.Name != parentProperty)];
+        }
+
         IEnumerable<string> pickerNames = declared?.ChildPickers.Keys ?? Enumerable.Empty<string>();
 
         if (pickerNames.FirstOrDefault(name => shown.All(parameter => parameter.Name != name)) is { } unknown)
@@ -606,15 +898,47 @@ internal sealed class AggregateViewModelJoin(
             throw Refuse($"ChildPicker(x => x.{unknown}) on {command.FullName} names no shown field of its form.");
         }
 
-        return [.. shown.Select(parameter => FormFieldOf(command, parameter, declared?.ChildPickers.GetValueOrDefault(parameter.Name!), getOneResponse))];
+        IEnumerable<string> overrideNames = declared?.FieldOverrides.Keys ?? Enumerable.Empty<string>();
+
+        if (overrideNames.FirstOrDefault(name => shown.All(parameter => parameter.Name != name)) is { } unknownField)
+        {
+            throw Refuse($"Field(x => x.{unknownField}) on the form of {command.FullName} names no shown field of its form.");
+        }
+
+        return
+        [
+            .. shown.Select(parameter => FormFieldOf(
+                command,
+                parameter,
+                declared?.ChildPickers.GetValueOrDefault(parameter.Name!),
+                getOneResponse,
+                declared?.FieldOverrides.GetValueOrDefault(parameter.Name!))),
+        ];
     }
 
-    private FormFieldView FormFieldOf(Type command, ParameterInfo parameter, ChildPickerDeclaration? picker, Type? getOneResponse)
+    private FormFieldView FormFieldOf(
+        Type command, ParameterInfo parameter, ChildPickerDeclaration? picker, Type? getOneResponse, FormFieldOverride? overridden)
     {
         string name = parameter.Name!;
         TextCategory? category = commands.CategoryOf(command);
-        FieldText label = (category is null ? null : texts.FindField(category, name)) ?? throw Refuse(
+        FieldText declaredLabel = (category is null ? null : texts.FindField(category, name)) ?? throw Refuse(
             $"{command.FullName}.{name} is a form field with no FieldText in {category?.Prefix ?? "any category"}.");
+        FieldText label = overridden?.Label is { } replaced ? declaredLabel with { Label = replaced } : declaredLabel;
+
+        // A component edits the value as it is: no generated input, so no primitive is needed (a collection is allowed).
+        if (overridden?.Component is { } component)
+        {
+            return new FormFieldView(
+                name,
+                label,
+                parameter.ParameterType,
+                FormInputKind.Component,
+                null,
+                null,
+                null,
+                ValueObjects.PrimitiveOf(parameter.ParameterType),
+                Component: component);
+        }
 
         if (picker is not null)
         {

@@ -55,6 +55,25 @@ namespace Sergin.SharedKernel.Presentation.Blazor.Aggregates;
 /// The parent root of a root listed under one (<c>ListUnder&lt;TParent&gt;</c>): its own model gives the list's trail and
 /// loads the parent record; null for any other root.
 /// </param>
+/// <param name="BelongsTo">
+/// The parent a record belongs to, from <c>BelongsTo&lt;TParent, TResponse&gt;(...)</c>: the detail's trail, where a delete
+/// leaves to, and a create form's trail and cancel; null for a root that declares none. Its parent's model is resolved by
+/// the views through the registry.
+/// </param>
+/// <param name="CreateParent">
+/// The create command's property filled from the form view's <c>ParentId</c>: the one <c>Form&lt;T&gt;(form =&gt;
+/// form.Parent(...))</c> names, else <c>ParentId</c> on a create command under a parent (<c>IUnderParent</c>); null for none.
+/// </param>
+/// <param name="ChildCreate">
+/// For a root whose create command is under the root itself (<c>IUnderParent&lt;TRoot, …&gt;</c>, a scope's child scope)
+/// and that has a create route: the create command as a Secondary detail-bar action linking to the create route with the
+/// record as the parent (<c>?parentId={id}</c>); null for any other root.
+/// </param>
+/// <param name="Tree">
+/// The root's tree, from its <c>ITreeQuery</c> (no constructor arguments, items with a <see cref="Guid"/> <c>Id</c> and a nullable
+/// <see cref="Guid"/> <c>ParentId</c>): what a move command's dialog picks the new parent from. Null without a tree query, or
+/// when its shape does not fit and nothing needs it.
+/// </param>
 public sealed record AggregateViewModel(
     Type Root,
     Type Configuration,
@@ -92,8 +111,21 @@ public sealed record AggregateViewModel(
     TextDefinition? UpdateTitle = null,
     bool DetailOverviewCollapsed = false,
     IReadOnlyList<ViewLinkView>? Links = null,
-    Type? Parent = null)
+    Type? Parent = null,
+    BelongsToView? BelongsTo = null,
+    string? CreateParent = null,
+    CommandView? ChildCreate = null,
+    TreeView? Tree = null)
 {
+    /// <summary>The create route's query key that carries the parent's id, as a self-parented create action links with it.</summary>
+    public const string ParentIdQueryKey = "parentId";
+
+    /// <summary>The self-parented create route for a new record under <paramref name="parentId"/>; null without one.</summary>
+    public string? ChildCreateHref(Guid parentId) =>
+        ChildCreate is null || Routes.Create is not { } create
+            ? null
+            : $"{create}?{ParentIdQueryKey}={parentId.ToString("D", System.Globalization.CultureInfo.InvariantCulture)}";
+
     /// <summary>
     /// Loads the record <paramref name="id"/> through the GetOne query: at its version for a <c>Versioned()</c> root, plainly
     /// for any other (which publishes no version, so a versioned send would answer <c>VersionErrors.NotPublished</c>).

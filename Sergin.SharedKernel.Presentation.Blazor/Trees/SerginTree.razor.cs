@@ -363,7 +363,16 @@ public sealed partial class SerginTree : IDisposable
     }
 
     // The view renamed or moved its record: the tree reads it again, keeping the selection.
-    private Task ReloadActiveAsync() => ActiveGroup?.ReloadAsync() ?? Task.CompletedTask;
+    // The group reloads its nodes; the tree renders again so the page trail built from them names the new path.
+    private async Task ReloadActiveAsync()
+    {
+        if (ActiveGroup is { } active)
+        {
+            await active.ReloadAsync();
+        }
+
+        StateHasChanged();
+    }
 
     // The outlet renders the view's buttons itself; the tree renders again only when the page header gains or loses
     // its buttons, since rendering the tree renders the view again, which writes the slot again.

@@ -21,6 +21,14 @@ internal static class GeneratedLists
     public static IReadOnlySet<CommandRole> Icons { get; } = new HashSet<CommandRole> { CommandRole.Update, CommandRole.Delete };
 
     public static IReadOnlySet<CommandRole> Menu { get; } = new HashSet<CommandRole> { CommandRole.Transition };
+
+    /// <summary>
+    /// Whether a list offers <paramref name="command"/> in bulk: a shown, selectable command built from a row's id alone,
+    /// with no <c>AppliesWhen</c> a row could not answer. A delete that asks for values (<see cref="CommandView.ConfirmFields"/>)
+    /// has no id-only builder, so it is never one.
+    /// </summary>
+    public static bool IsBulkAction(CommandView command) =>
+        command is { Selectable: true, Hidden: false, BuildFromId: not null, AppliesWhen: null, ConfirmFields.Count: 0 };
 }
 
 /// <summary>What a generated list view asks of its body, whose item type it does not name.</summary>
@@ -140,7 +148,7 @@ public sealed partial class GeneratedListBody<TItem> : IGeneratedListBody
             throw new InvalidOperationException($"{Model.Root.FullName} has no list query, so its list view has nothing to load. Add an IListOf<{Model.Root.Name}>.");
         }
 
-        commands = new GeneratedCommandActions(this, _ => Task.CompletedTask, _ => Task.CompletedTask);
+        commands = new GeneratedCommandActions(this, _ => Task.CompletedTask, _ => Task.CompletedTask, confirmAsync: ConfirmRowAsync);
         filters = new GeneratedFilterState(Model, new GeneratedFilterServices(Dispatcher, ErrorPresenter, Localizer, Formatter, TimeZones));
         titleField = GeneratedViewSupport.TitleFieldOf(Model.ListFields, Model.ListTitleField);
         columns = GeneratedViewSupport.ColumnsOf(Model.ListFields, Model.ListFieldSet, titleField);
@@ -206,11 +214,11 @@ public sealed partial class GeneratedListBody<TItem> : IGeneratedListBody
 
     private IReadOnlyList<SerginPageAction> IconActionsOf(TItem item) =>
         commands.For(
-            Model, IdOf(item), _ => [], GeneratedLists.Icons, delete: command => DeleteRowAsync(command, item), record: item, links: ViewLinkPlacement.BeforeCommands);
+            Model, IdOf(item), _ => [], GeneratedLists.Icons, delete: command => DeleteRowAsync(command, item), record: item, links: ViewLinkPlacement.BeforeCommands, row: true);
 
     private IReadOnlyList<SerginPageAction> MenuActionsOf(TItem item) =>
         commands.For(
-            Model, IdOf(item), command => RowMenuItemsOf(command, item), GeneratedLists.Menu, run: command => RunRowAsync(command, item), record: item);
+            Model, IdOf(item), command => RowMenuItemsOf(command, item), GeneratedLists.Menu, run: command => RunRowAsync(command, item), record: item, row: true);
 
     private AggregateViewContext ContextOf(IReadOnlyList<TItem> items) =>
         new(items.Count == 1 ? items[0] : null, Version: null, ChangedAsync, [.. items.Select(IdOf)]);
@@ -262,10 +270,23 @@ public sealed partial class GeneratedListBody<TItem> : IGeneratedListBody
         await ChangedAsync();
     }
 
+    // A row transition declared with Confirm(...): its texts filled from the row, the button its confirm label or its own.
+    private Task<bool> ConfirmRowAsync(CommandView command, object? record) =>
+        DialogService.ConfirmDeleteAsync(
+            Localizer,
+            command.ConfirmTitle ?? command.Label,
+            command.ConfirmText!,
+            record is TItem item ? ArgumentsOf(item) : null,
+            command.ConfirmLabel ?? command.Label);
+
     private async Task DeleteRowAsync(CommandView command, TItem item)
     {
         if (!await DialogService.ConfirmDeleteAsync(
-                Localizer, command.ConfirmTitle ?? CommonTexts.Delete, command.ConfirmText ?? ShellTexts.CommandActions.DeleteConfirm, ArgumentsOf(item)))
+                Localizer,
+                command.ConfirmTitle ?? CommonTexts.Delete,
+                command.ConfirmText ?? ShellTexts.CommandActions.DeleteConfirm,
+                ArgumentsOf(item),
+                command.ConfirmLabel ?? command.Label))
         {
             return;
         }
@@ -318,7 +339,7 @@ public sealed partial class GeneratedListBody<TItem> : IGeneratedListBody
 
     private IEnumerable<SerginBulkAction<TItem>> BulkActionsOf()
     {
-        foreach (CommandView command in Model.Commands.Where(command => command is { Selectable: true, Hidden: false, BuildFromId: not null, AppliesWhen: null }))
+        foreach (CommandView command in Model.Commands.Where(GeneratedLists.IsBulkAction))
         {
             PermissionDefinition? permission = command.Permissions.FirstOrDefault();
 

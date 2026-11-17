@@ -36,7 +36,8 @@ public sealed partial class SerginSetPropertyDialog
 
     private EventCallback<object?> OnSubmit => EventCallback.Factory.Create<object?>(this, SubmitAsync);
 
-    private async Task SubmitAsync(object? value)
+    // Internal, not private: the Dialog edit test drives Save and Cancel through these, as the value form and button do.
+    internal async Task SubmitAsync(object? value)
     {
         busy = true;
 
@@ -53,5 +54,5 @@ public sealed partial class SerginSetPropertyDialog
         }
     }
 
-    private void Cancel() => MudDialog.Cancel();
+    internal void Cancel() => MudDialog.Cancel();
 }

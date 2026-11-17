@@ -25,6 +25,7 @@ public static class RequestFactory
 {
     private const string IdParameter = "Id";
     private const string RootIdParameter = "RootId";
+    private const string NewParentIdParameter = "NewParentId";
 
     private static readonly Dictionary<string, object?> noValues = [];
 
@@ -89,6 +90,27 @@ public static class RequestFactory
         Func<Guid, Guid, IReadOnlyDictionary<string, object?>, object> build = ForChildForm(requestType);
 
         return (rootId, id) => build(rootId, id, noValues);
+    }
+
+    /// <summary>Whether the request's one constructor takes only the target's <c>Id</c> and <c>NewParentId</c>, in either order: a move.</summary>
+    public static bool IsMove(Type requestType) =>
+        ConstructorOf(requestType).GetParameters() is [{ } first, { } second]
+        && (IsNamed(first, IdParameter) && IsNamed(second, NewParentIdParameter) || IsNamed(first, NewParentIdParameter) && IsNamed(second, IdParameter));
+
+    /// <summary>A move request whose constructor takes exactly the target's <c>Id</c> and <c>NewParentId</c>, built from the two Guids (the target first).</summary>
+    public static Func<Guid, Guid, object> ForMove(Type requestType)
+    {
+        ConstructorInfo constructor = ConstructorOf(requestType);
+
+        if (!IsMove(requestType))
+        {
+            throw new InvalidOperationException(
+                $"{requestType.FullName} cannot be built from an id and a new parent's id alone: its constructor is ({Describe(constructor)}), not (Id, NewParentId).");
+        }
+
+        Func<Guid, IReadOnlyDictionary<string, object?>, object> build = ForForm(requestType);
+
+        return (id, newParentId) => build(id, new Dictionary<string, object?>(StringComparer.Ordinal) { [NewParentIdParameter] = newParentId });
     }
 
     /// <summary>
@@ -255,15 +277,39 @@ public static class RequestFactory
     }
 
     // Decided once per parameter: a parameter declared nullable whose primitive is a string takes blank text as null (a
-    // cleared optional field is "not given"); a non-nullable one keeps its text so the validators see it.
+    // cleared optional field is "not given"); a non-nullable one keeps its text so the validators see it. A parameter that
+    // carries no single value (a collection, which only a configured field component edits) takes the value as given.
     private static Func<object?, object?> BlankAware(ParameterInfo parameter, NullabilityInfoContext nullability)
     {
+        if (ValueObjects.PrimitiveOf(parameter.ParameterType) is null)
+        {
+            return EmptyCollectionElement(parameter, nullability) is { } element
+                ? value => value ?? Array.CreateInstance(element, 0)
+                : value => value;
+        }
+
         bool nullable = IsNullable(parameter, nullability);
         Func<object?, object?> convert = ValueObjects.Converter(parameter.ParameterType, neverNull: !nullable);
 
         return nullable && ValueObjects.PrimitiveOf(parameter.ParameterType) == typeof(string)
             ? value => value is string text && string.IsNullOrWhiteSpace(text) ? null : convert(value)
             : convert;
+    }
+
+    // A non-nullable collection parameter (IReadOnlyCollection<T>, IEnumerable<T>, ...) that no field component set (a
+    // picker the user never touched) takes an empty collection, not null, so "none picked" is a value the validators see.
+    private static Type? EmptyCollectionElement(ParameterInfo parameter, NullabilityInfoContext nullability)
+    {
+        Type type = parameter.ParameterType;
+
+        if (!type.IsGenericType || type.IsValueType || IsNullable(parameter, nullability))
+        {
+            return null;
+        }
+
+        Type element = type.GetGenericArguments()[0];
+
+        return type.GetGenericArguments().Length == 1 && type.IsAssignableFrom(element.MakeArrayType()) ? element : null;
     }
 
     private static bool IsNamed(ParameterInfo parameter, string name) => string.Equals(parameter.Name, name, StringComparison.OrdinalIgnoreCase);

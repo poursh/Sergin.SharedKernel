@@ -35,6 +35,39 @@ internal static class GeneratedViewSupport
     }
 
     /// <summary>
+    /// The trail steps of a parent (<c>BelongsTo</c>): <paramref name="parent"/>'s list step, then, when
+    /// <paramref name="parentId"/> is known, the parent linking to its detail, named <paramref name="parentName"/> as stored
+    /// or, without a name, by the parent's singular.
+    /// </summary>
+    public static IReadOnlyList<SerginBreadcrumb> ParentSteps(AggregateViewModel parent, SerginUiModuleCatalog catalog, Guid? parentId, string? parentName)
+    {
+        ArgumentNullException.ThrowIfNull(parent);
+
+        List<SerginBreadcrumb> steps = [];
+
+        if (ListStep(parent, catalog) is { } list)
+        {
+            steps.Add(list);
+        }
+
+        if (parentId is { } id)
+        {
+            string? href = parent.Routes.Detail?.Invoke(id);
+            steps.Add(parentName is null ? new SerginBreadcrumb(parent.Singular, href) : SerginBreadcrumb.Data(parentName, href));
+        }
+
+        return steps;
+    }
+
+    /// <summary>Where a record that belongs to a parent leaves to: the parent's detail, else the parent's list, else the home page.</summary>
+    public static string ParentLeaveHref(AggregateViewModel parent, Guid? parentId)
+    {
+        ArgumentNullException.ThrowIfNull(parent);
+
+        return (parentId is { } id ? parent.Routes.Detail?.Invoke(id) : null) ?? parent.Routes.List ?? "/";
+    }
+
+    /// <summary>
     /// Sends an overview query once and hands back its response, or null when the read failed: an overview is a summary, so a
     /// failure leaves the figures empty rather than a second error beside the page's own.
     /// </summary>

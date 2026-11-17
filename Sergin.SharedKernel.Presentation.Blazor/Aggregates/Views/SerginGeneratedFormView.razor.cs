@@ -23,7 +23,9 @@ namespace Sergin.SharedKernel.Presentation.Blazor.Aggregates.Views;
 /// only once the record is loaded, each field prefilled from the record's property of the same name and a child picker's parent from its
 /// <c>ParentFromRecord</c>. A create is sent and leaves for the new record's detail page; an edit is sent at the held
 /// version when the update is version-guarded, leaves for the detail page, and on a stale answer reads the record again.
-/// The title is the form's configured <c>Title(...)</c>, else "New {Name}" / "Edit {Name}" with the root's name.
+/// The title is the form's configured <c>Title(...)</c>, else "New {Name}" / "Edit {Name}" with the root's name. A create
+/// command with a parent property (<see cref="AggregateViewModel.CreateParent"/>) takes it from <see cref="ParentId"/> and
+/// renders no input for it; for a root that belongs to a parent (<c>BelongsTo</c>), the trail and Cancel then name the parent.
 /// </remarks>
 public sealed partial class SerginGeneratedFormView<TRoot>
     where TRoot : class, IAggregateRoot
@@ -35,11 +37,20 @@ public sealed partial class SerginGeneratedFormView<TRoot>
     private SerginProblem? problem;
     private bool submitting;
     private FieldView? titleField;
+    private AggregateViewModel? belongsToModel;
     private Func<object, string, Task<IEnumerable<string>>> validation = default!;
 
     /// <summary>The record to edit; null for a create form.</summary>
     [Parameter]
     public Guid? Id { get; set; }
+
+    /// <summary>
+    /// A create form's parent: the id its parent property (<c>Form&lt;T&gt;(form =&gt; form.Parent(...))</c>, or <c>ParentId</c>
+    /// of a create command under a parent) is filled from, read by the page from its route or query. Required when the
+    /// create command has a parent property; ignored by an edit form.
+    /// </summary>
+    [Parameter]
+    public Guid? ParentId { get; set; }
 
     [Inject]
     private AggregateViewRegistry Views { get; set; } = default!;
@@ -79,13 +90,25 @@ public sealed partial class SerginGeneratedFormView<TRoot>
     // The shell's titles name the root; a configured title has no placeholders, so there it goes unused.
     private object TitleArguments => new { Name = Localizer.Text(Model.Singular) };
 
-    private string CancelHref => Id is { } id ? DetailHref(id) : Model.Routes.List ?? "/";
+    private string CancelHref => Id is { } id ? DetailHref(id) : CreateCancelHref;
+
+    // A create form under a parent the record belongs to cancels to the parent.
+    private string CreateCancelHref =>
+        belongsToModel is not null && CreateParentId is { } parentId
+            ? GeneratedViewSupport.ParentLeaveHref(belongsToModel, parentId)
+            : Model.Routes.List ?? "/";
+
+    // The parent a create form is given; an edit form has none.
+    private Guid? CreateParentId => IsEdit || Model.CreateParent is null ? null : ParentId;
 
     // The list section step, then — editing — the record linking to its detail page (the root's name until it loads),
-    // then the form: Edit, or the create form's title.
+    // then the form: Edit, or the create form's title. A create form under a parent the record belongs to has the parent's
+    // list step and the parent (by its singular, linking to its detail) in place of the list step.
     private IReadOnlyList<SerginBreadcrumb> Trail =>
     [
-        .. ListStep(),
+        .. belongsToModel is not null && CreateParentId is { } parentId
+            ? GeneratedViewSupport.ParentSteps(belongsToModel, Catalog, parentId, parentName: null)
+            : ListStep(),
         .. RecordStep(),
         IsEdit ? new SerginBreadcrumb(CommonTexts.Edit) : SerginBreadcrumb.Data(Localizer.Text(TitleText, TitleArguments)),
     ];
@@ -109,12 +132,30 @@ public sealed partial class SerginGeneratedFormView<TRoot>
         }
 
         titleField = GeneratedViewSupport.TitleFieldOf(Model.DetailFields, Model.DetailTitleField);
+        belongsToModel = Model.BelongsTo is { } belongsTo ? Views.Find(belongsTo.Parent) : null;
 
         // MudForm's form-level rule, for an input with a For (a child picker's parent select): the field by its path.
         validation = async (_, propertyName) => await ValidateAsync(propertyName);
     }
 
-    protected override Task OnParametersSetAsync() => IsEdit ? LoadAsync() : Task.CompletedTask;
+    protected override Task OnParametersSetAsync()
+    {
+        if (IsEdit)
+        {
+            return LoadAsync();
+        }
+
+        // The parent property is never rendered: the page's ParentId fills it, as a Guid the request factory wraps.
+        if (Model.CreateParent is { } parentProperty)
+        {
+            Guid parentId = ParentId ?? throw new InvalidOperationException(
+                $"{typeof(TRoot).FullName}'s create command takes its parent's id in {parentProperty}, so its create form needs "
+                + "ParentId: set it from the page's route or query.");
+            values.Set(parentProperty, parentId);
+        }
+
+        return Task.CompletedTask;
+    }
 
     private IEnumerable<SerginBreadcrumb> ListStep() =>
         GeneratedViewSupport.ListStep(Model, Catalog) is { } step ? [step] : [];
@@ -174,7 +215,8 @@ public sealed partial class SerginGeneratedFormView<TRoot>
         }
     }
 
-    private async Task SubmitAsync()
+    // Internal for the parent and field-component tests, which submit without a form around the view.
+    internal async Task SubmitAsync()
     {
         if (IsEdit && record is null)
         {

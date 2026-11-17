@@ -36,6 +36,9 @@
             }
         </MudSelect>
         break;
+    case FormInputKind.Component:
+        <DynamicComponent Type="Field.Component!" Parameters="ComponentParameters" />
+        break;
     case FormInputKind.ChildPicker:
         <MudSelect T="Guid" Variant="Variant.Outlined" Margin="Margin.Dense" Value="ParentSelection" ValueChanged="OnParentChangedAsync"
                    Label="@ParentLabelShown" Placeholder="@ParentPlaceholderShown" For="@(() => ParentSelection)">

@@ -1,0 +1,15 @@
+@* A delete's confirm that asks for the values its command takes beside the id: the confirm text, an input per value, then
+   Cancel and the confirm button. *@
+<MudDialog>
+    <DialogContent>
+        <MudText Class="mb-3">@Text</MudText>
+        @foreach (FormFieldView field in Fields)
+        {
+            <GeneratedInput @key="field.Name" Field="field" Values="values" Validate="NoMessages" />
+        }
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="Cancel">@Localizer.Text(CommonTexts.Cancel)</MudButton>
+        <MudButton Variant="Variant.Filled" Color="Color.Error" OnClick="Confirm">@Localizer.Text(ConfirmLabel)</MudButton>
+    </DialogActions>
+</MudDialog>

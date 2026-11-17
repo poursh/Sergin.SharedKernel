@@ -237,7 +237,7 @@ public sealed partial class SerginGeneratedChildDetailView<TRoot, TChild>
     private async Task RemoveAsync(CommandView command)
     {
         if (!await DialogService.ConfirmDeleteAsync(
-                Localizer, command.ConfirmTitle ?? CommonTexts.Delete, command.ConfirmText ?? ShellTexts.CommandActions.DeleteConfirm, PlaceholderArguments(), command.Label))
+                Localizer, command.ConfirmTitle ?? CommonTexts.Delete, command.ConfirmText ?? ShellTexts.CommandActions.DeleteConfirm, PlaceholderArguments(), command.ConfirmLabel ?? command.Label))
         {
             return;
         }

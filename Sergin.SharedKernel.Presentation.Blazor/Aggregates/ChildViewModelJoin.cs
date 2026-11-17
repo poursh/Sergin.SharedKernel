@@ -24,6 +24,16 @@ internal sealed class ChildViewModelJoin(AggregateViewModelJoin join, Type? root
                 + $"Declare it with Child<{child.Name}>(child => child.Named(...)).");
         }
 
+        // A child drawn by its own component: none of its requests is built or checked, and the generated views offer none.
+        if (declared.SectionComponent is { } section)
+        {
+            AggregateViewGuard.EnsureSection(view, child, declared, section);
+
+            return new ChildViewModel(
+                child, singular, declared.SectionTitle ?? singular, ChildViewRoutes.None, null, null, [], null, null, null, null, null,
+                null, [], null, null, null, [], null, null, [], null, null, [], Section: section);
+        }
+
         Type? getOne = join.Single(requests, typeof(IChildGetOneQuery<,,,>));
         Type? list = join.Single(requests, typeof(IChildListOf<,,>));
         Type? add = join.Single(requests, typeof(IAddChildCommand<,,,>));
@@ -36,6 +46,8 @@ internal sealed class ChildViewModelJoin(AggregateViewModelJoin join, Type? root
                 .OrderBy(command => command.Request.FullName, StringComparer.Ordinal),
         ];
         CommandView? editCommand = EditCommandOf(commands);
+
+        EnsureReversePairs(child, declared, commands);
 
         AggregateViewGuard.EnsureChild(view, child, declared, commands, getOne, getOneResponse, listItem, add, editCommand);
 
@@ -69,6 +81,28 @@ internal sealed class ChildViewModelJoin(AggregateViewModelJoin join, Type? root
             editCommand,
             commands,
             listItem is null ? null : typeof(GeneratedChildListBody<>).MakeGenericType(listItem));
+    }
+
+    /// <summary>
+    /// A child's <c>IReverseOf</c> pair declares no <c>AppliesWhen</c> on either command: child views do not apply it yet, so
+    /// both commands are offered, and a declared rule would promise what no view keeps.
+    /// </summary>
+    private void EnsureReversePairs(Type child, ChildViewBuilder declared, IReadOnlyCollection<CommandView> commands)
+    {
+        Type[] requests = [.. commands.Select(command => command.Request)];
+
+        foreach (Type request in requests)
+        {
+            if (AggregateViewModelJoin.ReversePartnerOf(request, requests) is not { } partner)
+            {
+                continue;
+            }
+
+            if (declared.Commands.GetValueOrDefault(request)?.DeclaredAppliesWhen is not null)
+            {
+                AggregateViewGuard.RefuseChildAppliesWhen(view, child, request, partner);
+            }
+        }
     }
 
     /// <summary>The child's edit command: its update, or the command declared <c>Edit(SerginEditMode.Page)</c> (the guard refuses a second).</summary>
