@@ -2,7 +2,7 @@
 @* The create or edit form of a configured root, generated from its model: see the code-behind. *@
 @if (Model.Tree is not null)
 {
-    <SerginTreeSelect Node="@TreeNode" TailText="@(IsEdit ? null : TitleText)" />
+    <SerginTreeSelect Node="@TreeNode" TailText="@TreeTail" />
 }
 <SerginFormView TitleText="TitleText" TitleArguments="TitleArguments" Trail="Trail" Problem="problem" Ready="Ready"
                 Model="values" Validation="validation" OnSubmit="OnSubmit" Submitting="submitting"

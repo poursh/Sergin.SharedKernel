@@ -1,6 +1,9 @@
 @typeparam TRoot
 @* The detail view of a configured root, generated from its model: see the code-behind. *@
-<SerginTreeSelect Node="@Id.ToString()" />
+@if (Model.Tree is not null)
+{
+    <SerginTreeSelect Node="@Id.ToString()" />
+}
 <SerginAggregateDetailView TitleText="Model.Singular" Trail="Trail" Problem="problem" Ready="@(record is not null)" Actions="Actions"
                            FieldsTitleData="@(record is null ? null : DisplayText)"
                            Overview="OverviewFragment" OverviewSummary="OverviewSummaryFragment" OverviewCollapsed="Model.DetailOverviewCollapsed">

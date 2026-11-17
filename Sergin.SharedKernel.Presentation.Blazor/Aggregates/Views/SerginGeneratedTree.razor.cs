@@ -4,6 +4,7 @@ using MudBlazor;
 using Sergin.SharedKernel.Application.Aggregates;
 using Sergin.SharedKernel.Domain;
 using Sergin.SharedKernel.Presentation.Blazor.Dispatching;
+using Sergin.SharedKernel.Presentation.Blazor.Aggregates.Views.Parts;
 using Sergin.SharedKernel.Presentation.Blazor.Pages;
 
 namespace Sergin.SharedKernel.Presentation.Blazor.Aggregates.Views;
@@ -67,8 +68,7 @@ public sealed partial class SerginGeneratedTree<TRoot>
     {
         if (result.IsError)
         {
-            List<Error> errors = [.. result.Errors];
-            return errors;
+            return ErrorsOf(result);
         }
 
         IReadOnlyCollection<object> nodes = [.. ((IEnumerable)result.Value!).Cast<object>()];
@@ -79,52 +79,31 @@ public sealed partial class SerginGeneratedTree<TRoot>
     {
         CommandView delete = parts.Delete!;
         Guid id = parts.Tree.IdOf(node);
-        object request = GeneratedTreeParts.DeleteRequest(delete, id);
-        ViewSendResult result;
+        RowVersion? version = null;
 
-        if (delete.RequiresVersion)
+        if (delete.RequiresVersion && model.GetOne is not null)
         {
-            RowVersion? version = null;
+            ViewSendResult loaded = await model.LoadRecordAsync(Dispatcher, id);
 
-            if (model.GetOne is not null)
+            if (loaded.IsError)
             {
-                ViewSendResult loaded = await model.LoadRecordAsync(Dispatcher, id);
-
-                if (loaded.IsError)
-                {
-                    List<Error> loadErrors = [.. loaded.Errors];
-                    return loadErrors;
-                }
-
-                version = loaded.Version;
+                return ErrorsOf(loaded);
             }
 
-            result = await delete.Invoker.SendVersionedAsync(Dispatcher, request, version);
-        }
-        else
-        {
-            result = await delete.Invoker.SendAsync(Dispatcher, request);
+            version = loaded.Version;
         }
 
-        if (result.IsError)
-        {
-            List<Error> errors = [.. result.Errors];
-            return errors;
-        }
+        ViewSendResult result = await GeneratedViewSupport.SendAsync(Dispatcher, delete, GeneratedTreeParts.DeleteRequest(delete, id), version);
 
-        return Result.Deleted;
+        return result.IsError ? ErrorsOf(result) : Result.Deleted;
     }
 
     private async Task<ErrorOr<AuditInfo>> LoadAuditAsync(object node)
     {
         ViewSendResult result = await model.Audit!.Invoker.SendAsync(Dispatcher, model.Audit.Build(parts.Tree.IdOf(node)));
 
-        if (result.IsError)
-        {
-            List<Error> errors = [.. result.Errors];
-            return errors;
-        }
-
-        return (AuditInfo)result.Value!;
+        return result.IsError ? ErrorsOf(result) : (AuditInfo)result.Value!;
     }
+
+    private static List<Error> ErrorsOf(ViewSendResult result) => [.. result.Errors];
 }
