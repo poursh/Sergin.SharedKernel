@@ -37,6 +37,10 @@
                                          OnSubmit="InlineSubmitted(command)" Busy="commands.IsRunning(command)" />
             }
         }
+        @if (Model.Tree is not null && Model.Routes.Detail is not null && record is not null)
+        {
+            <GeneratedTreeChildren Tree="Model.Tree" NodeId="Id" NodeHref="Model.Routes.Detail" Generation="Context.Generation" />
+        }
         @if (record is not null && EntitiesSlot is not null)
         {
             <DynamicComponent Type="EntitiesSlot" Parameters="SlotParameters" />
