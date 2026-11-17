@@ -278,14 +278,23 @@ public static class RequestFactory
 
     // Decided once per parameter: a parameter declared nullable whose primitive is a string takes blank text as null (a
     // cleared optional field is "not given"); a non-nullable one keeps its text so the validators see it. A parameter that
-    // carries no single value (a collection, which only a configured field component edits) takes the value as given.
+    // carries no single value (a collection, which only a configured field component edits) takes the value as given, and
+    // one of another type is refused here, naming the parameter, rather than as a bare cast error in the constructor call.
     private static Func<object?, object?> BlankAware(ParameterInfo parameter, NullabilityInfoContext nullability)
     {
         if (ValueObjects.PrimitiveOf(parameter.ParameterType) is null)
         {
-            return EmptyCollectionElement(parameter, nullability) is { } element
-                ? value => value ?? Array.CreateInstance(element, 0)
-                : value => value;
+            Type? element = EmptyCollectionElement(parameter, nullability);
+
+            return value => value switch
+            {
+                null when element is not null => Array.CreateInstance(element, 0),
+                null => null,
+                _ when parameter.ParameterType.IsInstanceOfType(value) => value,
+                _ => throw new InvalidOperationException(
+                    $"{parameter.Member.DeclaringType?.FullName}.{parameter.Name} takes a {parameter.ParameterType.Name}, but its "
+                    + $"form field gave a {value.GetType().Name}. A field component for it must set a value of that type."),
+            };
         }
 
         bool nullable = IsNullable(parameter, nullability);

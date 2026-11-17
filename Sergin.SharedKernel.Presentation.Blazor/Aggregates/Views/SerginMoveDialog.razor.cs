@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Components;
 using MudBlazor;
 using Sergin.SharedKernel.Presentation.Blazor.Dispatching;
 using Sergin.SharedKernel.Presentation.Blazor.Errors;
+using Sergin.SharedKernel.Presentation.Errors;
 
 namespace Sergin.SharedKernel.Presentation.Blazor.Aggregates.Views;
 
@@ -12,7 +13,7 @@ namespace Sergin.SharedKernel.Presentation.Blazor.Aggregates.Views;
 /// of the parents the record may move under (<see cref="MoveCandidates"/>: not itself, nor anything below it), indented by
 /// depth and labelled with the move command's <c>NewParentId</c> field text. Nothing is picked at first, and the confirm
 /// button, the move command's label, stays disabled until something is. Confirm closes the dialog with the picked parent's
-/// <see cref="Guid"/>; Cancel closes it cancelled. A tree that cannot be read shows its errors and offers nothing.
+/// <see cref="Guid"/>; Cancel closes it cancelled. A tree that cannot be read shows its problem in the dialog and offers nothing.
 /// </summary>
 public sealed partial class SerginMoveDialog
 {
@@ -55,7 +56,10 @@ public sealed partial class SerginMoveDialog
     // Internal, not private: the move test reads the offered parents and drives Pick, Confirm and Cancel, as the select and buttons do.
     internal IReadOnlyList<(Guid Id, string Title, int Depth)> Candidates => candidates ?? [];
 
-    internal bool Loaded => candidates is not null;
+    internal bool Loaded => candidates is not null && Problem is null;
+
+    // Internal: the move test reads the problem a failed tree read shows.
+    internal SerginProblem? Problem { get; private set; }
 
     internal bool CanConfirm => selected is not null;
 
@@ -69,7 +73,7 @@ public sealed partial class SerginMoveDialog
 
         if (loaded.IsError)
         {
-            ErrorPresenter.Notify(loaded.Errors);
+            Problem = ErrorPresenter.Present(loaded.Errors[0]);
             candidates = [];
 
             return;

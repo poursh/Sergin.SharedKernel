@@ -1,6 +1,7 @@
 @* A root's move command in a dialog: a select of the parents the record may move under, then Cancel and the move. *@
 <MudDialog>
     <DialogContent>
+        <SerginProblemPanel Problem="Problem" />
         <MudSelect T="Guid?" Value="selected" ValueChanged="Pick" Label="@Localizer.Text(Field.Label)" Placeholder="@PlaceholderShown"
                    HelperText="@HintShown" ToStringFunc="TitleOf" Disabled="@(!Loaded)" AnchorOrigin="Origin.BottomCenter">
             @foreach ((Guid Id, string Title, int Depth) candidate in Candidates)

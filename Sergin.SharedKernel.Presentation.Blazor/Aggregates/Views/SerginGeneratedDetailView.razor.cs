@@ -385,10 +385,7 @@ public sealed partial class SerginGeneratedDetailView<TRoot>
         object request = command.BuildMove!(Id, parentId);
 
         ViewSendResult result = await commands.WhileRunningAsync(
-            command,
-            () => command.RequiresVersion
-                ? command.Invoker.SendVersionedAsync(Dispatcher, request, version)
-                : command.Invoker.SendAsync(Dispatcher, request));
+            command, () => GeneratedViewSupport.SendAsync(Dispatcher, command, request, version));
 
         if (result.IsError)
         {
@@ -430,10 +427,7 @@ public sealed partial class SerginGeneratedDetailView<TRoot>
         object request = command.BuildFromValues!(Id, values);
 
         ViewSendResult result = await commands.WhileRunningAsync(
-            command,
-            () => command.RequiresVersion
-                ? command.Invoker.SendVersionedAsync(Dispatcher, request, version)
-                : command.Invoker.SendAsync(Dispatcher, request));
+            command, () => GeneratedViewSupport.SendAsync(Dispatcher, command, request, version));
 
         if (result.IsError)
         {
