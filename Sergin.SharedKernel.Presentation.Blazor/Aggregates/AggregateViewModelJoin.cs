@@ -210,7 +210,6 @@ internal sealed class AggregateViewModelJoin(
             .OrderBy(property => property.MetadataToken)
             .FirstOrDefault(property => ValueObjects.PrimitiveOf(property.PropertyType) == typeof(string));
 
-
     // ---- Parents ----
 
     /// <summary>
@@ -440,7 +439,7 @@ internal sealed class AggregateViewModelJoin(
 
             CommandSettings settings = commands.For(request);
             FormFieldView? valueField = role == CommandRole.SetProperty && !child && !hidden ? ValueFieldOf(request, declarations, getOneResponse) : null;
-            IReadOnlyList<FormFieldView> confirmFields = role == CommandRole.Delete && !child ? ConfirmFieldsOf(request, declarations, getOneResponse) : [];
+            IReadOnlyList<FormFieldView> confirmFields = role == CommandRole.Delete && !child && !hidden ? ConfirmFieldsOf(request, declarations, getOneResponse) : [];
             bool shownMove = role == CommandRole.Move && !child && !hidden;
             FieldText? moveParentField = shownMove ? MoveParentFieldOf(request) : null;
             (TextDefinition? defaultLabel, string? defaultIcon) = DefaultsOf(role);

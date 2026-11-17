@@ -58,12 +58,13 @@ public static class AggregateViewGuard
 
     /// <summary>
     /// A transition or delete is sent for one record: its constructor must take the id and nothing else, except that a
-    /// delete may take the id and further shown values, which its confirm asks for (<see cref="CommandView.ConfirmFields"/>).
+    /// delete may take the id and further shown values, which its confirm asks for (<see cref="CommandView.ConfirmFields"/>). A hidden command is never sent, so it is not held to this.
     /// </summary>
     private static void EnsureIdOnly(DeclaredView view, IReadOnlyCollection<CommandView> commands)
     {
         CommandView? offender = commands.FirstOrDefault(command =>
-            command.Role is CommandRole.Transition or CommandRole.Delete
+            !command.Hidden
+            && command.Role is CommandRole.Transition or CommandRole.Delete
             && command.BuildFromId is null
             && command is not { Role: CommandRole.Delete, ConfirmFields.Count: > 0 });
 

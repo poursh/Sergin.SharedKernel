@@ -283,7 +283,9 @@ public static class RequestFactory
     {
         if (ValueObjects.PrimitiveOf(parameter.ParameterType) is null)
         {
-            return value => value;
+            return EmptyCollectionElement(parameter, nullability) is { } element
+                ? value => value ?? Array.CreateInstance(element, 0)
+                : value => value;
         }
 
         bool nullable = IsNullable(parameter, nullability);
@@ -292,6 +294,22 @@ public static class RequestFactory
         return nullable && ValueObjects.PrimitiveOf(parameter.ParameterType) == typeof(string)
             ? value => value is string text && string.IsNullOrWhiteSpace(text) ? null : convert(value)
             : convert;
+    }
+
+    // A non-nullable collection parameter (IReadOnlyCollection<T>, IEnumerable<T>, ...) that no field component set (a
+    // picker the user never touched) takes an empty collection, not null, so "none picked" is a value the validators see.
+    private static Type? EmptyCollectionElement(ParameterInfo parameter, NullabilityInfoContext nullability)
+    {
+        Type type = parameter.ParameterType;
+
+        if (!type.IsGenericType || type.IsValueType || IsNullable(parameter, nullability))
+        {
+            return null;
+        }
+
+        Type element = type.GetGenericArguments()[0];
+
+        return type.GetGenericArguments().Length == 1 && type.IsAssignableFrom(element.MakeArrayType()) ? element : null;
     }
 
     private static bool IsNamed(ParameterInfo parameter, string name) => string.Equals(parameter.Name, name, StringComparison.OrdinalIgnoreCase);
