@@ -205,5 +205,13 @@ public static class ShellTexts
 
         public static TextDefinition DeleteConfirm { get; } =
             category.Text("DeleteConfirm", "Delete {Name}? It disappears from every list and page.");
+
+        public static TextDefinition SelectPrompt { get; } = category.Text("SelectPrompt", "Select an item");
+
+        public static TextDefinition NothingToShow { get; } = category.Text("NothingToShow", "Nothing to show.");
+
+        public static TextDefinition Children { get; } = category.Text("Children", "Children");
+
+        public static TextDefinition NoChildren { get; } = category.Text("NoChildren", "None.");
     }
 }

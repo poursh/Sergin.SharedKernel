@@ -14,6 +14,7 @@ namespace Sergin.SharedKernel.Presentation.Blazor.Aggregates;
 /// <param name="Order">Its place: the declaration order unless the configuration set <c>Order(n)</c>.</param>
 /// <param name="Format">A text the value is rendered through (<c>Format(...)</c>), or null for the value as it is.</param>
 /// <param name="FormatPlaceholder">The placeholder of <paramref name="Format"/> that receives the value.</param>
+/// <param name="WhenEmpty">What a detail view shows, unlinked, for a null or blank value (<c>WhenEmpty(...)</c>); null for none.</param>
 /// <param name="ValueTexts">The text each value shows as, for an enum (its declared value texts) or a bool (Yes/No or <c>BoolTexts(...)</c>), keyed by the boxed value; null for any other field.</param>
 public sealed record FieldView(
     string Name,
@@ -25,4 +26,5 @@ public sealed record FieldView(
     int Order,
     TextDefinition? Format = null,
     string FormatPlaceholder = "Value",
-    IReadOnlyDictionary<object, TextDefinition>? ValueTexts = null);
+    IReadOnlyDictionary<object, TextDefinition>? ValueTexts = null,
+    TextDefinition? WhenEmpty = null);

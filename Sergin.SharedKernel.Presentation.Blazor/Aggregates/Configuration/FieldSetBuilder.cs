@@ -66,6 +66,14 @@ public sealed class FieldBuilder<T>
         return this;
     }
 
+    /// <summary>What a detail view shows, unlinked, when the value is null or a blank string.</summary>
+    public FieldBuilder<T> WhenEmpty(TextDefinition text)
+    {
+        ArgumentNullException.ThrowIfNull(text);
+        field.WhenEmpty = text;
+        return this;
+    }
+
     /// <summary>Shows a property that has no <see cref="FieldText"/>, or replaces the label its field text declares.</summary>
     public FieldBuilder<T> Label(TextDefinition label)
     {
@@ -145,6 +153,8 @@ internal sealed class FieldOverride(string name)
     public TextDefinition? Label { get; set; }
 
     public TextDefinition? Format { get; set; }
+
+    public TextDefinition? WhenEmpty { get; set; }
 
     public string FormatPlaceholder { get; set; } = "Value";
 

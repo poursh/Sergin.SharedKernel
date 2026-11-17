@@ -10,6 +10,23 @@ public abstract class TreeViewBuilder
 
     /// <summary>The item's title, from <c>Title(...)</c>; null for the item's first <see cref="string"/> property.</summary>
     internal Func<object, string>? TitleOf { get; private protected set; }
+
+    /// <summary>An item's icon, from <c>Icon(...)</c>; null for none.</summary>
+    internal Func<object, string?>? IconOf { get; private protected set; }
+
+    internal TextDefinition? FilterPlaceholder { get; private protected set; }
+
+    internal TextDefinition? EmptyText { get; private protected set; }
+
+    internal TextDefinition? PromptTitle { get; private protected set; }
+
+    internal TextDefinition? PromptHint { get; private protected set; }
+
+    internal string? PromptIcon { get; private protected set; }
+
+    internal TextDefinition? ChildrenTitle { get; private protected set; }
+
+    internal TextDefinition? ChildrenEmpty { get; private protected set; }
 }
 
 /// <summary>
@@ -29,6 +46,55 @@ public sealed class TreeViewBuilder<TItem> : TreeViewBuilder
         ArgumentNullException.ThrowIfNull(title);
 
         TitleOf = item => title((TItem)item);
+        return this;
+    }
+
+    /// <summary>The icon of an item (a MudBlazor icon string), or null for none; no icon by default.</summary>
+    public TreeViewBuilder<TItem> Icon(Func<TItem, string?> icon)
+    {
+        ArgumentNullException.ThrowIfNull(icon);
+
+        IconOf = item => icon((TItem)item);
+        return this;
+    }
+
+    /// <summary>The placeholder of the tree's filter box.</summary>
+    public TreeViewBuilder<TItem> Filter(TextDefinition placeholder)
+    {
+        ArgumentNullException.ThrowIfNull(placeholder);
+
+        FilterPlaceholder = placeholder;
+        return this;
+    }
+
+    /// <summary>What the tree shows when it has no items.</summary>
+    public TreeViewBuilder<TItem> Empty(TextDefinition text)
+    {
+        ArgumentNullException.ThrowIfNull(text);
+
+        EmptyText = text;
+        return this;
+    }
+
+    /// <summary>What the tree's page shows while no item is selected: a title, an optional hint and an icon.</summary>
+    public TreeViewBuilder<TItem> Prompt(TextDefinition title, TextDefinition? hint = null, string? icon = null)
+    {
+        ArgumentNullException.ThrowIfNull(title);
+
+        PromptTitle = title;
+        PromptHint = hint;
+        PromptIcon = icon;
+        return this;
+    }
+
+    /// <summary>The heading of an item's children list and what it shows when the item has none.</summary>
+    public TreeViewBuilder<TItem> Children(TextDefinition title, TextDefinition empty)
+    {
+        ArgumentNullException.ThrowIfNull(title);
+        ArgumentNullException.ThrowIfNull(empty);
+
+        ChildrenTitle = title;
+        ChildrenEmpty = empty;
         return this;
     }
 }
