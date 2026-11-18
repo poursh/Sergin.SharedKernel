@@ -3,7 +3,7 @@ using Sergin.SharedKernel.Application.Commands.Queries;
 using Sergin.SharedKernel.Domain;
 using Sergin.SharedKernel.Presentation.Blazor.Dispatching;
 
-namespace Sergin.SharedKernel.Presentation.Blazor.Aggregates;
+namespace Sergin.SharedKernel.Presentation.Blazor.Aggregates.Model;
 
 /// <summary>
 /// Everything a generated view needs about one configured root, joined once at start from its typed requests, their

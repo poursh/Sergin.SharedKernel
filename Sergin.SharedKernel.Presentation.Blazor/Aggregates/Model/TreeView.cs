@@ -1,4 +1,4 @@
-namespace Sergin.SharedKernel.Presentation.Blazor.Aggregates;
+namespace Sergin.SharedKernel.Presentation.Blazor.Aggregates.Model;
 
 /// <summary>
 /// A root's tree as a generated view reads it: the <c>ITreeQuery</c> (built with no arguments, answering a collection of

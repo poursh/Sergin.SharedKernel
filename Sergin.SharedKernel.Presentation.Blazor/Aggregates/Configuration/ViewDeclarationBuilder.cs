@@ -1,6 +1,6 @@
 using Sergin.SharedKernel.Application.Commands;
 
-namespace Sergin.SharedKernel.Presentation.Blazor.Aggregates;
+namespace Sergin.SharedKernel.Presentation.Blazor.Aggregates.Configuration;
 
 /// <summary>
 /// What a root and each of its child entities declare the same way: commands, detail and list field overrides, and forms.

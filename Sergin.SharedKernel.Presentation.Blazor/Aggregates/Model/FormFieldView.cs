@@ -1,4 +1,4 @@
-namespace Sergin.SharedKernel.Presentation.Blazor.Aggregates;
+namespace Sergin.SharedKernel.Presentation.Blazor.Aggregates.Model;
 
 /// <summary>The input a generated form renders for a command field, from the primitive the field's type wraps.</summary>
 public enum FormInputKind

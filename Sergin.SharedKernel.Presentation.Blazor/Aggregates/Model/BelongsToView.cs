@@ -1,4 +1,4 @@
-namespace Sergin.SharedKernel.Presentation.Blazor.Aggregates;
+namespace Sergin.SharedKernel.Presentation.Blazor.Aggregates.Model;
 
 /// <summary>
 /// The parent record a root's record belongs to, from <c>BelongsTo&lt;TParent, TResponse&gt;(...)</c>: the parent root,

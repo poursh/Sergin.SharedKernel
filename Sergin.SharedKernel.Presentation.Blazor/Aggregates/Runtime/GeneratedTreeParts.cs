@@ -1,6 +1,6 @@
 using Sergin.SharedKernel.Presentation.Blazor.Navigation;
 
-namespace Sergin.SharedKernel.Presentation.Blazor.Aggregates;
+namespace Sergin.SharedKernel.Presentation.Blazor.Aggregates.Runtime;
 
 /// <summary>
 /// What a generated tree page derives once from an aggregate's view model: its routes, the layout and group keys, the

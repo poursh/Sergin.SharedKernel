@@ -1,6 +1,6 @@
 using Sergin.SharedKernel.Domain;
 
-namespace Sergin.SharedKernel.Presentation.Blazor.Aggregates;
+namespace Sergin.SharedKernel.Presentation.Blazor.Aggregates.Runtime;
 
 /// <summary>
 /// What a generated view's send answered, with the response untyped: the response record, the version a versioned
