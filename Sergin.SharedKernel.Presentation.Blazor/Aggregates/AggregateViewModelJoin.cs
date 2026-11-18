@@ -497,7 +497,8 @@ internal sealed class AggregateViewModelJoin(
                 appliesWhen,
                 declared?.ConfirmLabel,
                 shownMove ? RequestFactory.ForMove(request) : null,
-                moveParentField)
+                moveParentField,
+                settings.Background)
             {
                 ConfirmFields = confirmFields,
             };

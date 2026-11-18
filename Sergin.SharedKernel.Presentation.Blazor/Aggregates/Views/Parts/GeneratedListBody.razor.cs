@@ -48,7 +48,7 @@ internal interface IGeneratedListBody
 /// <remarks>
 /// A row's delete is confirmed and sent at the version read just before it, as the detail page sends it; a
 /// version-guarded transition likewise. A bulk run sends each row's command in turn and reports one count and each
-/// distinct error once. A schedulable command's row entry and bulk button carry Schedule… for a user who may manage
+/// distinct error once, except a background command, which starts as one run over every selected row. A schedulable command's row entry and bulk button carry Schedule… for a user who may manage
 /// scheduled tasks; the list offers no View schedules. The item's id and arguments are read by readers compiled once
 /// per item type.
 /// </remarks>
@@ -264,6 +264,12 @@ public sealed partial class GeneratedListBody<TItem> : IGeneratedListBody
         {
             ErrorPresenter.Notify(result.Errors);
         }
+        else if (command.Background is not null)
+        {
+            // Only started: nothing has changed yet, so the rows are not read again.
+            Snackbar.Add(Localizer.Text(ShellTexts.CommandActions.BackgroundStarted), Severity.Info);
+            return;
+        }
         else if (command.SucceededText is { } succeeded)
         {
             Snackbar.Add(Localizer.Text(succeeded, ArgumentsOf(item)), Severity.Success);
@@ -304,10 +310,18 @@ public sealed partial class GeneratedListBody<TItem> : IGeneratedListBody
     }
 
     // A version-guarded command is checked against the version read just before it, as the detail page holds it; a stale
-    // answer surfaces as an error and the reload shows the list as it now is.
+    // answer surfaces as an error and the reload shows the list as it now is. A background command is started over the row,
+    // with no version read.
     private async Task<ErrorOr<Success>> SendAsync(CommandView command, TItem item)
     {
         Guid id = IdOf(item);
+
+        if (command.Background is not null)
+        {
+            ViewSendResult started = await GeneratedViewSupport.SendFromIdAsync(Dispatcher, command, id, version: null);
+            return started.IsError ? ErrorsOf(started) : Result.Success;
+        }
+
         object request = command.BuildFromId!(id);
 
         if (!command.RequiresVersion)
@@ -378,9 +392,34 @@ public sealed partial class GeneratedListBody<TItem> : IGeneratedListBody
 
     private async Task RunSelectedAsync(CommandView command, IReadOnlyList<TItem> items)
     {
+        if (command.Background is not null)
+        {
+            await StartSelectedAsync(command, items);
+            return;
+        }
+
         SerginBulkOutcome outcome = await SerginBulk.RunAsync(items, item => SendAsync(command, item));
 
         outcome.Report(ErrorPresenter, Snackbar, Localizer, Formatter, command.BulkSucceededText ?? ShellTexts.CommandActions.BulkDone);
+        await ChangedAsync();
+    }
+
+    // A background command runs as one run over every selected row, not a send per row. The reload clears the selection.
+    private async Task StartSelectedAsync(CommandView command, IReadOnlyList<TItem> items)
+    {
+        ViewSendResult result = await GeneratedViewSupport.StartManyAsync(
+            Dispatcher, command, [.. items.Select(item => new ScheduledTaskTarget(IdOf(item), null))]);
+
+        if (result.IsError)
+        {
+            ErrorPresenter.Notify(result.Errors);
+        }
+        else
+        {
+            Snackbar.Add(
+                Localizer.Text(ShellTexts.CommandActions.BackgroundStartedMany, new { Count = Formatter.Number(items.Count) }), Severity.Info);
+        }
+
         await ChangedAsync();
     }
 

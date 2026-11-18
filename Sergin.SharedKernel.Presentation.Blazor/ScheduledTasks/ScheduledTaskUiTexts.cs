@@ -137,6 +137,8 @@ public static class ScheduledTaskUiTexts
 
         public static TextDefinition OneOff { get; } = runs.Text("OneOff", "One-off");
 
+        public static TextDefinition Background { get; } = runs.Text("Background", "Background");
+
         public static TextDefinition Running { get; } = runs.Text("Running", "Running");
 
         public static TextDefinition Completed { get; } = runs.Text("Completed", "Completed");

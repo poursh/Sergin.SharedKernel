@@ -1,6 +1,9 @@
 using System.Reflection;
+using Sergin.SharedKernel.Application.Commands;
 using Sergin.SharedKernel.Application.Concurrency;
+using Sergin.SharedKernel.Application.ScheduledTasks.Commands;
 using Sergin.SharedKernel.Domain;
+using Sergin.SharedKernel.Domain.ScheduledTasks;
 using Sergin.SharedKernel.Modules;
 using Sergin.SharedKernel.Presentation.Blazor.Dispatching;
 using Sergin.SharedKernel.Presentation.Blazor.Errors;
@@ -124,12 +127,54 @@ internal static class GeneratedViewSupport
     public static string DisplayOf(object? record, FieldView? titleField, Guid fallback) =>
         (record is null || titleField is null ? null : titleField.Get(record))?.ToString() ?? fallback.ToString();
 
-    /// <summary>Sends a command built from the record's id, at <paramref name="version"/> only when the command is version-guarded.</summary>
+    /// <summary>
+    /// Sends a command built from the record's id, at <paramref name="version"/> only when the command is version-guarded;
+    /// a background command is started as a run over the record instead, answering its
+    /// <see cref="BackgroundRunStartedResponse"/> with no version sent or read.
+    /// </summary>
     public static Task<ViewSendResult> SendFromIdAsync(ISerginDispatcher dispatcher, CommandView command, Guid id, RowVersion? version)
     {
         ArgumentNullException.ThrowIfNull(command);
 
-        return SendAsync(dispatcher, command, command.BuildFromId!(id), version);
+        return command.Background is not null
+            ? StartManyAsync(dispatcher, command, [new ScheduledTaskTarget(id, null)])
+            : SendAsync(dispatcher, command, command.BuildFromId!(id), version);
+    }
+
+    /// <summary>
+    /// Starts a background command as one run over <paramref name="targets"/>. The template is built from the first target
+    /// (a root command from its id, a child command from its root id and id); the run takes each item's ids from its target.
+    /// </summary>
+    internal static async Task<ViewSendResult> StartManyAsync(
+        ISerginDispatcher dispatcher, CommandView command, IReadOnlyCollection<ScheduledTaskTarget> targets)
+    {
+        ArgumentNullException.ThrowIfNull(dispatcher);
+        ArgumentNullException.ThrowIfNull(command);
+        ArgumentNullException.ThrowIfNull(targets);
+
+        ScheduledTaskTarget first = targets.FirstOrDefault()
+            ?? throw new ArgumentException("A background command is started over at least one record.", nameof(targets));
+        ErrorOr<BackgroundRunStartedResponse> started = await dispatcher.StartAsync((IBaseCommand)TemplateOf(command, first), targets);
+
+        return started.IsError
+            ? new ViewSendResult(null, null, started.Errors)
+            : new ViewSendResult(started.Value, null, []);
+    }
+
+    private static object TemplateOf(CommandView command, ScheduledTaskTarget target)
+    {
+        if (command.BuildFromId is { } fromId)
+        {
+            return fromId(target.TargetId);
+        }
+
+        if (command.BuildFromIds is { } fromIds && target.RootId is { } rootId)
+        {
+            return fromIds(rootId, target.TargetId);
+        }
+
+        throw new InvalidOperationException(
+            $"{command.Request.FullName} cannot be started from a view: its constructor is neither id-only nor (RootId, Id) with a root id given.");
     }
 
     /// <summary>Sends <paramref name="request"/>, built for <paramref name="command"/>, at <paramref name="version"/> only when the command is version-guarded.</summary>
