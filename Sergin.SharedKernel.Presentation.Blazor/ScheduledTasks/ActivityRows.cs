@@ -18,7 +18,7 @@ internal enum ActivityState
 /// <summary>
 /// One run as the activity indicator shows it: the command's view label (null when no view names it, and
 /// <paramref name="CommandName"/> shows instead), the target's stored label or a record count, the target's detail link
-/// for a one-record root target, and where the run stands.
+/// for a one-record root target, where the run stands, and a one-record run's first error as stored.
 /// </summary>
 internal sealed record ActivityRow(
     BackgroundRunRef Ref,
@@ -31,7 +31,8 @@ internal sealed record ActivityRow(
     DateTime? CompletedAtUtc,
     int Done,
     int Total,
-    string? FirstErrorCode)
+    string? FirstErrorCode,
+    string? FirstErrorDescription)
 {
     public bool IsRunning => State == ActivityState.Running;
 }
@@ -94,7 +95,8 @@ internal static class ActivityRows
             item.CompletedAtUtc,
             item.Succeeded + item.Failed,
             item.Total,
-            item.FirstErrorCode);
+            item.FirstErrorCode,
+            item.FirstErrorDescription);
     }
 
     private static TextDefinition? LabelOf(ScheduledCommand? command, AggregateViewModel? model)

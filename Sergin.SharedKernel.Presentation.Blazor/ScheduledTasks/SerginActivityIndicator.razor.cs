@@ -37,7 +37,8 @@ public sealed partial class SerginActivityIndicator : IDisposable
     private bool started;
     private bool open;
     private volatile bool disposed;
-    private int polling;
+    private bool reloading;
+    private bool reloadPending;
 
     [Inject]
     private ISerginDispatcher Dispatcher { get; set; } = default!;
@@ -153,7 +154,13 @@ public sealed partial class SerginActivityIndicator : IDisposable
         await ReloadAsync();
     }
 
-    /// <summary>Reads the activity again; a run that finished since the last read raises one snackbar.</summary>
+    /// <summary>
+    /// Reads the activity again; a run that finished since the last read raises one snackbar. Single-flight: a reload asked
+    /// for while one is reading (a burst of notifier events as a bulk run's items finish, a poll tick) is not started
+    /// beside it but runs once more after it, however many were asked for. So reads are applied in the order they were
+    /// made, an older read never overwrites a newer one, and a burst costs at most two reads. Every caller is on the
+    /// circuit's synchronization context (InvokeAsync), so the two flags need no lock.
+    /// </summary>
     internal async Task ReloadAsync()
     {
         if (disposed || IsAnonymous)
@@ -161,6 +168,31 @@ public sealed partial class SerginActivityIndicator : IDisposable
             return;
         }
 
+        if (reloading)
+        {
+            reloadPending = true;
+            return;
+        }
+
+        reloading = true;
+
+        try
+        {
+            do
+            {
+                reloadPending = false;
+                await LoadOnceAsync();
+            }
+            while (reloadPending && !disposed);
+        }
+        finally
+        {
+            reloading = false;
+        }
+    }
+
+    private async Task LoadOnceAsync()
+    {
         ErrorOr<IReadOnlyList<ActivityItem>> result;
 
         try
@@ -327,22 +359,10 @@ public sealed partial class SerginActivityIndicator : IDisposable
     {
         try
         {
-            while (await timer.WaitForNextTickAsync())
+            // A tick during a read joins it rather than starting another: ReloadAsync is single-flight.
+            while (!disposed && await timer.WaitForNextTickAsync())
             {
-                // A tick that arrives while the previous read is still going is dropped, so reads never pile up.
-                if (disposed || Interlocked.Exchange(ref polling, 1) == 1)
-                {
-                    continue;
-                }
-
-                try
-                {
-                    await InvokeAsync(ReloadAsync);
-                }
-                finally
-                {
-                    Interlocked.Exchange(ref polling, 0);
-                }
+                await InvokeAsync(ReloadAsync);
             }
         }
         catch (Exception exception) when (exception is not OperationCanceledException)
@@ -423,11 +443,9 @@ public sealed partial class SerginActivityIndicator : IDisposable
 
     private string ProgressText(ActivityRow row) => $"{Formatter.Number(row.Done)} / {Formatter.Number(row.Total)}";
 
-    // The first error of a one-record failure, as the platform renders an error code: its declared detail.
-    private string? ErrorText(ActivityRow row) =>
-        row is { State: ActivityState.Failed, Total: 1, FirstErrorCode: { } code }
-            ? Localizer.Text(ErrorTexts.For(code, ErrorType.Failure).Detail)
-            : null;
+    // The first error of a one-record failure as the runs dialog shows it: the item's stored description, else its code.
+    private static string? ErrorText(ActivityRow row) =>
+        row is { State: ActivityState.Failed, Total: 1 } ? row.FirstErrorDescription ?? row.FirstErrorCode : null;
 
     private static string IconOf(ActivityRow row) =>
         row.State switch

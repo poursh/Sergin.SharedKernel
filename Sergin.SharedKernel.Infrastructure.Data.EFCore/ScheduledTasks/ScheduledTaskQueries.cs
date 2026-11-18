@@ -291,10 +291,10 @@ internal sealed class ScheduledTaskQueries(
                    (SELECT count(*) FROM {{quoted}}.scheduled_task_run_items u
                     WHERE u.run_id = r.id AND u.status IN ('Pending', 'Running', 'Retrying'))::int AS Unfinished,
                    one.target_id AS TargetId, one.root_id AS RootId, one.target_label AS TargetLabel,
-                   one.error_code AS FirstErrorCode
+                   one.error_code AS FirstErrorCode, one.error_description AS FirstErrorDescription
             FROM {{quoted}}.scheduled_task_runs r
             LEFT JOIN LATERAL (
-                SELECT i.target_id, i.root_id, i.target_label, i.error_code
+                SELECT i.target_id, i.root_id, i.target_label, i.error_code, i.error_description
                 FROM {{quoted}}.scheduled_task_run_items i
                 WHERE i.run_id = r.id AND r.total = 1
                 ORDER BY i.id
@@ -332,7 +332,8 @@ internal sealed class ScheduledTaskQueries(
                 row.TargetId,
                 row.RootId,
                 row.TargetLabel,
-                row.FirstErrorCode)),
+                row.FirstErrorCode,
+                row.FirstErrorDescription)),
         ];
 
         return items.ToErrorOr();
@@ -482,5 +483,7 @@ internal sealed class ScheduledTaskQueries(
         public string? TargetLabel { get; set; }
 
         public string? FirstErrorCode { get; set; }
+
+        public string? FirstErrorDescription { get; set; }
     }
 }
