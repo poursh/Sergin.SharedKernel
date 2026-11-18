@@ -164,6 +164,7 @@ internal sealed partial class ScheduledRunItemExecutor(
             await using AsyncServiceScope scope = scopes.CreateAsyncScope();
             scope.ServiceProvider.GetRequiredService<UserContextAccessor>().Current = new DelegatedUserContext(run.ActingUserId, run.Id);
             scope.ServiceProvider.GetRequiredService<IAuthorizationScopeContext>().Set(run.ScopeId);
+            scope.ServiceProvider.GetRequiredService<RunItemContext>().Set(item.Id);
 
             object? response = await scope.ServiceProvider.GetRequiredService<ISender>().Send(built.Value, ct);
 

@@ -31,4 +31,7 @@ public static class ScheduledTaskTexts
 
     /// <summary>An edit whose template is another command than the one the schedule was saved with.</summary>
     public static readonly TextDefinition CommandChanged = errors.Text("CommandChanged", "A saved schedule always sends the same command.");
+
+    /// <summary>A background command sent inline instead of started as a run.</summary>
+    public static readonly TextDefinition MustRunInBackground = errors.Text("MustRunInBackground", "This action runs in the background. Start it instead of sending it.");
 }

@@ -1,3 +1,5 @@
+using Sergin.SharedKernel.Domain.Localizations;
+
 namespace Sergin.SharedKernel.Application.ScheduledTasks;
 
 /// <summary>The errors a scheduled task or one of its run items can end with.</summary>
@@ -45,4 +47,11 @@ public static class ScheduledTaskErrors
     /// <summary>More targets than a command that runs once per selected row may take, or more than one for one that does not.</summary>
     public static Error TooManyTargets { get; } =
         Error.Validation("ScheduledTasks.TooManyTargets", "This command cannot be scheduled for that many records.");
+
+    /// <summary>A background command sent inline instead of started as a run.</summary>
+    public static Error MustRunInBackground { get; } =
+        Error.Validation(
+            "ScheduledTasks.MustRunInBackground",
+            ScheduledTaskTexts.MustRunInBackground.Default,
+            ErrorText.Of(ScheduledTaskTexts.MustRunInBackground.Key.Value));
 }
