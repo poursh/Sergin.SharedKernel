@@ -112,6 +112,13 @@ internal sealed partial class ScheduledRunItemExecutor(
             await heartbeat;
         }
 
+        // However the send ended once the timeout fired (a wrapped cancellation, an Unexpected error, even a late success),
+        // the command outran its timeout: record that, never a retry.
+        if (timeout.HasValue && timeoutSource.IsCancellationRequested && !ct.IsCancellationRequested)
+        {
+            outcome = ScheduledTaskErrors.TimedOut(timeout.Value);
+        }
+
         if (outcome.IsError && outcome.FirstError.Type == ErrorType.Unexpected)
         {
             if (item.Attempts < settings.MaxAttempts)
@@ -188,8 +195,10 @@ internal sealed partial class ScheduledRunItemExecutor(
                     IScheduledTaskStore store = scope.ServiceProvider.GetRequiredService<IScheduledTaskStoreResolver>().For(schema);
                     await store.TouchRunItemAsync(runItemId, clock.UtcNow, stop);
                 }
-                catch (Exception exception) when (exception is not OperationCanceledException)
+                catch (Exception exception) when (!stop.IsCancellationRequested)
                 {
+                    // Any failure, a cancellation the stop token did not cause included: a faulted heartbeat would throw
+                    // from the executor's finally and replace the outcome.
                     LogHeartbeatFailed(exception, runItemId);
                 }
             }
