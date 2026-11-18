@@ -123,7 +123,7 @@ public sealed class ScheduledCommandCatalog
         Type idType = request.GetProperty("Id")!.PropertyType;
         Type? rootIdType = target.Kind == CommandTargetKind.ChildEntity ? request.GetProperty("RootId")!.PropertyType : null;
 
-        found.Add(new ScheduledCommand(name, schema, request, target.Root, target.Kind, idType, rootIdType, CommandTypes.IsSelectable(request)));
+        found.Add(new ScheduledCommand(name, schema, request, target.Root, target.Kind, idType, rootIdType, CommandTypes.IsSelectable(request), settings.Background));
     }
 
     private static IEnumerable<Type> RequestsConfiguredBy(Type configurationType) =>

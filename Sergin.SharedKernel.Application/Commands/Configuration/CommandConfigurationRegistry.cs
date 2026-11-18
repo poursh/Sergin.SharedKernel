@@ -206,16 +206,43 @@ public sealed class CommandConfigurationRegistry
                 + "collection of a Versioned() root does. Drop WithoutExpectedVersion().");
         }
 
+        EnsureBackground(configurationType, requestType, builder);
+
         bool requiresVersion = requiredByType && !builder.ExpectedVersionWaived;
         PermissionScope scope = ScopeOf(aggregateRoot, features);
 
-        CommandSettings declared = builder.Permissions.Count == 0 && !requiresVersion && aggregateRoot is null && builder.ScheduleName is null
+        CommandSettings declared = builder.Permissions.Count == 0 && !requiresVersion && aggregateRoot is null && builder.ScheduleName is null && builder.BackgroundDeclaration is null
             ? CommandSettings.None
-            : new CommandSettings([.. builder.Permissions.Distinct()], requiresVersion, scope, aggregateRoot, builder.ScheduleName);
+            : new CommandSettings([.. builder.Permissions.Distinct()], requiresVersion, scope, aggregateRoot, builder.ScheduleName, builder.BackgroundDeclaration);
 
         TextCategory? category = builder.TextCategory ?? (aggregateRoot is null ? null : aggregates.TextsOf(aggregateRoot));
 
         return (declared, new Texts(category, builder.HiddenProperties.ToHashSet(StringComparer.Ordinal)));
+    }
+
+    private static void EnsureBackground(Type configurationType, Type requestType, CommandConfigurationBuilder builder)
+    {
+        if (builder.BackgroundDeclaration is not { } background)
+        {
+            return;
+        }
+
+        string who = $"Command configuration {configurationType.FullName} calls Background() for {requestType.FullName}, ";
+
+        if (builder.ScheduleName is null)
+        {
+            throw new InvalidOperationException(who + "which is not Schedulable(name): a background command runs as a scheduled run item, so declare Schedulable(name) too.");
+        }
+
+        if (background.Timeout is { } timeout && timeout <= TimeSpan.Zero)
+        {
+            throw new InvalidOperationException(who + $"with a timeout of {timeout}, which must be greater than zero.");
+        }
+
+        if (background.Timeout > BackgroundSettings.MaxTimeout)
+        {
+            throw new InvalidOperationException(who + $"with a timeout of {background.Timeout}, which is above the maximum of 1 hour.");
+        }
     }
 
     /// <summary>
