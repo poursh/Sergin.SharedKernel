@@ -51,6 +51,13 @@ public interface IScheduledTaskStore
     /// </summary>
     Task<bool> TryClaimRunItemAsync(Guid runItemId, DateTime now, DateTime staleBefore, CancellationToken ct);
 
+    /// <summary>
+    /// The heartbeat of a delivery still sending its command: one conditional update stamps the item's activity with
+    /// <paramref name="now"/> while it is Running, so the recovery does not take a long command for a lost one. True when a
+    /// row changed; false when the item is finished, purged, or no longer Running.
+    /// </summary>
+    Task<bool> TouchRunItemAsync(Guid runItemId, DateTime now, CancellationToken ct);
+
     /// <summary>The unfinished run items quiet since before <paramref name="quietSince"/>: their jobs are taken for lost.</summary>
     Task<IReadOnlyCollection<Guid>> ListStaleRunItemsAsync(DateTime quietSince, CancellationToken ct);
 

@@ -23,6 +23,13 @@ namespace Sergin.SharedKernel.Application.ScheduledTasks;
 /// attempts were made; then it is Failed as <see cref="ScheduledTaskErrors.ExhaustedCode"/>. Whatever the command
 /// does, nothing is thrown to the engine. Once an item finishes, the run is completed if it was the last.
 /// </para>
+/// <para>
+/// While the command runs, a heartbeat stamps the item's activity every third of
+/// <see cref="ScheduledTaskOptions.StaleAfter"/>, so the recovery never re-sends a command that is still running. A
+/// background command whose declared timeout passes is cancelled and Failed as
+/// <see cref="ScheduledTaskErrors.TimedOutCode"/>, never retried; a cancellation of the engine's own token (a host
+/// shutdown) is not a timeout, and propagates, leaving the item Running for the recovery.
+/// </para>
 /// </summary>
 internal sealed partial class ScheduledRunItemExecutor(
     IServiceScopeFactory scopes,
@@ -74,7 +81,36 @@ internal sealed partial class ScheduledRunItemExecutor(
             return false;
         }
 
-        ErrorOr<Success> outcome = await SendAsync(run, item, ct);
+        ScheduledCommand? command = catalog.TryGet(run.CommandName, out ScheduledCommand? declared) ? declared : null;
+        TimeSpan? timeout = command?.Background?.Timeout;
+
+        // The heartbeat keeps the item's activity fresh while the command runs, so the recovery never takes a command
+        // that runs longer than StaleAfter for a lost one. It stops, and is awaited, before the outcome is saved.
+        using var stopHeartbeat = CancellationTokenSource.CreateLinkedTokenSource(ct);
+        using var timeoutSource = CancellationTokenSource.CreateLinkedTokenSource(ct);
+
+        if (timeout is { } limit)
+        {
+            timeoutSource.CancelAfter(limit);
+        }
+
+        Task heartbeat = HeartbeatAsync(schema, item.Id, settings.StaleAfter / 3, stopHeartbeat.Token);
+        ErrorOr<Success> outcome;
+
+        try
+        {
+            outcome = await SendAsync(run, item, command, timeoutSource.Token);
+        }
+        catch (OperationCanceledException) when (timeout.HasValue && timeoutSource.IsCancellationRequested && !ct.IsCancellationRequested)
+        {
+            // The command's own timeout, not a host shutdown: final, like any ErrorOr error that is not Unexpected.
+            outcome = ScheduledTaskErrors.TimedOut(timeout.Value);
+        }
+        finally
+        {
+            await stopHeartbeat.CancelAsync();
+            await heartbeat;
+        }
 
         if (outcome.IsError && outcome.FirstError.Type == ErrorType.Unexpected)
         {
@@ -102,9 +138,9 @@ internal sealed partial class ScheduledRunItemExecutor(
         return false;
     }
 
-    private async Task<ErrorOr<Success>> SendAsync(ScheduledTaskRun run, ScheduledTaskRunItem item, CancellationToken ct)
+    private async Task<ErrorOr<Success>> SendAsync(ScheduledTaskRun run, ScheduledTaskRunItem item, ScheduledCommand? command, CancellationToken ct)
     {
-        if (!catalog.TryGet(run.CommandName, out ScheduledCommand? command))
+        if (command is null)
         {
             return ScheduledTaskErrors.UnknownCommand;
         }
@@ -132,6 +168,40 @@ internal sealed partial class ScheduledRunItemExecutor(
             return Error.Unexpected(exception.GetType().FullName ?? exception.GetType().Name, exception.Message);
         }
     }
+
+    /// <summary>
+    /// Stamps the item's activity every <paramref name="interval"/> until <paramref name="stop"/> is cancelled. Each touch
+    /// opens its own scope and store: the executor's context is busy with the send and is not thread-safe. A failed touch
+    /// is logged and the next tick tries again; nothing is thrown.
+    /// </summary>
+    private async Task HeartbeatAsync(string schema, Guid runItemId, TimeSpan interval, CancellationToken stop)
+    {
+        using var timer = new PeriodicTimer(interval);
+
+        try
+        {
+            while (await timer.WaitForNextTickAsync(stop))
+            {
+                try
+                {
+                    await using AsyncServiceScope scope = scopes.CreateAsyncScope();
+                    IScheduledTaskStore store = scope.ServiceProvider.GetRequiredService<IScheduledTaskStoreResolver>().For(schema);
+                    await store.TouchRunItemAsync(runItemId, clock.UtcNow, stop);
+                }
+                catch (Exception exception) when (exception is not OperationCanceledException)
+                {
+                    LogHeartbeatFailed(exception, runItemId);
+                }
+            }
+        }
+        catch (OperationCanceledException) when (stop.IsCancellationRequested)
+        {
+            // Stopped: the send finished, or the host is stopping.
+        }
+    }
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "The heartbeat of scheduled run item {RunItemId} failed; the next tick tries again.")]
+    private partial void LogHeartbeatFailed(Exception exception, Guid runItemId);
 
     [LoggerMessage(Level = LogLevel.Warning, Message = "Scheduled run item {RunItemId} of run {RunId} ({CommandName}) threw on attempt {Attempt}.")]
     private partial void LogAttemptThrew(Exception exception, Guid runItemId, Guid runId, string commandName, int attempt);

@@ -143,6 +143,11 @@ internal sealed class EfScheduledTaskStore<TContext>(TContext context, string sc
                     .SetProperty(item => item.LastActivityAtUtc, now),
                 ct) == 1;
 
+    public async Task<bool> TouchRunItemAsync(Guid runItemId, DateTime now, CancellationToken ct) =>
+        await context.ScheduledTaskRunItems
+            .Where(item => item.Id == runItemId && item.Status == ScheduledRunItemStatus.Running)
+            .ExecuteUpdateAsync(set => set.SetProperty(item => item.LastActivityAtUtc, now), ct) == 1;
+
     public async Task<IReadOnlyCollection<Guid>> ListStaleRunItemsAsync(DateTime quietSince, CancellationToken ct) =>
         await Unfinished(quietSince).Select(item => item.Id).ToListAsync(ct);
 
