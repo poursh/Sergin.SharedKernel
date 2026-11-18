@@ -106,6 +106,7 @@ public static class SerginCoreExtensions
                 options.RegisterServicesFromAssembly(remoteModule.ContractsAssembly);
             }
 
+            options.AddOpenBehavior(typeof(BackgroundCommandGuardBehavior<,>));
             options.AddOpenBehavior(typeof(PermissionCheckPipelineBehavior<,>));
             options.AddOpenBehavior(typeof(ExpectedVersionPipelineBehavior<,>));
             options.AddOpenBehavior(typeof(ValidationPipelineBehavior<,>));
@@ -275,6 +276,8 @@ public static class SerginCoreExtensions
         builder.Services.AddScoped<IDbConnectionFactory>(p => new PostgresDbConnectionFactory(connectionString));
 
         builder.Services.AddScoped<UserContextAccessor>();
+        builder.Services.AddScoped<RunItemContext>();
+        builder.Services.AddScoped<IRunItemContext>(provider => provider.GetRequiredService<RunItemContext>());
 
         // Seeded by each front end before a send and read back after it; see ConcurrencyContext.
         builder.Services.AddScoped<ConcurrencyContext>();
@@ -286,6 +289,7 @@ public static class SerginCoreExtensions
         // save's record check, the scope query filter and raw-SQL reads.
         builder.Services.AddScoped<RequiredPermissionsContext>();
         builder.Services.AddScoped<ScopeFilter>();
+        builder.Services.AddScoped<RequestPermissionGate>();
 
         // A seeded context wins over building a fresh one. Scopes opened from the root provider — every
         // Blazor dispatcher send — can reach neither an HttpContext nor the circuit's authentication

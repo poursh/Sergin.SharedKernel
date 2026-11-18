@@ -1,3 +1,5 @@
+using Sergin.SharedKernel.Domain.Localizations;
+
 namespace Sergin.SharedKernel.Application.ScheduledTasks;
 
 /// <summary>The errors a scheduled task or one of its run items can end with.</summary>
@@ -5,6 +7,15 @@ public static class ScheduledTaskErrors
 {
     /// <summary>The run item's code once every attempt threw.</summary>
     public const string ExhaustedCode = "ScheduledTasks.Exhausted";
+
+    /// <summary>The run item's code when a background command ran longer than its declared timeout; final, never retried.</summary>
+    public const string TimedOutCode = "ScheduledTasks.TimedOut";
+
+    /// <summary>A background command cancelled at its declared timeout.</summary>
+    public static Error TimedOut(TimeSpan timeout) =>
+        Error.Failure(
+            TimedOutCode,
+            $"The command ran longer than its timeout of {timeout.ToString("c", System.Globalization.CultureInfo.InvariantCulture)}.");
 
     /// <summary>A stored command name no configuration declares any more.</summary>
     public static Error UnknownCommand { get; } =
@@ -33,7 +44,18 @@ public static class ScheduledTaskErrors
     public static Error NotSchedulable { get; } =
         Error.Validation("ScheduledTasks.NotSchedulable", "This command cannot be scheduled.");
 
+    /// <summary>A command started in the background whose configuration does not call <c>Background()</c>.</summary>
+    public static Error NotBackground { get; } =
+        Error.Validation("ScheduledTasks.NotBackground", ScheduledTaskTexts.NotBackground.Default);
+
     /// <summary>More targets than a command that runs once per selected row may take, or more than one for one that does not.</summary>
     public static Error TooManyTargets { get; } =
         Error.Validation("ScheduledTasks.TooManyTargets", "This command cannot be scheduled for that many records.");
+
+    /// <summary>A background command sent inline instead of started as a run.</summary>
+    public static Error MustRunInBackground { get; } =
+        Error.Validation(
+            "ScheduledTasks.MustRunInBackground",
+            ScheduledTaskTexts.MustRunInBackground.Default,
+            ErrorText.Of(ScheduledTaskTexts.MustRunInBackground.Key.Value));
 }

@@ -35,6 +35,9 @@ public sealed class ScheduledTaskOptions
     /// <summary>How often the recovery looks for stale run items.</summary>
     public TimeSpan RecoveryInterval { get; set; } = TimeSpan.FromMinutes(1);
 
+    /// <summary>The most records one start of a background command may pick; each is a run item.</summary>
+    public int MaxBackgroundTargets { get; set; } = 1000;
+
     /// <summary>Names the first key scheduled tasks could not run with, the way <c>OutboxOptions.Validate</c> does.</summary>
     public bool Validate(out string failure)
     {
@@ -71,6 +74,12 @@ public sealed class ScheduledTaskOptions
         if (RecoveryInterval <= TimeSpan.Zero)
         {
             failure = $"Sergin:{SectionName}:{nameof(RecoveryInterval)} must be a positive duration.";
+            return false;
+        }
+
+        if (MaxBackgroundTargets < 1)
+        {
+            failure = $"Sergin:{SectionName}:{nameof(MaxBackgroundTargets)} must be at least 1.";
             return false;
         }
 

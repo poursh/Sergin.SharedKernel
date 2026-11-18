@@ -13,7 +13,8 @@ public sealed record CommandSettings(
     bool RequiresExpectedVersion,
     PermissionScope PermissionScope = PermissionScope.Current,
     Type? AggregateRoot = null,
-    string? ScheduleName = null)
+    string? ScheduleName = null,
+    BackgroundSettings? Background = null)
 {
     public static CommandSettings None { get; } = new([], false);
 }

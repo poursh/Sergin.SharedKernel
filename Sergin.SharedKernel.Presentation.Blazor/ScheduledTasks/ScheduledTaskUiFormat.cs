@@ -38,6 +38,7 @@ internal static class ScheduledTaskUiFormat
         {
             ScheduledRunTrigger.Scheduled => ScheduledTaskUiTexts.Runs.Scheduled,
             ScheduledRunTrigger.RunNow => ScheduledTaskUiTexts.Runs.RunNowTrigger,
+            ScheduledRunTrigger.Background => ScheduledTaskUiTexts.Runs.Background,
             _ => ScheduledTaskUiTexts.Runs.OneOff,
         };
 

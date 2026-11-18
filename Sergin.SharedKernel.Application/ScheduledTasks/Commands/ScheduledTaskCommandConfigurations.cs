@@ -52,3 +52,11 @@ internal sealed class RunCommandOnceCommandConfiguration : ICommandConfiguration
         builder.RequirePermissions(ScheduledTaskPermissions.Manage)
             .NotShown(x => x.Schema).NotShown(x => x.Template).NotShown(x => x.Targets);
 }
+
+// The one start that needs no Manage: the handler checks the background command's own permissions, as the pipeline
+// would check them for the command itself.
+internal sealed class StartBackgroundCommandConfiguration : ICommandConfiguration<StartBackgroundCommand>
+{
+    public void Configure(CommandConfigurationBuilder<StartBackgroundCommand> builder) =>
+        builder.NotShown(x => x.Template).NotShown(x => x.Targets);
+}

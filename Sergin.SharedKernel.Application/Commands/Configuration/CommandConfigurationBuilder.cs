@@ -14,6 +14,9 @@ public abstract class CommandConfigurationBuilder
     /// <summary>The stable name the configuration gave with <c>Schedulable(name)</c>, or null when the request may not be scheduled.</summary>
     internal string? ScheduleName { get; private protected set; }
 
+    /// <summary>What <c>Background(timeout)</c> declared, or null.</summary>
+    internal BackgroundSettings? BackgroundDeclaration { get; private protected set; }
+
     /// <summary>The text category the request's fields are declared in, or null to take its typed root's.</summary>
     internal TextCategory? TextCategory { get; private protected set; }
 
@@ -66,6 +69,17 @@ public sealed class CommandConfigurationBuilder<TCommand> : CommandConfiguration
         ArgumentException.ThrowIfNullOrWhiteSpace(name);
 
         ScheduleName = name;
+        return this;
+    }
+
+    /// <summary>
+    /// Makes this schedulable request run only as a background run item, stopped after <paramref name="timeout"/>
+    /// (null takes the platform default). The registry refuses it without <c>Schedulable(name)</c>, with a timeout
+    /// that is zero or negative, or above <see cref="BackgroundSettings.MaxTimeout"/>.
+    /// </summary>
+    public CommandConfigurationBuilder<TCommand> Background(TimeSpan? timeout = null)
+    {
+        BackgroundDeclaration = new BackgroundSettings(timeout);
         return this;
     }
 

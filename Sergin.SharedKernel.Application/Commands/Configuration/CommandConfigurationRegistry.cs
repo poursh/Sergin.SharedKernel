@@ -1,4 +1,5 @@
-﻿using System.Reflection;
+﻿using System.Globalization;
+using System.Reflection;
 using Sergin.SharedKernel.Application.Aggregates;
 using Sergin.SharedKernel.Application.Commands.Types;
 using Sergin.SharedKernel.Application.Localizations;
@@ -15,7 +16,9 @@ namespace Sergin.SharedKernel.Application.Commands.Configuration;
 /// expected version unless its configuration calls <c>WithoutExpectedVersion()</c>. An untyped request has no root, is
 /// checked on the current scope and never requires a version. Refuses two configurations for one request, a
 /// configuration without a parameterless constructor, a configuration whose Configure throws, a required permission
-/// no aggregate registered, and an opt-out where nothing is required — each naming the type.
+/// no aggregate registered, an opt-out where nothing is required, and a <c>Background()</c> that is not also
+/// <c>Schedulable(name)</c>, has a timeout outside (0, <see cref="BackgroundSettings.MaxTimeout"/>], or is declared on
+/// anything but a root's <c>ITransitionCommand</c> — each naming the type.
 /// </summary>
 public sealed class CommandConfigurationRegistry
 {
@@ -206,17 +209,65 @@ public sealed class CommandConfigurationRegistry
                 + "collection of a Versioned() root does. Drop WithoutExpectedVersion().");
         }
 
+        EnsureBackground(configurationType, requestType, builder);
+
         bool requiresVersion = requiredByType && !builder.ExpectedVersionWaived;
         PermissionScope scope = ScopeOf(aggregateRoot, features);
 
-        CommandSettings declared = builder.Permissions.Count == 0 && !requiresVersion && aggregateRoot is null && builder.ScheduleName is null
+        CommandSettings declared = builder.Permissions.Count == 0 && !requiresVersion && aggregateRoot is null && builder.ScheduleName is null && builder.BackgroundDeclaration is null
             ? CommandSettings.None
-            : new CommandSettings([.. builder.Permissions.Distinct()], requiresVersion, scope, aggregateRoot, builder.ScheduleName);
+            : new CommandSettings([.. builder.Permissions.Distinct()], requiresVersion, scope, aggregateRoot, builder.ScheduleName, builder.BackgroundDeclaration);
 
         TextCategory? category = builder.TextCategory ?? (aggregateRoot is null ? null : aggregates.TextsOf(aggregateRoot));
 
         return (declared, new Texts(category, builder.HiddenProperties.ToHashSet(StringComparer.Ordinal)));
     }
+
+    private static void EnsureBackground(Type configurationType, Type requestType, CommandConfigurationBuilder builder)
+    {
+        if (builder.BackgroundDeclaration is not { } background)
+        {
+            return;
+        }
+
+        string who = $"Command configuration {configurationType.FullName} calls Background() for {requestType.FullName}, ";
+
+        if (builder.ScheduleName is null)
+        {
+            throw new InvalidOperationException(who + "which is not Schedulable(name): a background command runs as a scheduled run item, so declare Schedulable(name) too.");
+        }
+
+        if (background.Timeout is { } timeout && timeout <= TimeSpan.Zero)
+        {
+            throw new InvalidOperationException(who + $"with a timeout of {timeout}, which must be greater than zero.");
+        }
+
+        if (background.Timeout > BackgroundSettings.MaxTimeout)
+        {
+            throw new InvalidOperationException(
+                who + $"with a timeout of {background.Timeout}, which is above the maximum of {Describe(BackgroundSettings.MaxTimeout)}.");
+        }
+
+        // The generated views start a background command from a root's action, with no value to ask for and no confirm:
+        // the shape a root's ITransitionCommand has. Any other effect would be sent there inline, and refused.
+        if (!CommandTypes.EffectsOf(requestType).Contains(typeof(ITransitionCommand<,>)))
+        {
+            throw new InvalidOperationException(
+                who + "which is not an ITransitionCommand on an aggregate root: only a root's transition is started in the "
+                + "background by the generated views. Declare the request as ITransitionCommand<TRoot, TId> or drop Background().");
+        }
+    }
+
+    /// <summary>A whole number of hours or minutes in words ("1 hour", "90 minutes"); anything else as a TimeSpan.</summary>
+    private static string Describe(TimeSpan span) => span switch
+    {
+        { Ticks: > 0 } when span.Ticks % TimeSpan.TicksPerHour == 0 => Plural((long)span.TotalHours, "hour"),
+        { Ticks: > 0 } when span.Ticks % TimeSpan.TicksPerMinute == 0 => Plural((long)span.TotalMinutes, "minute"),
+        _ => span.ToString("c", CultureInfo.InvariantCulture),
+    };
+
+    private static string Plural(long count, string unit) =>
+        string.Create(CultureInfo.InvariantCulture, $"{count} {unit}{(count == 1 ? string.Empty : "s")}");
 
     /// <summary>
     /// Every required permission must be <see cref="PermissionDefinition.AllPlatform"/> or one an aggregate

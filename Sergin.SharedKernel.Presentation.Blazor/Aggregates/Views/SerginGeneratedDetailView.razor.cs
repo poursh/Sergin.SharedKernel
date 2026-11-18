@@ -297,6 +297,20 @@ public sealed partial class SerginGeneratedDetailView<TRoot>
             return;
         }
 
+        // A background command was only started: nothing has changed yet, so the record is not read again; the schedule
+        // section is, so it lists the new run and polls it while it is Running.
+        if (command.Background is not null)
+        {
+            Snackbar.Add(Localizer.Text(ShellTexts.CommandActions.BackgroundStarted), Severity.Info);
+
+            if (section is not null)
+            {
+                await section.ReloadAsync();
+            }
+
+            return;
+        }
+
         if (command.SucceededText is { } succeeded)
         {
             Snackbar.Add(Localizer.Text(succeeded, PlaceholderArguments()), Severity.Success);

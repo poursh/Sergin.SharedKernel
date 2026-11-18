@@ -26,6 +26,7 @@ public static class ScheduledTaskConfigurationTypes
         typeof(DeleteScheduledTaskCommandConfiguration),
         typeof(RunScheduledTaskNowCommandConfiguration),
         typeof(RunCommandOnceCommandConfiguration),
+        typeof(StartBackgroundCommandConfiguration),
     ];
 
     /// <summary>The aggregate feature configurations among <see cref="All"/>, which an opting-in context applies.</summary>

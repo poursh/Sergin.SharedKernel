@@ -1,3 +1,4 @@
+using Sergin.SharedKernel.Application.Commands.Configuration;
 using Sergin.SharedKernel.Domain.Securities;
 using Sergin.SharedKernel.Presentation.Blazor.Actions;
 
@@ -50,6 +51,10 @@ namespace Sergin.SharedKernel.Presentation.Blazor.Aggregates.Model;
 /// parent's id; null for any other command, and for a hidden one.
 /// </param>
 /// <param name="MoveParentField">The move command's <c>NewParentId</c> field text, which labels its dialog's parent picker; null with no <paramref name="BuildMove"/>.</param>
+/// <param name="Background">
+/// What its configuration declared with <c>Background(timeout)</c>, or null: such a command is never sent inline, a view
+/// starts it as a background run over the record (or the selected rows) and reads no version.
+/// </param>
 public sealed record CommandView(
     Type Request,
     CommandRole Role,
@@ -80,7 +85,8 @@ public sealed record CommandView(
     Func<object, bool>? AppliesWhen = null,
     TextDefinition? ConfirmLabel = null,
     Func<Guid, Guid, object>? BuildMove = null,
-    FieldText? MoveParentField = null)
+    FieldText? MoveParentField = null,
+    BackgroundSettings? Background = null)
 {
     /// <summary>
     /// The values a delete's confirm asks for: its constructor's shown parameters beside the <c>Id</c>, built with
