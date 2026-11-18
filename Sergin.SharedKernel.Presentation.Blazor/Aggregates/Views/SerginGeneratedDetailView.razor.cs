@@ -95,6 +95,9 @@ public sealed partial class SerginGeneratedDetailView<TRoot>
     private ISnackbar Snackbar { get; set; } = default!;
 
     [Inject]
+    private ActivityPanelState ActivityPanel { get; set; } = default!;
+
+    [Inject]
     private IScopeAuthorization ScopeAuthorization { get; set; } = default!;
 
     [Inject]
@@ -301,7 +304,7 @@ public sealed partial class SerginGeneratedDetailView<TRoot>
         // section is, so it lists the new run and polls it while it is Running.
         if (command.Background is not null)
         {
-            Snackbar.Add(Localizer.Text(ShellTexts.CommandActions.BackgroundStarted), Severity.Info);
+            ActivityPanel.NotifyStarted(Snackbar, Localizer, Localizer.Text(ShellTexts.CommandActions.BackgroundStarted));
 
             if (section is not null)
             {

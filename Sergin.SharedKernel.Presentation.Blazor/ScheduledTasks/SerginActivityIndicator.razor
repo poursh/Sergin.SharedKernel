@@ -1,0 +1,72 @@
+@* The signed-in user's background runs, in the app bar: an icon whose badge counts the unfinished ones, opening a popover
+   of the running runs and those finished in the last 24 hours. Nothing renders until the first load succeeds, which is
+   after the first interactive render, so the prerender carries none of it. *@
+@if (Visible)
+{
+    <style>
+        .sergin-activity-popover { width: 380px; max-height: 70vh; overflow-y: auto; }
+        .sergin-activity-row + .sergin-activity-row { border-top: 1px solid var(--mud-palette-lines-default); }
+        @@media (max-width: 959.98px) {
+            .sergin-activity-popover { left: 0 !important; right: 0 !important; width: 100vw; max-width: 100vw; }
+        }
+    </style>
+    <div class="sergin-activity d-flex align-center">
+        <MudBadge Content="@RunningCount" Visible="@(RunningCount > 0)" Color="Color.Secondary" Overlap="true" Origin="Origin.TopRight">
+            <MudIconButton Icon="@Icons.Material.Outlined.Pending" Color="Color.Inherit" title="@OpenLabel" aria-label="@OpenLabel"
+                           aria-haspopup="dialog" aria-expanded="@(open ? "true" : "false")" OnClick="ToggleAsync" />
+        </MudBadge>
+        <MudPopover Open="open" Fixed="true" AnchorOrigin="Origin.BottomRight" TransformOrigin="Origin.TopRight" Paper="true" Elevation="8"
+                    Class="sergin-activity-popover">
+            <div class="pa-3" role="dialog" aria-label="@Localizer.Text(ScheduledTaskUiTexts.Activity.Heading)">
+                <MudText Typo="Typo.subtitle1">@Localizer.Text(ScheduledTaskUiTexts.Activity.Heading)</MudText>
+                @foreach ((TextDefinition heading, IReadOnlyList<ActivityRow> sectionRows) in Sections)
+                {
+                    <MudText Typo="Typo.overline" Class="d-block mt-2">@Localizer.Text(heading)</MudText>
+                    @if (sectionRows.Count == 0)
+                    {
+                        <MudText Typo="Typo.body2" Class="mud-text-secondary">@Localizer.Text(ScheduledTaskUiTexts.Activity.NothingRunning)</MudText>
+                    }
+                    @foreach (ActivityRow row in sectionRows)
+                    {
+                        <div class="sergin-activity-row py-2" @key="row.Ref">
+                            <div class="d-flex align-center gap-2">
+                                <MudIcon Icon="@IconOf(row)" Color="@ColorOf(row)" Size="Size.Small" />
+                                <MudText Typo="Typo.body2" Class="flex-grow-1"><b>@CommandText(row)</b></MudText>
+                                <MudText Typo="Typo.caption" Class="mud-text-secondary">@WhenText(row)</MudText>
+                            </div>
+                            <div class="d-flex align-center gap-2 ms-6">
+                                @if (row.Href is { } href)
+                                {
+                                    <MudLink Href="@href" Typo="Typo.body2" OnClick="Close">@row.Target</MudLink>
+                                }
+                                else
+                                {
+                                    <MudText Typo="Typo.body2">@row.Target</MudText>
+                                }
+                                @if (row.Total > 1)
+                                {
+                                    <MudText Typo="Typo.caption" Class="mud-text-secondary">@ProgressText(row)</MudText>
+                                }
+                            </div>
+                            @if (row.IsRunning && row.Total > 1)
+                            {
+                                <MudProgressLinear Value="@row.Done" Max="@row.Total" Color="Color.Primary" Class="ms-6 mt-1" />
+                            }
+                            @if (ErrorText(row) is { } error)
+                            {
+                                <MudText Typo="Typo.caption" Color="Color.Error" Class="d-block ms-6">@error</MudText>
+                            }
+                        </div>
+                    }
+                }
+                @if (Finished.Count > 0)
+                {
+                    <div class="d-flex justify-end mt-1">
+                        <MudButton Size="Size.Small" Variant="Variant.Text" OnClick="ClearAsync">@Localizer.Text(ScheduledTaskUiTexts.Activity.Clear)</MudButton>
+                    </div>
+                }
+            </div>
+        </MudPopover>
+        <MudOverlay Visible="open" OnClick="Close" LockScroll="false" />
+    </div>
+}

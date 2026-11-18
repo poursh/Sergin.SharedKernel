@@ -100,6 +100,9 @@ public sealed partial class GeneratedListBody<TItem> : IGeneratedListBody
     private ISnackbar Snackbar { get; set; } = default!;
 
     [Inject]
+    private ActivityPanelState ActivityPanel { get; set; } = default!;
+
+    [Inject]
     private IScopeAuthorization ScopeAuthorization { get; set; } = default!;
 
     [Inject]
@@ -271,7 +274,7 @@ public sealed partial class GeneratedListBody<TItem> : IGeneratedListBody
         else if (command.Background is not null)
         {
             // Only started: nothing has changed yet, so the rows are not read again.
-            Snackbar.Add(Localizer.Text(ShellTexts.CommandActions.BackgroundStarted), Severity.Info);
+            ActivityPanel.NotifyStarted(Snackbar, Localizer, Localizer.Text(ShellTexts.CommandActions.BackgroundStarted));
             return;
         }
         else if (command.SucceededText is { } succeeded)
@@ -420,8 +423,8 @@ public sealed partial class GeneratedListBody<TItem> : IGeneratedListBody
         }
         else
         {
-            Snackbar.Add(
-                Localizer.Text(ShellTexts.CommandActions.BackgroundStartedMany, new { Count = Formatter.Number(items.Count) }), Severity.Info);
+            ActivityPanel.NotifyStarted(
+                Snackbar, Localizer, Localizer.Text(ShellTexts.CommandActions.BackgroundStartedMany, new { Count = Formatter.Number(items.Count) }));
         }
 
         await ChangedAsync();
