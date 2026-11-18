@@ -6,6 +6,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Sergin.SharedKernel.Application.Commands.Configuration;
 using Sergin.SharedKernel.Application.Events.Integration;
 using Sergin.SharedKernel.Application.ScheduledTasks;
+using Sergin.SharedKernel.Application.ScheduledTasks.Activity;
 using Sergin.SharedKernel.Application.Securities.Authorization;
 using Sergin.SharedKernel.Infrastructure.Data.EFCore.Aggregates;
 using Sergin.SharedKernel.Infrastructure.Data.EFCore.Interceptors;
@@ -96,6 +97,9 @@ public static class ModuleDbContextExtensions
             Type storeType = typeof(EfScheduledTaskStore<>).MakeGenericType(typeof(TContext));
             services.AddKeyedScoped<IScheduledTaskStore>(
                 schema, (sp, _) => (IScheduledTaskStore)ActivatorUtilities.CreateInstance(sp, storeType, schema));
+
+            // This context's runs, as the activity directory reads them: one source per opted-in context.
+            services.AddScoped<IBackgroundRunSource>(sp => ActivatorUtilities.CreateInstance<LocalBackgroundRunSource>(sp, schema));
 
             // The executor and resolver, once per host however many contexts opt in.
             services.AddSerginScheduledTasks();

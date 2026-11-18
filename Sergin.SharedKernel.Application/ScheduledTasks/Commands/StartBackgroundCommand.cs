@@ -11,9 +11,6 @@ using Sergin.SharedKernel.Domain.ScheduledTasks;
 
 namespace Sergin.SharedKernel.Application.ScheduledTasks.Commands;
 
-/// <summary>A run's identity outside its module: the schema whose store holds it, and its id.</summary>
-public sealed record BackgroundRunRef(string Schema, Guid RunId);
-
 /// <summary>One record a background run works on: its id, its root's id for a child, and its title as the person saw it.</summary>
 public sealed record BackgroundTarget(Guid TargetId, Guid? RootId = null, string? Label = null);
 

@@ -3,6 +3,7 @@ using FluentValidation;
 using MediatR;
 using Microsoft.Extensions.DependencyInjection;
 using Sergin.SharedKernel.Application;
+using Sergin.SharedKernel.Application.ScheduledTasks.Activity;
 using Sergin.SharedKernel.Application.ScheduledTasks.Commands;
 using Sergin.SharedKernel.Application.ScheduledTasks.Queries;
 using Sergin.SharedKernel.Application.ScheduledTasks;
@@ -47,6 +48,10 @@ public static class ScheduledTaskServiceExtensions
         services.AddTransient<IRequestHandler<GetScheduledTaskRunsQuery, ErrorOr<ListQueryResponse<ScheduledRunListItem>>>, GetScheduledTaskRunsQueryHandler>();
         services.AddTransient<IRequestHandler<GetScheduledTaskRunItemsQuery, ErrorOr<IReadOnlyCollection<ScheduledRunItemListItem>>>, GetScheduledTaskRunItemsQueryHandler>();
         services.AddTransient<IRequestHandler<GetOneOffRunsForTargetQuery, ErrorOr<IReadOnlyCollection<ScheduledRunListItem>>>, GetOneOffRunsForTargetQueryHandler>();
+
+        // A user's own runs across every opted-in module: the directory over the per-context sources, and its query.
+        services.AddSingleton<IBackgroundRunDirectory, BackgroundRunDirectory>();
+        services.AddTransient<IRequestHandler<GetMyActivityQuery, ErrorOr<IReadOnlyList<ActivityItem>>>, GetMyActivityQueryHandler>();
 
         // The management commands: their handlers and validators by hand, for the same reason; validators scoped, as
         // AddSerginCore registers a module's, so they live in the request scope the validation behavior runs in.

@@ -4,6 +4,8 @@ using ErrorOr;
 using Sergin.SharedKernel.Application;
 using Sergin.SharedKernel.Application.Commands.Queries;
 using Sergin.SharedKernel.Application.Concurrency;
+using Sergin.SharedKernel.Application.ScheduledTasks.Activity;
+using Sergin.SharedKernel.Application.ScheduledTasks.Commands;
 using Sergin.SharedKernel.Application.ScheduledTasks.Queries;
 using Sergin.SharedKernel.Application.Securities.Authorization;
 using Sergin.SharedKernel.Domain;
@@ -21,7 +23,8 @@ namespace Sergin.SharedKernel.Infrastructure.Data.EFCore.ScheduledTasks;
 /// Raw SQL is not reached by EF's filters, so every read of <c>scheduled_tasks</c> adds <c>deleted_at_utc IS NULL</c>
 /// and <see cref="ScopeColumns.ReachSql"/>. A run is reached through its task's scope (a deleted task hides its
 /// history), a one-off run, which has no task, through its own scope path. Reach's columns are unqualified, so each
-/// predicate sits in a query whose nearest table is the scoped one.
+/// predicate sits in a query whose nearest table is the scoped one. The one exception is a user's own activity
+/// (<see cref="ActivityForUserAsync"/>), which is narrowed by the acting user instead.
 /// </para>
 /// </summary>
 internal sealed class ScheduledTaskQueries(
@@ -30,6 +33,8 @@ internal sealed class ScheduledTaskQueries(
     IEnumerable<ScheduledTasksRegistration> registrations) : IScheduledTaskQueries
 {
     private const int MaxOneOffTake = 100;
+
+    private const int MaxActivityTake = 100;
 
     private static readonly Error UnknownSchema = Error.Validation(
         "ScheduledTasks.UnknownSchema", "No module opted into scheduled tasks under that schema.");
@@ -266,6 +271,77 @@ internal sealed class ScheduledTaskQueries(
         return runs.ToErrorOr();
     }
 
+    public async Task<ErrorOr<IReadOnlyList<ActivityItem>>> ActivityForUserAsync(
+        string schema, Guid userId, DateTime finishedSinceUtc, int take, CancellationToken ct)
+    {
+        if (!TryQuote(schema, out string quoted))
+        {
+            return UnknownSchema;
+        }
+
+        using DbConnection connection = await connectionFactory.CreateConnectionAsync();
+
+        // No Reach: these are the caller's own runs, listed whatever their scope and the caller's grants now. The lateral
+        // reads the one item of a one-item run; a run over several records names none of them.
+        string sql =
+            $$"""
+            SELECT r.id AS RunId, r.command_name AS CommandName, r."trigger" AS Trigger, r.status AS Status,
+                   r.started_at_utc AS StartedAtUtc, r.completed_at_utc AS CompletedAtUtc, r.total AS Total,
+                   r.succeeded AS Succeeded, r.failed AS Failed,
+                   (SELECT count(*) FROM {{quoted}}.scheduled_task_run_items u
+                    WHERE u.run_id = r.id AND u.status IN ('Pending', 'Running', 'Retrying'))::int AS Unfinished,
+                   one.target_id AS TargetId, one.root_id AS RootId, one.target_label AS TargetLabel,
+                   one.error_code AS FirstErrorCode
+            FROM {{quoted}}.scheduled_task_runs r
+            LEFT JOIN LATERAL (
+                SELECT i.target_id, i.root_id, i.target_label, i.error_code
+                FROM {{quoted}}.scheduled_task_run_items i
+                WHERE i.run_id = r.id AND r.total = 1
+                ORDER BY i.id
+                LIMIT 1) one ON true
+            WHERE r.acting_user_id = @UserId AND r."trigger" IN ('Background', 'RunNow', 'OneOff')
+              AND (r.status = 'Running' OR r.completed_at_utc >= @FinishedSince)
+            ORDER BY r.started_at_utc DESC, r.id DESC
+            LIMIT @Take;
+            """;
+
+        var parameters = new
+        {
+            UserId = userId,
+            FinishedSince = AsUtc(finishedSinceUtc),
+            Take = Math.Clamp(take, 1, MaxActivityTake),
+        };
+
+#pragma warning disable S2077
+        IEnumerable<ActivityRow> rows = await connection.QueryAsync<ActivityRow>(new CommandDefinition(sql, parameters, cancellationToken: ct));
+#pragma warning restore S2077
+
+        IReadOnlyList<ActivityItem> items =
+        [
+            .. rows.Select(row => new ActivityItem(
+                new BackgroundRunRef(schema, row.RunId),
+                row.CommandName,
+                Enum.Parse<ScheduledRunTrigger>(row.Trigger),
+                Enum.Parse<ScheduledRunStatus>(row.Status),
+                row.StartedAtUtc,
+                row.CompletedAtUtc,
+                row.Total,
+                row.Succeeded,
+                row.Failed,
+                row.Unfinished,
+                row.TargetId,
+                row.RootId,
+                row.TargetLabel,
+                row.FirstErrorCode)),
+        ];
+
+        return items.ToErrorOr();
+    }
+
+    // The column is timestamptz: an unspecified kind is taken as UTC rather than sent as a local timestamp.
+    private static DateTime AsUtc(DateTime value) =>
+        value.Kind == DateTimeKind.Unspecified ? DateTime.SpecifyKind(value, DateTimeKind.Utc) : value.ToUniversalTime();
+
     private const string RunColumns =
         "r.id AS Id, r.\"trigger\" AS Trigger, r.acting_user_id AS ActingUserId, r.status AS Status, "
         + "r.started_at_utc AS StartedAtUtc, r.completed_at_utc AS CompletedAtUtc, r.total AS Total, "
@@ -375,5 +451,36 @@ internal sealed class ScheduledTaskQueries(
         public string? ErrorDescription { get; set; }
 
         public DateTime? CompletedAtUtc { get; set; }
+    }
+
+    private sealed class ActivityRow
+    {
+        public Guid RunId { get; set; }
+
+        public string CommandName { get; set; } = string.Empty;
+
+        public string Trigger { get; set; } = string.Empty;
+
+        public string Status { get; set; } = string.Empty;
+
+        public DateTime StartedAtUtc { get; set; }
+
+        public DateTime? CompletedAtUtc { get; set; }
+
+        public int Total { get; set; }
+
+        public int Succeeded { get; set; }
+
+        public int Failed { get; set; }
+
+        public int Unfinished { get; set; }
+
+        public Guid? TargetId { get; set; }
+
+        public Guid? RootId { get; set; }
+
+        public string? TargetLabel { get; set; }
+
+        public string? FirstErrorCode { get; set; }
     }
 }
