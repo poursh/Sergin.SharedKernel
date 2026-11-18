@@ -1,0 +1,201 @@
+using Microsoft.AspNetCore.Components;
+using MudBlazor;
+using Sergin.SharedKernel.Application.Securities.Authorization;
+using Sergin.SharedKernel.Presentation.Blazor.Errors;
+using Sergin.SharedKernel.Presentation.Blazor.Actions;
+
+namespace Sergin.SharedKernel.Presentation.Blazor.Lists;
+
+/// <summary>
+/// The list body of a <see cref="SerginEntityListSection"/>: a server-paged <c>MudTable</c> of the entities inside one
+/// aggregate, with a quick search, optional sortable headers and a column of per-row commands.
+/// </summary>
+/// <remarks>
+/// The page or component supplies <see cref="Load"/>, which builds its feature's list record from a
+/// <see cref="SerginListRequest"/> — paging, the search as <c>Term</c>, and sorting when a header carries a
+/// <c>MudTableSortLabel</c>; never a filter, since this list has no filter panel. Each load reports the total through
+/// <see cref="TotalChanged"/> when it changes, so the owner can show it in the section title.
+/// <see cref="BulkActions"/> adds a checkbox column and a <see cref="SerginSelectionBar"/>, as on the aggregate list;
+/// every load clears the selection.
+/// </remarks>
+public sealed partial class SerginEntityList<TItem>
+{
+    private MudTable<TItem> table = default!;
+    private int? total;
+    private string? term;
+    private bool loading;
+    private HashSet<TItem> selected = [];
+    private bool bulkRunning;
+
+    [Parameter]
+    [EditorRequired]
+    public Func<SerginListRequest, CancellationToken, Task<ErrorOr<ListQueryResponse<TItem>>>> Load { get; set; } = default!;
+
+    [Parameter]
+    [EditorRequired]
+    public RenderFragment HeaderContent { get; set; } = default!;
+
+    [Parameter]
+    [EditorRequired]
+    public RenderFragment<TItem> RowTemplate { get; set; } = default!;
+
+    [Parameter]
+    public RenderFragment<TItem>? RowCommands { get; set; }
+
+    /// <summary>Raised after a load whose total differs from the last one.</summary>
+    [Parameter]
+    public EventCallback<int> TotalChanged { get; set; }
+
+    /// <summary>The text shown when the collection is empty; the shell's <c>Nothing here yet.</c> when not set.</summary>
+    [Parameter]
+    public TextDefinition? EmptyMessage { get; set; }
+
+    /// <summary>Whether to show the quick search; false for a list whose query repository does not read <c>Term</c>.</summary>
+    [Parameter]
+    public bool Searchable { get; set; } = true;
+
+    /// <summary>The search box's placeholder; the shell's <c>Quick search…</c> when not set.</summary>
+    [Parameter]
+    public TextDefinition? SearchPlaceholderText { get; set; }
+
+    [Parameter]
+    public int RowsPerPage { get; set; } = 10;
+
+    [Parameter]
+    public bool Dense { get; set; } = true;
+
+    /// <summary>The selection bar's actions; any one turns on the checkbox column.</summary>
+    [Parameter]
+    public IReadOnlyList<SerginBulkAction<TItem>> BulkActions { get; set; } = [];
+
+    [Inject]
+    private IUiErrorPresenter ErrorPresenter { get; set; } = default!;
+
+    [Inject]
+    private IStringLocalizer Localizer { get; set; } = default!;
+
+    private string SearchPlaceholderShown => Localizer.Text(SearchPlaceholderText ?? ShellTexts.Lists.QuickSearchPlaceholder);
+
+    private string EmptyShown => string.IsNullOrWhiteSpace(term)
+        ? Localizer.Text(EmptyMessage ?? ShellTexts.Lists.NothingHereYet)
+        : Localizer.Text(ShellTexts.Lists.NothingMatchesSearch);
+
+    [Inject]
+    private MudLocalizer MudTexts { get; set; } = default!;
+
+    // MudTablePager has no localized default for this caption; it takes MudBlazor's own data-grid text.
+    private string RowsPerPageText => MudTexts["MudDataGridPager_RowsPerPage"].Value;
+
+    /// <summary>Loads the current page again — after a row command, or when the owning page reloads.</summary>
+    public Task ReloadAsync() => table.ReloadServerData();
+
+    // The checkbox column is for a user who may run at least one bulk action; answered once per parameter set, not per row.
+    private bool Selectable { get; set; }
+
+    [Inject]
+    private IScopeAuthorization ScopeAuthorization { get; set; } = default!;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        var visibility = new SerginActionVisibility(ScopeAuthorization);
+        IReadOnlyList<SerginPageAction> visible = await visibility.VisibleAsync(
+            [.. BulkActions.Select(action => new SerginPageAction(action.Label, action.Icon, action.Kind, Permission: action.Permission, AnyScope: action.AnyScope))]);
+
+        Selectable = visible.Count > 0;
+    }
+
+    // Rebuilt on each render, so a running action disables every button of the bar.
+    private IReadOnlyList<SerginPageAction> SelectionActions =>
+    [
+        .. BulkActions.Select(action => new SerginPageAction(
+            action.Label,
+            action.Icon,
+            action.Kind,
+            OnClick: EventCallback.Factory.Create(this, () => RunBulkAsync(action.OnRun)),
+            Permission: action.Permission,
+            AnyScope: action.AnyScope,
+            Disabled: bulkRunning,
+            MenuItems: BulkMenuItems(action))),
+    ];
+
+    private async Task<TableData<TItem>> LoadAsync(TableState state, CancellationToken cancellationToken)
+    {
+        // MudBlazor's TableState.Page is 0-based; PageIndex is 1-based.
+        SerginListRequest request = new(
+            Paggination.Create(state.PageSize, state.Page + 1),
+            string.IsNullOrWhiteSpace(term) ? null : new Term(term.Trim()),
+            Filtering: null,
+            state.SortDirection == SortDirection.None ? null : SerginListQueryParts.ToSorting(state.SortLabel, state.SortDirection == SortDirection.Descending));
+
+        // A selection holds rows of the page on screen; any other page, criterion or reload starts without one.
+        selected = [];
+
+        // Shown for the first load and for every page, search and sort change: all of them come through here.
+        loading = true;
+        StateHasChanged();
+
+        try
+        {
+            ErrorOr<ListQueryResponse<TItem>> result = await Load(request, cancellationToken);
+
+            if (result.IsError)
+            {
+                ErrorPresenter.Notify(result.FirstError);
+                return new TableData<TItem> { Items = [], TotalItems = 0 };
+            }
+
+            if (total != result.Value.Total)
+            {
+                total = result.Value.Total;
+                await TotalChanged.InvokeAsync(result.Value.Total);
+            }
+
+            return new TableData<TItem> { Items = result.Value.Data, TotalItems = result.Value.Total };
+        }
+        finally
+        {
+            loading = false;
+        }
+    }
+
+    // A new search starts again at the first page; NavigateTo reloads on its own.
+    private Task OnTermChangedAsync(string? value)
+    {
+        term = value;
+
+        if (table.CurrentPage != 0)
+        {
+            table.NavigateTo(0);
+            return Task.CompletedTask;
+        }
+
+        return table.ReloadServerData();
+    }
+
+    private void OnSelectionChanged(HashSet<TItem> items) => selected = items;
+
+    private void ClearSelection() => selected = [];
+
+    private List<SerginMenuItem>? BulkMenuItems(SerginBulkAction<TItem> action) =>
+        action.MenuItems?.Select(item => new SerginMenuItem(
+            item.Label,
+            item.Icon,
+            EventCallback.Factory.Create(this, () => RunBulkAsync(item.OnRun)),
+            item.Permission,
+            item.AnyScope)).ToList();
+
+    private async Task RunBulkAsync(Func<IReadOnlyList<TItem>, Task> run)
+    {
+        IReadOnlyList<TItem> items = [.. selected];
+        bulkRunning = true;
+
+        try
+        {
+            await run(items);
+        }
+        finally
+        {
+            bulkRunning = false;
+        }
+    }
+}

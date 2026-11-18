@@ -1,0 +1,37 @@
+using Microsoft.AspNetCore.Components;
+using Microsoft.JSInterop;
+using MudBlazor;
+
+namespace Sergin.SharedKernel.Presentation.Blazor.Headers;
+
+/// <summary>
+/// The page header's copy-link icon: puts the current URL on the clipboard. Only ever runs from a click, so the
+/// circuit is interactive and interop is available; a browser that refuses the clipboard gets a warning instead.
+/// </summary>
+public sealed partial class SerginCopyLinkButton
+{
+    [Inject]
+    private IJSRuntime JS { get; set; } = default!;
+
+    [Inject]
+    private NavigationManager Navigation { get; set; } = default!;
+
+    [Inject]
+    private ISnackbar Snackbar { get; set; } = default!;
+
+    [Inject]
+    private IStringLocalizer Localizer { get; set; } = default!;
+
+    private async Task CopyAsync()
+    {
+        try
+        {
+            await JS.InvokeVoidAsync("navigator.clipboard.writeText", Navigation.Uri);
+            Snackbar.Add(Localizer.Text(ShellTexts.Pages.LinkCopied), Severity.Normal);
+        }
+        catch (JSException)
+        {
+            Snackbar.Add(Localizer.Text(ShellTexts.Pages.CopyRefused), Severity.Warning);
+        }
+    }
+}

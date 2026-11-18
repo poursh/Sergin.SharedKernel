@@ -1,0 +1,31 @@
+using Sergin.SharedKernel.Domain.Securities;
+using Sergin.SharedKernel.Presentation.Blazor.Actions;
+
+namespace Sergin.SharedKernel.Presentation.Blazor.Lists;
+
+/// <summary>
+/// One button of a list's selection bar: what runs on the rows the user selected. Giving a
+/// <see cref="SerginAggregateList{TItem}"/> or <see cref="SerginEntityList{TItem}"/> at least one turns on its
+/// checkbox column.
+/// </summary>
+/// <param name="Label">The button text, a declared text rendered in the current UI culture.</param>
+/// <param name="Icon">A MudBlazor icon constant; null for none.</param>
+/// <param name="Kind">Its look and place, as in the actions bar.</param>
+/// <param name="OnRun">
+/// What a click runs, given the selected rows. The owner reloads the list when done, which clears the
+/// selection.
+/// </param>
+/// <param name="Permission">
+/// The permission the action needs; the bar hides it from a user who does not hold it — presentation only, as for
+/// <see cref="SerginPageAction"/>.
+/// </param>
+/// <param name="AnyScope">Whether the permission is checked on any scope rather than the current one.</param>
+/// <param name="MenuItems">Further commands behind a drop-down on the button, run on the same selection.</param>
+public sealed record SerginBulkAction<TItem>(
+    TextDefinition Label,
+    string? Icon,
+    SerginActionKind Kind,
+    Func<IReadOnlyList<TItem>, Task> OnRun,
+    PermissionDefinition? Permission = null,
+    bool AnyScope = false,
+    IReadOnlyList<SerginBulkMenuItem<TItem>>? MenuItems = null);

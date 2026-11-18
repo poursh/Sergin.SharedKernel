@@ -3,8 +3,8 @@ using System.Linq.Expressions;
 using System.Text.RegularExpressions;
 using Microsoft.AspNetCore.Components;
 using Sergin.SharedKernel.Application.Times;
-using Sergin.SharedKernel.Presentation.Blazor.Times;
 using Sergin.SharedKernel.Presentation.Localizations;
+using Sergin.SharedKernel.Presentation.Blazor.TimeZones;
 
 namespace Sergin.SharedKernel.Presentation.Blazor.ScheduledTasks;
 

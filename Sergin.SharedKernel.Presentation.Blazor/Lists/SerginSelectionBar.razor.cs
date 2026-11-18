@@ -1,0 +1,28 @@
+using Microsoft.AspNetCore.Components;
+using Sergin.SharedKernel.Presentation.Localizations;
+using Sergin.SharedKernel.Presentation.Blazor.Actions;
+
+namespace Sergin.SharedKernel.Presentation.Blazor.Lists;
+
+/// <summary>
+/// The selection bar of <see cref="SerginAggregateList{TItem}"/> and <see cref="SerginEntityList{TItem}"/>: how many
+/// rows are selected, the bulk actions (through <see cref="SerginActionBar"/>, so a forbidden one is hidden), and a
+/// Clear button.
+/// </summary>
+public sealed partial class SerginSelectionBar
+{
+    [Parameter]
+    public int Count { get; set; }
+
+    [Parameter]
+    public IReadOnlyList<SerginPageAction> Actions { get; set; } = [];
+
+    [Parameter]
+    public EventCallback OnClear { get; set; }
+
+    [Inject]
+    private IStringLocalizer Localizer { get; set; } = default!;
+
+    [Inject]
+    private ICultureFormatter Formatter { get; set; } = default!;
+}

@@ -1,7 +1,7 @@
 using Sergin.SharedKernel.Application.Concurrency;
 using Sergin.SharedKernel.Domain;
 using Sergin.SharedKernel.Presentation.Blazor.Dispatching;
-using Sergin.SharedKernel.Presentation.Blazor.Pages;
+using Sergin.SharedKernel.Presentation.Blazor.Lists;
 
 namespace Sergin.SharedKernel.Presentation.Blazor.Aggregates.Runtime;
 

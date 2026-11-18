@@ -3,8 +3,9 @@ using MudBlazor;
 using Sergin.SharedKernel.Application.Aggregates;
 using Sergin.SharedKernel.Domain.Securities;
 using Sergin.SharedKernel.Presentation.Blazor.Errors;
+using Sergin.SharedKernel.Presentation.Blazor.Actions;
+using Sergin.SharedKernel.Presentation.Blazor.Dialogs;
 using Sergin.SharedKernel.Presentation.Blazor.Navigation;
-using Sergin.SharedKernel.Presentation.Blazor.Pages;
 
 namespace Sergin.SharedKernel.Presentation.Blazor.Trees;
 

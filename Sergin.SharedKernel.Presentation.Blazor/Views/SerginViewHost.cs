@@ -1,3 +1,5 @@
+using Sergin.SharedKernel.Presentation.Blazor.Headers;
+
 namespace Sergin.SharedKernel.Presentation.Blazor.Views;
 
 /// <summary>Where a view is shown, which decides where its title, trail and header buttons go.</summary>

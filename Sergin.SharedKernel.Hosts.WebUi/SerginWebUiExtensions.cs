@@ -24,9 +24,9 @@ using Sergin.SharedKernel.Modules;
 using Sergin.SharedKernel.Presentation;
 using Sergin.SharedKernel.Presentation.Blazor.Aggregates;
 using Sergin.SharedKernel.Presentation.Blazor.Home;
-using Sergin.SharedKernel.Presentation.Blazor.Modules;
-using Sergin.SharedKernel.Presentation.Blazor.Security;
 using Sergin.SharedKernel.Presentation.Localizations;
+using Sergin.SharedKernel.Presentation.Blazor.Authentication;
+using Sergin.SharedKernel.Presentation.Blazor.Modules;
 
 namespace Microsoft.Extensions.Hosting;
 
