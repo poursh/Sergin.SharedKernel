@@ -2,7 +2,7 @@ using Sergin.SharedKernel.Application.Concurrency;
 using Sergin.SharedKernel.Domain;
 using Sergin.SharedKernel.Presentation.Blazor.Dispatching;
 
-namespace Sergin.SharedKernel.Presentation.Blazor.Aggregates;
+namespace Sergin.SharedKernel.Presentation.Blazor.Aggregates.Runtime;
 
 /// <summary>What became of a child command a detail view sent.</summary>
 public enum ChildCommandStatus

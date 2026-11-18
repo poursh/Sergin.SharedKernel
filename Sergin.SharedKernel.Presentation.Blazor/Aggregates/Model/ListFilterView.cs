@@ -1,6 +1,6 @@
 using Sergin.SharedKernel.Application.Commands.Queries;
 
-namespace Sergin.SharedKernel.Presentation.Blazor.Aggregates;
+namespace Sergin.SharedKernel.Presentation.Blazor.Aggregates.Model;
 
 /// <summary>
 /// One <see cref="ListFieldKind.Identifier"/> filter of a root's list, and where its options come from: a component the

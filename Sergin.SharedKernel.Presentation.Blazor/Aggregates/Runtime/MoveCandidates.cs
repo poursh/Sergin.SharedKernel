@@ -1,4 +1,4 @@
-namespace Sergin.SharedKernel.Presentation.Blazor.Aggregates;
+namespace Sergin.SharedKernel.Presentation.Blazor.Aggregates.Runtime;
 
 /// <summary>
 /// The parents a record may be moved under, as the Move dialog offers them: every item of the root's tree except the

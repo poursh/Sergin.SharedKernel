@@ -1,6 +1,6 @@
 using Sergin.SharedKernel.Domain;
 
-namespace Sergin.SharedKernel.Presentation.Blazor.Aggregates;
+namespace Sergin.SharedKernel.Presentation.Blazor.Aggregates.Configuration;
 
 /// <summary>
 /// The presentation facts of one root's generated views: its routes, titles, labels a command type cannot imply, field

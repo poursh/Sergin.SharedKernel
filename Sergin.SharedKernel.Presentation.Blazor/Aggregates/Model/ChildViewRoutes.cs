@@ -1,4 +1,4 @@
-namespace Sergin.SharedKernel.Presentation.Blazor.Aggregates;
+namespace Sergin.SharedKernel.Presentation.Blazor.Aggregates.Model;
 
 /// <summary>
 /// Where a child entity's generated pages live; the first <see cref="Guid"/> of each is always the root's id. Each must

@@ -3,7 +3,7 @@ using System.Linq.Expressions;
 using System.Reflection;
 using Sergin.SharedKernel.Presentation.Blazor.Dispatching;
 
-namespace Sergin.SharedKernel.Presentation.Blazor.Aggregates;
+namespace Sergin.SharedKernel.Presentation.Blazor.Aggregates.Runtime;
 
 /// <summary>One record a picker offers: its id and what shows for it, data as stored.</summary>
 public sealed record PickerOption(Guid Id, string Label);

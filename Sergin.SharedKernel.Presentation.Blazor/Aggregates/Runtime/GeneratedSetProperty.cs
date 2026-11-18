@@ -3,7 +3,7 @@ using Sergin.SharedKernel.Domain;
 using Sergin.SharedKernel.Presentation.Blazor.Dispatching;
 using Sergin.SharedKernel.Presentation.Blazor.Validation;
 
-namespace Sergin.SharedKernel.Presentation.Blazor.Aggregates;
+namespace Sergin.SharedKernel.Presentation.Blazor.Aggregates.Runtime;
 
 /// <summary>What became of a root set-property command a detail view sent.</summary>
 internal enum SetPropertyStatus

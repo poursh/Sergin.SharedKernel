@@ -7,4 +7,7 @@ global using Sergin.SharedKernel.Application.Localizations;
 global using Sergin.SharedKernel.Application.Localizations.Common;
 global using Sergin.SharedKernel.Presentation.Blazor.Localizations;
 global using Sergin.SharedKernel.Presentation.Blazor.Aggregates;
+global using Sergin.SharedKernel.Presentation.Blazor.Aggregates.Configuration;
+global using Sergin.SharedKernel.Presentation.Blazor.Aggregates.Model;
+global using Sergin.SharedKernel.Presentation.Blazor.Aggregates.Runtime;
 global using Sergin.SharedKernel.Presentation.Blazor.Aggregates.Views;

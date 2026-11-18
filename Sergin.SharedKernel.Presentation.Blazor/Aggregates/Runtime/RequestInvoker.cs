@@ -4,7 +4,7 @@ using Sergin.SharedKernel.Domain;
 using Sergin.SharedKernel.Presentation.Blazor.Dispatching;
 using Sergin.SharedKernel.Presentation.Blazor.Validation;
 
-namespace Sergin.SharedKernel.Presentation.Blazor.Aggregates;
+namespace Sergin.SharedKernel.Presentation.Blazor.Aggregates.Runtime;
 
 /// <summary>
 /// Sends one request type through <see cref="ISerginDispatcher"/> without naming its response type: the closed generic

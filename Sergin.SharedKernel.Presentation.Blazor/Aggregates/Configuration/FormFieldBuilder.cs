@@ -1,6 +1,6 @@
 using Microsoft.AspNetCore.Components;
 
-namespace Sergin.SharedKernel.Presentation.Blazor.Aggregates;
+namespace Sergin.SharedKernel.Presentation.Blazor.Aggregates.Configuration;
 
 /// <summary>Overrides for one field of a generated form, from <c>Form&lt;T&gt;(form =&gt; form.Field(x =&gt; x.Name))</c>.</summary>
 public sealed class FormFieldBuilder

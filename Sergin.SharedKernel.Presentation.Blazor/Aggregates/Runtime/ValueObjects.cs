@@ -2,7 +2,7 @@ using System.Globalization;
 using System.Linq.Expressions;
 using System.Reflection;
 
-namespace Sergin.SharedKernel.Presentation.Blazor.Aggregates;
+namespace Sergin.SharedKernel.Presentation.Blazor.Aggregates.Runtime;
 
 /// <summary>
 /// The primitive a command field's type carries: a primitive, <see cref="string"/>, an enum or a date/time/Guid type

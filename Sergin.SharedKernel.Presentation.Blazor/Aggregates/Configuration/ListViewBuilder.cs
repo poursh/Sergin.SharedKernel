@@ -1,7 +1,7 @@
 using System.Linq.Expressions;
 using Microsoft.AspNetCore.Components;
 
-namespace Sergin.SharedKernel.Presentation.Blazor.Aggregates;
+namespace Sergin.SharedKernel.Presentation.Blazor.Aggregates.Configuration;
 
 /// <summary>Overrides for the list item's fields, plus filter pickers the list cannot generate.</summary>
 public sealed class ListViewBuilder<TItem> : FieldSetBuilder<TItem>, IListFilterDeclarations

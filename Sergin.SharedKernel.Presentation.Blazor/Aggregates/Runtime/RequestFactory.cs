@@ -4,7 +4,7 @@ using System.Text.Json;
 using Sergin.SharedKernel.Application.Commands.Queries;
 using Sergin.SharedKernel.Application.Commands.Types;
 
-namespace Sergin.SharedKernel.Presentation.Blazor.Aggregates;
+namespace Sergin.SharedKernel.Presentation.Blazor.Aggregates.Runtime;
 
 /// <summary>
 /// What a list page asks of a list query: paging, the quick-search term, the applied filters, the sort, and the parent's

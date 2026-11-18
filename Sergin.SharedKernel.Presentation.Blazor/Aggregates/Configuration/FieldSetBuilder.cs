@@ -2,7 +2,7 @@ using System.Linq.Expressions;
 using System.Reflection;
 using Microsoft.AspNetCore.Components;
 
-namespace Sergin.SharedKernel.Presentation.Blazor.Aggregates;
+namespace Sergin.SharedKernel.Presentation.Blazor.Aggregates.Configuration;
 
 /// <summary>The non-generic half, so the registry can read what any closed builder collected.</summary>
 public abstract class FieldSetBuilder

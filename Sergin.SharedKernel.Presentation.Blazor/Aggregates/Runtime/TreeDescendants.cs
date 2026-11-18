@@ -1,4 +1,4 @@
-namespace Sergin.SharedKernel.Presentation.Blazor.Aggregates;
+namespace Sergin.SharedKernel.Presentation.Blazor.Aggregates.Runtime;
 
 /// <summary>
 /// Every descendant of a node in a root's tree, as the generated children list shows them: depth first, siblings by title in

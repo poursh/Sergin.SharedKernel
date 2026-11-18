@@ -1,4 +1,4 @@
-namespace Sergin.SharedKernel.Presentation.Blazor.Aggregates;
+namespace Sergin.SharedKernel.Presentation.Blazor.Aggregates.Model;
 
 /// <summary>
 /// One property of a GetOne response or list item as a generated view shows it. Only a property with a

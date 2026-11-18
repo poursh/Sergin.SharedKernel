@@ -1,4 +1,4 @@
-namespace Sergin.SharedKernel.Presentation.Blazor.Aggregates;
+namespace Sergin.SharedKernel.Presentation.Blazor.Aggregates.Model;
 
 /// <summary>
 /// Optional on a configured filter component (<c>List(list =&gt; list.Filter(id, component))</c>): names the value it

@@ -2,7 +2,7 @@ using Microsoft.AspNetCore.Components;
 using Sergin.SharedKernel.Application.Commands;
 using Sergin.SharedKernel.Domain;
 
-namespace Sergin.SharedKernel.Presentation.Blazor.Aggregates;
+namespace Sergin.SharedKernel.Presentation.Blazor.Aggregates.Configuration;
 
 /// <summary>The non-generic half, so the registry can read what any closed builder collected.</summary>
 public abstract class AggregateViewBuilder : ViewDeclarationBuilder

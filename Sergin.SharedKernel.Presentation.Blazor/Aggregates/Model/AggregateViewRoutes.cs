@@ -1,4 +1,4 @@
-namespace Sergin.SharedKernel.Presentation.Blazor.Aggregates;
+namespace Sergin.SharedKernel.Presentation.Blazor.Aggregates.Model;
 
 /// <summary>
 /// Where a root's generated pages live. The detail and edit routes take the record's id. Each must match a routable
