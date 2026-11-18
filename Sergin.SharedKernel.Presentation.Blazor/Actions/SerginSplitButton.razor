@@ -6,8 +6,8 @@
         <MudButton StartIcon="@Action.Icon" Href="@Action.Href" OnClick="Action.OnClick" Disabled="Action.Disabled">
             @Localizer.Text(Action.Label)
         </MudButton>
-        <MudMenu Icon="@Icons.Material.Filled.MoreVert" Size="Size.Medium" AriaLabel="@Localizer.Text(ShellTexts.CommandActions.More)"
-                 Disabled="Action.Disabled" Dense="true">
+        <MudMenu Icon="@Icons.Material.Filled.MoreVert" AriaLabel="@Localizer.Text(ShellTexts.CommandActions.More)"
+                 Disabled="Action.Disabled" Dense="true" Class="align-self-stretch">
             @foreach (SerginMenuItem item in Action.MenuItems)
             {
                 <MudMenuItem Icon="@item.Icon" OnClick="item.OnClick">
