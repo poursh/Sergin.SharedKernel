@@ -14,6 +14,7 @@ using Sergin.SharedKernel.Application.Events.Integration;
 using Sergin.SharedKernel.Application.Localizations;
 using Sergin.SharedKernel.Application.Localizations.Validation;
 using Sergin.SharedKernel.Application.ScheduledTasks;
+using Sergin.SharedKernel.Application.ScheduledTasks.Activity;
 using Sergin.SharedKernel.Application.Securities.Authorization;
 using Sergin.SharedKernel.Application.Securities.Users;
 using Sergin.SharedKernel.Application.Times;
@@ -134,6 +135,7 @@ public static class SerginCoreExtensions
         builder.Services.AddSingleton<IValidateOptions<ScheduledTaskOptions>, ScheduledTaskOptionsValidator>();
 
         // All three no-ops until a module opts in. The rebuild also refuses start for an opted-in host with no engine.
+        builder.Services.TryAddSingleton<IRunNotifier, RunNotifier>();
         builder.Services.AddHostedService<ScheduledTaskTriggerRebuildService>();
         builder.Services.AddHostedService<ScheduledTaskPurgeService>();
         builder.Services.AddHostedService<ScheduledRunItemRecoveryService>();

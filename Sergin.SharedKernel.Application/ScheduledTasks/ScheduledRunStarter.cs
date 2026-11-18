@@ -1,5 +1,7 @@
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
+using Sergin.SharedKernel.Application.ScheduledTasks.Activity;
+using Sergin.SharedKernel.Application.ScheduledTasks.Commands;
 using Sergin.SharedKernel.Application.Times;
 using Sergin.SharedKernel.Domain.ScheduledTasks;
 using Sergin.SharedKernel.Domain.Users;
@@ -25,7 +27,7 @@ internal sealed record ScheduledRunStart(
 /// The engine is resolved when a run starts, not injected: the engine is the adapter's to register, and a host
 /// (or a test host) that opts a module in without one must still build its container.
 /// </summary>
-internal sealed partial class ScheduledRunStarter(IServiceProvider services, IDateTimeProvider clock, ILogger<ScheduledRunStarter> logger)
+internal sealed partial class ScheduledRunStarter(IServiceProvider services, IDateTimeProvider clock, IRunNotifier notifier, ILogger<ScheduledRunStarter> logger)
 {
     public async Task<ErrorOr<Guid>> StartAsync(IScheduledTaskStore store, ScheduledRunStart start, CancellationToken ct)
     {
@@ -84,9 +86,12 @@ internal sealed partial class ScheduledRunStarter(IServiceProvider services, IDa
 
             await store.SaveAsync(ct);
             await store.CompleteRunIfFinishedAsync(run.Id, clock.UtcNow, ct);
+            notifier.Publish(new RunChanged(new BackgroundRunRef(store.Schema, run.Id), start.ActingUserId));
 
             return ScheduledTaskErrors.EngineUnavailable;
         }
+
+        notifier.Publish(new RunChanged(new BackgroundRunRef(store.Schema, run.Id), start.ActingUserId));
 
         return run.Id;
     }
