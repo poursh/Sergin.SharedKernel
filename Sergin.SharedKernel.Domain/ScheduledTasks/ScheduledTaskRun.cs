@@ -115,6 +115,9 @@ public enum ScheduledRunTrigger
     Scheduled,
     RunNow,
     OneOff,
+
+    /// <summary>A background command started by a person: no task, one item per picked record.</summary>
+    Background,
 }
 
 public enum ScheduledRunStatus

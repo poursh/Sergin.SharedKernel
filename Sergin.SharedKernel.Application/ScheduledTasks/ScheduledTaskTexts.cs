@@ -34,4 +34,7 @@ public static class ScheduledTaskTexts
 
     /// <summary>A background command sent inline instead of started as a run.</summary>
     public static readonly TextDefinition MustRunInBackground = errors.Text("MustRunInBackground", "This action runs in the background. Start it instead of sending it.");
+
+    /// <summary>A command started in the background that did not opt in with <c>Background()</c>.</summary>
+    public static readonly TextDefinition NotBackground = errors.Text("NotBackground", "This command does not run in the background.");
 }

@@ -248,7 +248,7 @@ internal sealed class ScheduledTaskQueries(
             $$"""
             SELECT {{RunColumns}}
             FROM {{quoted}}.scheduled_task_runs r
-            WHERE r.task_id IS NULL AND r."trigger" = 'OneOff' AND {{ScopeColumns.ReachSql}}
+            WHERE r.task_id IS NULL AND r."trigger" IN ('OneOff', 'Background') AND {{ScopeColumns.ReachSql}}
               AND EXISTS (SELECT 1 FROM {{quoted}}.scheduled_task_run_items i WHERE i.run_id = r.id AND i.target_id = @TargetId)
             ORDER BY r.started_at_utc DESC, r.id DESC
             LIMIT @Take;

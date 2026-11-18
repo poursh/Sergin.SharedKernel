@@ -39,11 +39,6 @@ internal sealed class ValidationPipelineBehavior<TRequest, TResponse>(
             return await next(cancellationToken);
         }
 
-        List<Error> errors = validationResult.Errors
-            .ConvertAll(error => Error.Validation(
-                code: error.PropertyName,
-                description: error.ErrorMessage));
-
-        return (dynamic)errors;
+        return (dynamic)ValidationFailureErrors.ToErrors(validationResult);
     }
 }
