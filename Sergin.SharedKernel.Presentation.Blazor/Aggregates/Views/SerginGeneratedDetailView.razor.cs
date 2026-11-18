@@ -285,7 +285,7 @@ public sealed partial class SerginGeneratedDetailView<TRoot>
     }
 
     private Task<ViewSendResult> SendAsync(CommandView command) =>
-        GeneratedViewSupport.SendFromIdAsync(Dispatcher, command, Id, version);
+        GeneratedViewSupport.SendFromIdAsync(Dispatcher, command, Id, version, DisplayText);
 
     // Sends a transition (its confirm, if any, was asked by the action). Internal for the host-changed test.
     internal async Task RunAsync(CommandView command)

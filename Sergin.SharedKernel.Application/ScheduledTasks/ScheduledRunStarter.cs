@@ -15,7 +15,8 @@ internal sealed record ScheduledRunStart(
     string ScopePath,
     string CommandName,
     string Arguments,
-    IReadOnlyCollection<ScheduledTaskTarget> Targets);
+    IReadOnlyCollection<ScheduledTaskTarget> Targets,
+    IReadOnlyDictionary<Guid, string>? TargetLabels = null);
 
 /// <summary>
 /// The one way a run begins, whatever started it (a cron fire, "Run now", a one-off): writes the run, copying the
@@ -34,7 +35,7 @@ internal sealed partial class ScheduledRunStarter(IServiceProvider services, IDa
         var definition = new ScheduledRunDefinition(
             start.TaskId, start.Trigger, start.ActingUserId, start.ScopeId, start.ScopePath, start.CommandName, start.Arguments);
         var run = ScheduledTaskRun.Start(definition, start.Targets.Count, clock.UtcNow);
-        ScheduledTaskRunItem[] items = [.. start.Targets.Select(target => ScheduledTaskRunItem.Create(run.Id, target.TargetId, target.RootId, clock.UtcNow))];
+        ScheduledTaskRunItem[] items = [.. start.Targets.Select(target => ScheduledTaskRunItem.Create(run.Id, target.TargetId, target.RootId, clock.UtcNow, LabelOf(start, target)))];
 
         // No targets: nothing will ever finish the run, so it is complete at once rather than open forever.
         if (items.Length == 0)
@@ -88,6 +89,19 @@ internal sealed partial class ScheduledRunStarter(IServiceProvider services, IDa
         }
 
         return run.Id;
+    }
+
+    // A label is user data kept as stored, only trimmed and cut; a blank one is none.
+    private static string? LabelOf(ScheduledRunStart start, ScheduledTaskTarget target)
+    {
+        if (start.TargetLabels is null || !start.TargetLabels.TryGetValue(target.TargetId, out string? label) || string.IsNullOrWhiteSpace(label))
+        {
+            return null;
+        }
+
+        label = label.Trim();
+
+        return label.Length > ScheduledTaskRunItem.MaxTargetLabelLength ? label[..ScheduledTaskRunItem.MaxTargetLabelLength] : label;
     }
 
     [LoggerMessage(Level = LogLevel.Error, Message = "The job engine failed while enqueueing the items of scheduled run {RunId} ({CommandName}); its unqueued items were failed.")]
