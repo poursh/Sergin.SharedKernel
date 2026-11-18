@@ -3,6 +3,7 @@ using FluentValidation.Results;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
 using Sergin.SharedKernel.Application.Commands;
+using Sergin.SharedKernel.Application.Commands.Configuration;
 using Sergin.SharedKernel.Application.Localizations.Validation;
 using Sergin.SharedKernel.Application.Securities.Authorization;
 using Sergin.SharedKernel.Application.Securities.Users;
@@ -40,17 +41,21 @@ internal sealed class StartBackgroundCommandValidator : AbstractValidator<StartB
         ScheduledTaskRules.TemplateAndTargets(
             this, catalog, request => CommandOf(request.Template)?.Schema ?? string.Empty, request => request.Template, request => request.Targets);
 
+        // Like the shared rules, these report under the scheduled-task error codes rather than a property name.
         RuleFor(request => request.Template)
             .Must(template => CommandOf(template) is not { Background: null })
+            .OverridePropertyName(ScheduledTaskErrors.NotBackground.Code)
             .WithMessage(_ => ValidationTexts.Template(ScheduledTaskTexts.NotBackground));
 
         // A source that is not a module's has no store to start the run in.
         RuleFor(request => request.Template)
             .Must(template => CommandOf(template) is not { Schema: null })
+            .OverridePropertyName(ScheduledTaskErrors.NotSchedulable.Code)
             .WithMessage(_ => ValidationTexts.Template(ScheduledTaskTexts.NotSchedulable));
 
         RuleFor(request => request.Targets)
             .Must(targets => targets.Count <= maxTargets)
+            .OverridePropertyName(ScheduledTaskErrors.TooManyTargets.Code)
             .WithMessage(_ => ValidationTexts.Template(ScheduledTaskTexts.TooManyTargets))
             .When(request => request.Targets is not null);
     }
@@ -60,7 +65,8 @@ internal sealed class StartBackgroundCommandHandler(
     IServiceProvider services,
     IScheduledTaskStoreResolver stores,
     ScheduledCommandCatalog catalog,
-    ScheduledTaskAuthority authority,
+    CommandConfigurationRegistry configurations,
+    RequestPermissionGate permissionGate,
     ScheduledRunStarter starter,
     IUserContext caller,
     IAuthorizationScopeContext currentScope,
@@ -74,19 +80,24 @@ internal sealed class StartBackgroundCommandHandler(
         ScheduledCommand command = catalog.For(request.Template.GetType())!;
         string schema = command.Schema!;
 
-        ErrorOr<Success> allowed = await authority.EnsureMayScheduleAsync(command.RequestType, cancellationToken);
-
-        if (allowed.IsError)
-        {
-            return allowed.Errors;
-        }
-
         string arguments = ScheduledCommandFactory.ToArguments(request.Template);
-        List<Error> refused = await ValidateEachAsync(command, arguments, request.Targets, cancellationToken);
 
-        if (refused.Count > 0)
+        // The command's own permissions, checked as the pipeline checks them (no Manage: a start is not a schedule), and,
+        // while its validator runs, published with their reach as the pipeline publishes them: a validator that reads a
+        // scoped aggregate sees what it would see when the item runs.
+        using (IDisposable? entered = await permissionGate.EnterAsync(configurations.For(command.RequestType), cancellationToken))
         {
-            return refused;
+            if (entered is null)
+            {
+                return Error.Forbidden();
+            }
+
+            List<Error> refused = await ValidateEachAsync(command, arguments, request.Targets, cancellationToken);
+
+            if (refused.Count > 0)
+            {
+                return refused;
+            }
         }
 
         Guid scopeId = currentScope.ScopeId;

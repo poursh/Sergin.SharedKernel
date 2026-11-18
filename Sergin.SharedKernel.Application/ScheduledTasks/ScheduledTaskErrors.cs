@@ -44,6 +44,10 @@ public static class ScheduledTaskErrors
     public static Error NotSchedulable { get; } =
         Error.Validation("ScheduledTasks.NotSchedulable", "This command cannot be scheduled.");
 
+    /// <summary>A command started in the background whose configuration does not call <c>Background()</c>.</summary>
+    public static Error NotBackground { get; } =
+        Error.Validation("ScheduledTasks.NotBackground", ScheduledTaskTexts.NotBackground.Default);
+
     /// <summary>More targets than a command that runs once per selected row may take, or more than one for one that does not.</summary>
     public static Error TooManyTargets { get; } =
         Error.Validation("ScheduledTasks.TooManyTargets", "This command cannot be scheduled for that many records.");

@@ -14,11 +14,7 @@ namespace Sergin.SharedKernel.Application.Securities.Authorization;
 /// <see cref="ForbiddenException"/> answers <c>Error.Forbidden()</c> like a refusal here.
 /// </summary>
 internal sealed class PermissionCheckPipelineBehavior<TRequest, TResponse>(
-    IScopeAuthorization scopeAuthorization,
-    IAuthorizationScopeContext scopeContext,
-    IScopePathResolver scopePaths,
-    RequiredPermissionsContext requiredPermissions,
-    ScopeFilter scopeFilter,
+    RequestPermissionGate gate,
     CommandConfigurationRegistry configurations) : IPipelineBehavior<TRequest, TResponse>
     where TRequest : IBaseCommand
 {
@@ -33,27 +29,13 @@ internal sealed class PermissionCheckPipelineBehavior<TRequest, TResponse>(
             return await next(cancellationToken);
         }
 
-        Guid scopeId = scopeContext.ScopeId;
+        // The check, the published permissions and the narrowed reads are the gate's (see RequestPermissionGate).
+        using IDisposable? entered = await gate.EnterAsync(settings, cancellationToken);
 
-        if (settings.PermissionScope == PermissionScope.Current
-            && !await IsAllowedAsync(settings.RequiredPermissions, scopeId, cancellationToken))
+        if (entered is null)
         {
             return Forbidden();
         }
-
-        // Each permission's reach is looked up once: it answers PermissionScope.Any and narrows the reads.
-        IReadOnlyCollection<ScopeReach> reaches = await ReachesAsync(settings.RequiredPermissions, cancellationToken);
-
-        if (settings.PermissionScope == PermissionScope.Any && !reaches.All(one => one.ReachesAnywhere))
-        {
-            return Forbidden();
-        }
-
-        string? currentPath = await scopePaths.GetPathAsync(scopeId, cancellationToken);
-        ScopeReach reach = reaches.Aggregate(ScopeReach.Everything, (all, one) => all.Intersect(one));
-
-        using IDisposable published = requiredPermissions.Publish(settings.RequiredPermissions);
-        using IDisposable filtered = scopeFilter.Apply(currentPath, reach);
 
         TResponse forbidden = default!;
 
@@ -69,29 +51,4 @@ internal sealed class PermissionCheckPipelineBehavior<TRequest, TResponse>(
 
     private static TResponse Forbidden() =>
         ErrorOrResponse.TryFrom(Error.Forbidden(), out TResponse forbidden) ? forbidden : throw new ForbiddenException();
-
-    private async Task<bool> IsAllowedAsync(IReadOnlyCollection<PermissionDefinition> permissions, Guid scopeId, CancellationToken cancellationToken)
-    {
-        foreach (PermissionDefinition permission in permissions)
-        {
-            if (!await scopeAuthorization.CurrentUserHasAsync(permission, scopeId, cancellationToken))
-            {
-                return false;
-            }
-        }
-
-        return true;
-    }
-
-    private async Task<IReadOnlyCollection<ScopeReach>> ReachesAsync(IReadOnlyCollection<PermissionDefinition> permissions, CancellationToken cancellationToken)
-    {
-        List<ScopeReach> reaches = [];
-
-        foreach (PermissionDefinition permission in permissions)
-        {
-            reaches.Add(await scopeAuthorization.CurrentUserReachAsync(permission, cancellationToken));
-        }
-
-        return reaches;
-    }
 }

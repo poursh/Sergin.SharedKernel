@@ -289,6 +289,7 @@ public static class SerginCoreExtensions
         // save's record check, the scope query filter and raw-SQL reads.
         builder.Services.AddScoped<RequiredPermissionsContext>();
         builder.Services.AddScoped<ScopeFilter>();
+        builder.Services.AddScoped<RequestPermissionGate>();
 
         // A seeded context wins over building a fresh one. Scopes opened from the root provider — every
         // Blazor dispatcher send — can reach neither an HttpContext nor the circuit's authentication

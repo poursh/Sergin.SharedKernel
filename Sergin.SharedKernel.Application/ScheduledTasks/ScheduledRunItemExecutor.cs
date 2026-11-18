@@ -28,7 +28,8 @@ namespace Sergin.SharedKernel.Application.ScheduledTasks;
 /// <see cref="ScheduledTaskOptions.StaleAfter"/>, so the recovery never re-sends a command that is still running. A
 /// background command whose declared timeout passes is cancelled and Failed as
 /// <see cref="ScheduledTaskErrors.TimedOutCode"/>, never retried; a cancellation of the engine's own token (a host
-/// shutdown) is not a timeout, and propagates, leaving the item Running for the recovery.
+/// shutdown) is not a timeout, and propagates, leaving the item Running for the recovery. A cancellation the command
+/// raised with neither token cancelled (an HTTP client's own timeout) is an exception like any other, retried.
 /// </para>
 /// </summary>
 internal sealed partial class ScheduledRunItemExecutor(
@@ -170,7 +171,9 @@ internal sealed partial class ScheduledRunItemExecutor(
 
             return response is IErrorOr { IsError: true, Errors: [Error first, ..] } ? first : Result.Success;
         }
-        catch (Exception exception) when (exception is not OperationCanceledException)
+        // A cancellation is the send's own only when its token caused it (the host stopping, or the timeout). One the
+        // command raised by itself (an HTTP client's timeout, say) is a failed attempt like any other exception.
+        catch (Exception exception) when (exception is not OperationCanceledException || !ct.IsCancellationRequested)
         {
             LogAttemptThrew(exception, item.Id, run.Id, run.CommandName, item.Attempts);
             return Error.Unexpected(exception.GetType().FullName ?? exception.GetType().Name, exception.Message);
@@ -204,9 +207,10 @@ internal sealed partial class ScheduledRunItemExecutor(
                 }
             }
         }
-        catch (OperationCanceledException) when (stop.IsCancellationRequested)
+        catch (Exception) when (stop.IsCancellationRequested)
         {
-            // Stopped: the send finished, or the host is stopping.
+            // Stopped: the send finished, or the host is stopping. Whatever a touch in flight threw then, a cancellation
+            // or the store's own failure, is dropped: a faulted heartbeat would replace the outcome.
         }
     }
 
