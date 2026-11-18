@@ -5,7 +5,7 @@ using Sergin.SharedKernel.Application.Aggregates;
 using Sergin.SharedKernel.Domain;
 using Sergin.SharedKernel.Presentation.Blazor.Dispatching;
 using Sergin.SharedKernel.Presentation.Blazor.Aggregates.Views.Parts;
-using Sergin.SharedKernel.Presentation.Blazor.Pages;
+using Sergin.SharedKernel.Presentation.Blazor.Actions;
 
 namespace Sergin.SharedKernel.Presentation.Blazor.Aggregates.Views;
 

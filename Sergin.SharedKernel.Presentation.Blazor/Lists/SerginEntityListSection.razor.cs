@@ -1,0 +1,54 @@
+using Microsoft.AspNetCore.Components;
+using Sergin.SharedKernel.Presentation.Localizations;
+using Sergin.SharedKernel.Presentation.Blazor.Actions;
+
+namespace Sergin.SharedKernel.Presentation.Blazor.Lists;
+
+/// <summary>
+/// A collection of the entities inside the aggregate a detail page shows — a manufacturer's device models — laid out
+/// like <see cref="SerginAggregatePage"/> without its overview: a title with the count, the collection's
+/// <see cref="Actions"/> bar, then the body (<see cref="ChildContent"/>, usually a <see cref="SerginEntityList{TItem}"/>).
+/// </summary>
+/// <remarks>
+/// A section, not a page: it sits in a detail page's body and declares no route or header. Its actions are the
+/// root's behaviours on the collection, so they are guarded by the root's permissions and sent at the root's row
+/// version like any other write to the aggregate. The owner sets <see cref="Count"/>, typically from the list's
+/// <see cref="SerginEntityList{TItem}.TotalChanged"/>.
+/// <para>Superseded by <see cref="Views.SerginEntityListView"/>, embedded in a detail view's entities; kept until UserAccess's
+/// pages move to views.</para>
+/// </remarks>
+public sealed partial class SerginEntityListSection
+{
+    private bool collapsed;
+
+    /// <summary>The title, a declared text.</summary>
+    [Parameter]
+    [EditorRequired]
+    public TextDefinition TitleText { get; set; } = default!;
+
+    /// <summary>The number of entities, shown after the title; null until known.</summary>
+    [Parameter]
+    public int? Count { get; set; }
+
+    [Parameter]
+    public IReadOnlyList<SerginPageAction> Actions { get; set; } = [];
+
+    /// <summary>Whether the section starts collapsed: the title and count only.</summary>
+    [Parameter]
+    public bool Collapsed { get; set; }
+
+    [Parameter]
+    public RenderFragment? ChildContent { get; set; }
+
+    [Inject]
+    private IStringLocalizer Localizer { get; set; } = default!;
+
+    private string TitleShown => Localizer.Text(TitleText);
+
+    [Inject]
+    private ICultureFormatter Formatter { get; set; } = default!;
+
+    protected override void OnInitialized() => collapsed = Collapsed;
+
+    private void Toggle() => collapsed = !collapsed;
+}

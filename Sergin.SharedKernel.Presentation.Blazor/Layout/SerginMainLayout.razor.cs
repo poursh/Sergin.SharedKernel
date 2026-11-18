@@ -4,8 +4,9 @@ using Microsoft.Extensions.Options;
 using MudBlazor.ThemeManager;
 using Sergin.SharedKernel.Application.Securities.Users;
 using Sergin.SharedKernel.Presentation.Blazor.Localizations;
-using Sergin.SharedKernel.Presentation.Blazor.Security;
 using Sergin.SharedKernel.Presentation.Blazor.Theming;
+using Sergin.SharedKernel.Presentation.Blazor.Authentication;
+using Sergin.SharedKernel.Presentation.Blazor.Scopes;
 
 namespace Sergin.SharedKernel.Presentation.Blazor.Layout;
 

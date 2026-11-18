@@ -4,8 +4,10 @@ using Sergin.SharedKernel.Application.Concurrency;
 using Sergin.SharedKernel.Domain;
 using Sergin.SharedKernel.Presentation.Blazor.Dispatching;
 using Sergin.SharedKernel.Presentation.Blazor.Errors;
-using Sergin.SharedKernel.Presentation.Blazor.Pages;
 using Sergin.SharedKernel.Presentation.Localizations;
+using Sergin.SharedKernel.Presentation.Blazor.Actions;
+using Sergin.SharedKernel.Presentation.Blazor.Lists;
+using Sergin.SharedKernel.Presentation.Blazor.Dialogs;
 
 namespace Sergin.SharedKernel.Presentation.Blazor.Aggregates.Views.Parts;
 

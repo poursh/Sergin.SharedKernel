@@ -10,13 +10,14 @@ using Sergin.SharedKernel.Domain.Securities;
 using Sergin.SharedKernel.Presentation.Blazor.Aggregates.Views.Parts;
 using Sergin.SharedKernel.Presentation.Blazor.Dispatching;
 using Sergin.SharedKernel.Presentation.Blazor.Errors;
-using Sergin.SharedKernel.Presentation.Blazor.Modules;
-using Sergin.SharedKernel.Presentation.Blazor.Navigation;
-using Sergin.SharedKernel.Presentation.Blazor.Pages;
 using Sergin.SharedKernel.Presentation.Blazor.ScheduledTasks;
 using Sergin.SharedKernel.Presentation.Blazor.Validation;
-using Sergin.SharedKernel.Presentation.Blazor.Views;
 using Sergin.SharedKernel.Presentation.Errors;
+using Sergin.SharedKernel.Presentation.Blazor.Actions;
+using Sergin.SharedKernel.Presentation.Blazor.Modules;
+using Sergin.SharedKernel.Presentation.Blazor.Navigation;
+using Sergin.SharedKernel.Presentation.Blazor.Views;
+using Sergin.SharedKernel.Presentation.Blazor.Dialogs;
 
 namespace Sergin.SharedKernel.Presentation.Blazor.Aggregates.Views;
 

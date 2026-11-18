@@ -1,5 +1,6 @@
 using System.Reflection;
 using Sergin.SharedKernel.Modules;
+using Sergin.SharedKernel.Presentation.Blazor.Navigation;
 
 namespace Sergin.SharedKernel.Presentation.Blazor.Modules;
 

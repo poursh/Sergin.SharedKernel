@@ -1,6 +1,6 @@
 using Sergin.SharedKernel.Application.Commands;
 using Sergin.SharedKernel.Domain.Securities;
-using Sergin.SharedKernel.Presentation.Blazor.Pages;
+using Sergin.SharedKernel.Presentation.Blazor.Actions;
 
 namespace Sergin.SharedKernel.Presentation.Blazor.Aggregates.Configuration;
 
