@@ -185,6 +185,14 @@ public static class ScheduledTaskUiTexts
             activity.Text("FinishedPartly", "{Command} finished for {Done} of {Total} records.");
 
         public static TextDefinition OpenLabel { get; } = activity.Text("OpenLabel", "Activity, {Count} running");
+
+        public static TextDefinition Cancel { get; } = activity.Text("Cancel", "Cancel");
+
+        public static TextDefinition Cancelled { get; } = activity.Text("Cancelled", "Cancelled");
+
+        public static TextDefinition FinishedCancelled { get; } = activity.Text("FinishedCancelled", "{Command} was cancelled for {Target}.");
+
+        public static TextDefinition CancelFailed { get; } = activity.Text("CancelFailed", "The run could not be cancelled.");
     }
 
     /// <summary>The cron picker.</summary>
