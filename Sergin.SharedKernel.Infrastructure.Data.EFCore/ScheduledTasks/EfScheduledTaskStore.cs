@@ -184,10 +184,52 @@ internal sealed class EfScheduledTaskStore<TContext>(TContext context, string sc
                     .SetProperty(item => item.LastActivityAtUtc, now),
                 ct) == 1;
 
-    public async Task<bool> TouchRunItemAsync(Guid runItemId, DateTime now, CancellationToken ct) =>
-        await context.ScheduledTaskRunItems
+    /// <summary>
+    /// The stamp and the read of the run's cancel request in one transaction. Set-based both, so an item the caller holds
+    /// tracked is never saved over. A cancel request is never withdrawn, so a read that sees none only means a later beat
+    /// will.
+    /// </summary>
+    public async Task<RunItemHeartbeat> TouchRunItemAsync(Guid runItemId, DateTime now, CancellationToken ct)
+    {
+        await using IDbContextTransaction transaction = await context.Database.BeginTransactionAsync(ct);
+
+        bool touched = await context.ScheduledTaskRunItems
             .Where(item => item.Id == runItemId && item.Status == ScheduledRunItemStatus.Running)
             .ExecuteUpdateAsync(set => set.SetProperty(item => item.LastActivityAtUtc, now), ct) == 1;
+
+        bool cancelRequested = await context.ScheduledTaskRunItems
+            .Where(item => item.Id == runItemId)
+            .AnyAsync(item => context.ScheduledTaskRuns.Any(run => run.Id == item.RunId && run.CancelRequestedAtUtc != null), ct);
+
+        await transaction.CommitAsync(ct);
+
+        return new RunItemHeartbeat(touched, cancelRequested);
+    }
+
+    /// <summary>
+    /// Set-based, like <see cref="CancelRunAsync"/>. The runs are read first and the update repeats the whole condition,
+    /// so an item that finished in between is left alone; its run is answered anyway, and completing it is idempotent.
+    /// </summary>
+    public async Task<IReadOnlyCollection<Guid>> CancelAbandonedRunItemsAsync(DateTime quietSince, DateTime at, CancellationToken ct)
+    {
+        IQueryable<ScheduledTaskRunItem> abandoned = UnfinishedQuiet(quietSince)
+            .Where(item => context.ScheduledTaskRuns.Any(run => run.Id == item.RunId && run.CancelRequestedAtUtc != null));
+
+        List<Guid> runs = await abandoned.Select(item => item.RunId).Distinct().ToListAsync(ct);
+
+        if (runs.Count == 0)
+        {
+            return [];
+        }
+
+        await abandoned.ExecuteUpdateAsync(
+            set => set
+                .SetProperty(item => item.Status, ScheduledRunItemStatus.Cancelled)
+                .SetProperty(item => item.CompletedAtUtc, at),
+            ct);
+
+        return runs;
+    }
 
     public async Task<IReadOnlyCollection<Guid>> ListStaleRunItemsAsync(DateTime quietSince, CancellationToken ct) =>
         await Unfinished(quietSince).Select(item => item.Id).ToListAsync(ct);
@@ -215,7 +257,12 @@ internal sealed class EfScheduledTaskStore<TContext>(TContext context, string sc
                         item => item.Status == ScheduledRunItemStatus.Running ? ScheduledRunItemStatus.Retrying : item.Status),
                 ct) == 1;
 
+    // An item of a run asked to cancel is never handed to the engine again: CancelAbandonedRunItemsAsync settles it.
     private IQueryable<ScheduledTaskRunItem> Unfinished(DateTime quietSince) =>
+        UnfinishedQuiet(quietSince)
+            .Where(item => context.ScheduledTaskRuns.Any(run => run.Id == item.RunId && run.CancelRequestedAtUtc == null));
+
+    private IQueryable<ScheduledTaskRunItem> UnfinishedQuiet(DateTime quietSince) =>
         context.ScheduledTaskRunItems.Where(item =>
             (item.Status == ScheduledRunItemStatus.Pending
                 || item.Status == ScheduledRunItemStatus.Running

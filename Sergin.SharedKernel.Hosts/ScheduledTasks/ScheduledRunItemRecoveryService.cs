@@ -3,6 +3,8 @@ using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Sergin.SharedKernel.Application.ScheduledTasks;
+using Sergin.SharedKernel.Application.ScheduledTasks.Activity;
+using Sergin.SharedKernel.Application.ScheduledTasks.Commands;
 using Sergin.SharedKernel.Application.Times;
 using Sergin.SharedKernel.Infrastructure.Data.EFCore.ScheduledTasks;
 
@@ -24,6 +26,11 @@ namespace Sergin.SharedKernel.Hosts.ScheduledTasks;
 /// The same pass completes a run that is still open though every item finished and it started more than the stale period
 /// ago: the item's save landed and the run's completion did not (a database fault or shutdown in between).
 /// </para>
+/// <para>
+/// An unfinished item of a run asked to cancel is never handed over again: once it is quiet that long (its delivery died
+/// mid-send, or a send that failed as the cancel landed left it Retrying) it is Cancelled, and its run completed and
+/// reported to the run's user.
+/// </para>
 /// <para>Public, like <c>OutboxRelayService</c>, so an integration test can remove it and run a pass by hand.</para>
 /// </summary>
 public sealed partial class ScheduledRunItemRecoveryService(
@@ -31,6 +38,7 @@ public sealed partial class ScheduledRunItemRecoveryService(
     IEnumerable<ScheduledTasksRegistration> registrations,
     IDateTimeProvider clock,
     IOptions<ScheduledTaskOptions> options,
+    IRunNotifier notifier,
     ILogger<ScheduledRunItemRecoveryService> logger) : BackgroundService
 {
     private readonly string[] schemas = [.. registrations.Select(registration => registration.Schema).Distinct(StringComparer.Ordinal)];
@@ -52,6 +60,18 @@ public sealed partial class ScheduledRunItemRecoveryService(
                 await using AsyncServiceScope scope = services.CreateAsyncScope();
                 IScheduledTaskStore store = scope.ServiceProvider.GetRequiredService<IScheduledTaskStoreResolver>().For(schema);
                 IScheduledTaskEngine engine = scope.ServiceProvider.GetRequiredService<IScheduledTaskEngine>();
+
+                // A cancelled run's abandoned items are settled, not re-sent: the claim would refuse every new delivery.
+                foreach (Guid runId in await store.CancelAbandonedRunItemsAsync(quietSince, clock.UtcNow, ct))
+                {
+                    await store.CompleteRunIfFinishedAsync(runId, clock.UtcNow, ct);
+                    LogAbandonedCancelled(runId, schema);
+
+                    if (await store.GetRunAsync(runId, ct) is { } run)
+                    {
+                        notifier.Publish(new RunChanged(new BackgroundRunRef(schema, run.Id), run.ActingUserId));
+                    }
+                }
 
                 foreach (Guid itemId in await store.ListStaleRunItemsAsync(quietSince, ct))
                 {
@@ -105,6 +125,9 @@ public sealed partial class ScheduledRunItemRecoveryService(
 
     [LoggerMessage(Level = LogLevel.Warning, Message = "Scheduled run item {RunItemId} in schema {Schema} had gone quiet; it was handed to the job engine again.")]
     private partial void LogRecovered(Guid runItemId, string schema);
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "Scheduled run {RunId} in schema {Schema} was cancelled and had items left quiet; they were cancelled.")]
+    private partial void LogAbandonedCancelled(Guid runId, string schema);
 
     [LoggerMessage(Level = LogLevel.Warning, Message = "Scheduled run {RunId} in schema {Schema} had every item finished but was still open; it was completed.")]
     private partial void LogRunCompleted(Guid runId, string schema);

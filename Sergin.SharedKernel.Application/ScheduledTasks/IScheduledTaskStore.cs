@@ -67,13 +67,25 @@ public interface IScheduledTaskStore
 
     /// <summary>
     /// The heartbeat of a delivery still sending its command: one conditional update stamps the item's activity with
-    /// <paramref name="now"/> while it is Running, so the recovery does not take a long command for a lost one. True when a
-    /// row changed; false when the item is finished, purged, or no longer Running.
+    /// <paramref name="now"/> while it is Running, so the recovery does not take a long command for a lost one, and in the
+    /// same transaction reads whether the item's run was asked to cancel, so the delivery can stop its command.
+    /// <see cref="RunItemHeartbeat.Touched"/> is false when the item is finished, purged, or no longer Running.
     /// </summary>
-    Task<bool> TouchRunItemAsync(Guid runItemId, DateTime now, CancellationToken ct);
+    Task<RunItemHeartbeat> TouchRunItemAsync(Guid runItemId, DateTime now, CancellationToken ct);
 
-    /// <summary>The unfinished run items quiet since before <paramref name="quietSince"/>: their jobs are taken for lost.</summary>
+    /// <summary>
+    /// The unfinished run items quiet since before <paramref name="quietSince"/>: their jobs are taken for lost. An item
+    /// of a run asked to cancel is left out: it is never sent again, and <see cref="CancelAbandonedRunItemsAsync"/> settles it.
+    /// </summary>
     Task<IReadOnlyCollection<Guid>> ListStaleRunItemsAsync(DateTime quietSince, CancellationToken ct);
+
+    /// <summary>
+    /// Moves every unfinished (Pending, Running or Retrying) item of a run asked to cancel, quiet since before
+    /// <paramref name="quietSince"/> (its delivery died, or it was left Retrying by a send that failed as the cancel
+    /// landed), to Cancelled, completed at <paramref name="at"/>; answers the distinct runs it touched, for the caller to
+    /// complete. Commits.
+    /// </summary>
+    Task<IReadOnlyCollection<Guid>> CancelAbandonedRunItemsAsync(DateTime quietSince, DateTime at, CancellationToken ct);
 
     /// <summary>
     /// The runs still Running, started before <paramref name="quietSinceUtc"/>, with no item left pending, running or
@@ -101,6 +113,9 @@ public interface IScheduledTaskStore
 
     Task SaveAsync(CancellationToken ct);
 }
+
+/// <summary>What one heartbeat found: whether it stamped the item, and whether the item's run was asked to cancel.</summary>
+public sealed record RunItemHeartbeat(bool Touched, bool CancelRequested);
 
 /// <summary>A live task's trigger as Sergin's row holds it, and whether the engine should fire it.</summary>
 public sealed record ScheduledTaskTriggerState(ScheduledTaskId Id, Guid? EngineTriggerId, ScheduledTrigger Trigger, bool Enabled);

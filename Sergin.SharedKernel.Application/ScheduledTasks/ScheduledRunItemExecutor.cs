@@ -33,6 +33,12 @@ namespace Sergin.SharedKernel.Application.ScheduledTasks;
 /// shutdown) is not a timeout, and propagates, leaving the item Running for the recovery. A cancellation the command
 /// raised with neither token cancelled (an HTTP client's own timeout) is an exception like any other, retried.
 /// </para>
+/// <para>
+/// A cancel of the run reaches the item wherever it was asked (another circuit, another process) through the heartbeat,
+/// which ticks every <c>min(StaleAfter / 3, HeartbeatInterval)</c> and reads the run's cancel request: the send's token is
+/// cancelled and the item ends Cancelled, final, beating a timeout; a send that returned first keeps its outcome. A cancel
+/// that landed between the claim and the read sends nothing, and a would-be retry of a run asked to cancel ends Cancelled.
+/// </para>
 /// </summary>
 internal sealed partial class ScheduledRunItemExecutor(
     IServiceScopeFactory scopes,
@@ -80,6 +86,14 @@ internal sealed partial class ScheduledRunItemExecutor(
         // The claim moved the item to Running.
         Notify(store, run);
 
+        // A cancel landed between the claim and the read: the claim refuses a cancelled run's items, this one was already
+        // past it. Final, and nothing is sent.
+        if (run.CancelRequestedAtUtc is not null)
+        {
+            await FinishCancelledAsync(store, run, item, ct);
+            return false;
+        }
+
         // Every allowed attempt was claimed and lost (the host stopped mid-send, again and again): nothing is left to try.
         if (item.Attempts > settings.MaxAttempts)
         {
@@ -95,42 +109,67 @@ internal sealed partial class ScheduledRunItemExecutor(
         TimeSpan? timeout = command?.Background?.Timeout;
 
         // The heartbeat keeps the item's activity fresh while the command runs, so the recovery never takes a command
-        // that runs longer than StaleAfter for a lost one. It stops, and is awaited, before the outcome is saved.
+        // that runs longer than StaleAfter for a lost one, and stops the command (cancelSource) once it reads that the run
+        // was asked to cancel. It stops, and is awaited, before the outcome is saved.
         using var stopHeartbeat = CancellationTokenSource.CreateLinkedTokenSource(ct);
         using var timeoutSource = CancellationTokenSource.CreateLinkedTokenSource(ct);
+        using var cancelSource = new CancellationTokenSource();
+        using var sendSource = CancellationTokenSource.CreateLinkedTokenSource(timeoutSource.Token, cancelSource.Token);
 
         if (timeout is { } limit)
         {
             timeoutSource.CancelAfter(limit);
         }
 
-        Task heartbeat = HeartbeatAsync(schema, item.Id, settings.StaleAfter / 3, stopHeartbeat.Token);
+        TimeSpan interval = settings.StaleAfter / 3 < settings.HeartbeatInterval ? settings.StaleAfter / 3 : settings.HeartbeatInterval;
+        Task heartbeat = HeartbeatAsync(schema, item.Id, interval, cancelSource.CancelAsync, stopHeartbeat.Token);
         ErrorOr<Success> outcome;
+        bool cancelled;
+        bool timedOut;
 
         try
         {
-            outcome = await SendAsync(run, item, command, timeoutSource.Token);
+            outcome = await SendAsync(run, item, command, sendSource.Token);
         }
-        catch (OperationCanceledException) when (timeout.HasValue && timeoutSource.IsCancellationRequested && !ct.IsCancellationRequested)
+        catch (OperationCanceledException) when (!ct.IsCancellationRequested && (cancelSource.IsCancellationRequested || timeoutSource.IsCancellationRequested))
         {
-            // The command's own timeout, not a host shutdown: final, like any ErrorOr error that is not Unexpected.
-            outcome = ScheduledTaskErrors.TimedOut(timeout.Value);
+            // The run's cancel or the command's own timeout, not a host shutdown: final either way; which one is settled below.
+            outcome = Error.Unexpected();
         }
         finally
         {
+            // Read before the heartbeat stops, so only a cancel that fired while the send ran counts; a send that returned
+            // first keeps its own outcome.
+            cancelled = cancelSource.IsCancellationRequested;
+            timedOut = timeout.HasValue && timeoutSource.IsCancellationRequested;
             await stopHeartbeat.CancelAsync();
             await heartbeat;
         }
 
-        // However the send ended once the timeout fired (a wrapped cancellation, an Unexpected error, even a late success),
-        // the command outran its timeout: record that, never a retry.
-        if (timeout.HasValue && timeoutSource.IsCancellationRequested && !ct.IsCancellationRequested)
+        // However the send ended once the cancel fired (a wrapped cancellation, an error, even a late success), the run was
+        // cancelled under it: final, never retried, and it beats a timeout that fired too. A host shutdown is neither.
+        if (cancelled && !ct.IsCancellationRequested)
         {
-            outcome = ScheduledTaskErrors.TimedOut(timeout.Value);
+            await FinishCancelledAsync(store, run, item, ct);
+            return false;
+        }
+
+        // However the send ended once the timeout fired, the command outran its timeout: record that, never a retry.
+        if (timedOut && !ct.IsCancellationRequested)
+        {
+            outcome = ScheduledTaskErrors.TimedOut(timeout!.Value);
         }
 
         if (outcome.IsError && outcome.FirstError.Type == ErrorType.Unexpected)
         {
+            // A retry the run's cancel would refuse: the cancel committed while the send ran and no heartbeat read it yet.
+            // Asked once more here, so the item ends Cancelled rather than Retrying with no delivery left to finish it.
+            if ((await store.TouchRunItemAsync(item.Id, clock.UtcNow, ct)).CancelRequested)
+            {
+                await FinishCancelledAsync(store, run, item, ct);
+                return false;
+            }
+
             if (item.Attempts < settings.MaxAttempts)
             {
                 item.MarkRetrying(outcome.FirstError.Code, outcome.FirstError.Description, clock.UtcNow);
@@ -155,6 +194,14 @@ internal sealed partial class ScheduledRunItemExecutor(
         Notify(store, run);
 
         return false;
+    }
+
+    private async Task FinishCancelledAsync(IScheduledTaskStore store, ScheduledTaskRun run, ScheduledTaskRunItem item, CancellationToken ct)
+    {
+        item.MarkCancelled(clock.UtcNow);
+        await store.SaveAsync(ct);
+        await store.CompleteRunIfFinishedAsync(run.Id, clock.UtcNow, ct);
+        Notify(store, run);
     }
 
     // After the save it reports has committed; a subscriber's failure never reaches the executor.
@@ -196,13 +243,15 @@ internal sealed partial class ScheduledRunItemExecutor(
     }
 
     /// <summary>
-    /// Stamps the item's activity every <paramref name="interval"/> until <paramref name="stop"/> is cancelled. Each touch
+    /// Stamps the item's activity every <paramref name="interval"/> until <paramref name="stop"/> is cancelled, and calls
+    /// <paramref name="cancelSend"/> once, the first time a touch reads that the run was asked to cancel. Each touch
     /// opens its own scope and store: the executor's context is busy with the send and is not thread-safe. A failed touch
     /// is logged and the next tick tries again; nothing is thrown.
     /// </summary>
-    private async Task HeartbeatAsync(string schema, Guid runItemId, TimeSpan interval, CancellationToken stop)
+    private async Task HeartbeatAsync(string schema, Guid runItemId, TimeSpan interval, Func<Task> cancelSend, CancellationToken stop)
     {
         using var timer = new PeriodicTimer(interval);
+        bool cancelSent = false;
 
         try
         {
@@ -212,7 +261,13 @@ internal sealed partial class ScheduledRunItemExecutor(
                 {
                     await using AsyncServiceScope scope = scopes.CreateAsyncScope();
                     IScheduledTaskStore store = scope.ServiceProvider.GetRequiredService<IScheduledTaskStoreResolver>().For(schema);
-                    await store.TouchRunItemAsync(runItemId, clock.UtcNow, stop);
+                    RunItemHeartbeat beat = await store.TouchRunItemAsync(runItemId, clock.UtcNow, stop);
+
+                    if (beat.CancelRequested && !cancelSent)
+                    {
+                        cancelSent = true;
+                        await cancelSend();
+                    }
                 }
                 catch (Exception exception) when (!stop.IsCancellationRequested)
                 {
