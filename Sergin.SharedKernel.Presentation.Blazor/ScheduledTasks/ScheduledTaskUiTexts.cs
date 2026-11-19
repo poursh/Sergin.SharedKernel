@@ -160,8 +160,9 @@ public static class ScheduledTaskUiTexts
         /// <summary>A running item's status with the percent its command last reported.</summary>
         public static TextDefinition ItemProgress { get; } = runs.Text("ItemProgress", "{Status} · {Percent}%");
 
-        /// <summary>Added to a run's summary only when some of its items were cancelled.</summary>
-        public static TextDefinition Cancelled { get; } = runs.Text("Cancelled", "{Count} cancelled");
+        /// <summary>A run's summary when some of its items were cancelled.</summary>
+        public static TextDefinition SummaryWithCancelled { get; } = runs.Text(
+            "SummaryWithCancelled", "{Status}: {Succeeded} of {Total} succeeded, {Failed} failed, {Cancelled} cancelled");
     }
 
     /// <summary>The app bar's activity indicator: the user's running and recently finished background runs.</summary>
@@ -191,6 +192,13 @@ public static class ScheduledTaskUiTexts
 
         public static TextDefinition FinishedPartly { get; } =
             activity.Text("FinishedPartly", "{Command} finished for {Done} of {Total} records.");
+
+        /// <summary>A run cancelled part way through with no failure: what was done before the cancel, and what was not.</summary>
+        public static TextDefinition FinishedPartlyCancelled { get; } = activity.Text(
+            "FinishedPartlyCancelled", "{Command} finished for {Done} of {Total} records; {Cancelled} cancelled.");
+
+        /// <summary>A running run's records done so far, under its progress bar.</summary>
+        public static TextDefinition Progress { get; } = activity.Text("Progress", "{Done} / {Total}");
 
         public static TextDefinition OpenLabel { get; } = activity.Text("OpenLabel", "Activity, {Count} running");
 

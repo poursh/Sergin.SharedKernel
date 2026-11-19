@@ -460,6 +460,17 @@ public sealed partial class SerginActivityIndicator : IDisposable
                 Localizer.Text(ScheduledTaskUiTexts.Activity.FinishedSucceeded, new { Command = command, row.Target }), Severity.Success),
             ActivityState.Failed => (
                 Localizer.Text(ScheduledTaskUiTexts.Activity.FinishedFailed, new { Command = command, row.Target }), Severity.Error),
+            ActivityState.Cancelled when row.Done > 0 => (
+                Localizer.Text(
+                    ScheduledTaskUiTexts.Activity.FinishedPartlyCancelled,
+                    new
+                    {
+                        Command = command,
+                        Done = Formatter.Number(row.Done),
+                        Total = Formatter.Number(row.Total),
+                        Cancelled = Formatter.Number(row.Cancelled),
+                    }),
+                Severity.Normal),
             ActivityState.Cancelled => (
                 Localizer.Text(ScheduledTaskUiTexts.Activity.FinishedCancelled, new { Command = command, row.Target }), Severity.Normal),
             _ => (
@@ -592,7 +603,8 @@ public sealed partial class SerginActivityIndicator : IDisposable
         return $"{Formatter.Number(seconds / 60)}:{Formatter.Number(second / 10)}{Formatter.Number(second % 10)}";
     }
 
-    private string ProgressText(ActivityRow row) => $"{Formatter.Number(row.Done)} / {Formatter.Number(row.Total)}";
+    private string ProgressText(ActivityRow row) =>
+        Localizer.Text(ScheduledTaskUiTexts.Activity.Progress, new { Done = Formatter.Number(row.Done), Total = Formatter.Number(row.Total) });
 
     // The first error of a one-record failure as the runs dialog shows it: the item's stored description, else its code.
     private static string? ErrorText(ActivityRow row) =>

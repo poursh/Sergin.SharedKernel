@@ -71,18 +71,15 @@ internal static class ScheduledTaskUiFormat
     /// </summary>
     public static string RunSummary(IStringLocalizer localizer, ICultureFormatter formatter, ScheduledRunListItem run)
     {
-        string summary = localizer.Text(
-            ScheduledTaskUiTexts.Runs.Summary,
-            new
-            {
-                Status = localizer.Text(StatusText(run.Status)),
-                Succeeded = formatter.Number(run.Succeeded),
-                Total = formatter.Number(run.Total),
-                Failed = formatter.Number(run.Failed),
-            });
+        var values = new
+        {
+            Status = localizer.Text(StatusText(run.Status)),
+            Succeeded = formatter.Number(run.Succeeded),
+            Total = formatter.Number(run.Total),
+            Failed = formatter.Number(run.Failed),
+            Cancelled = formatter.Number(run.Cancelled),
+        };
 
-        return run.Cancelled > 0
-            ? $"{summary} · {localizer.Text(ScheduledTaskUiTexts.Runs.Cancelled, new { Count = formatter.Number(run.Cancelled) })}"
-            : summary;
+        return localizer.Text(run.Cancelled > 0 ? ScheduledTaskUiTexts.Runs.SummaryWithCancelled : ScheduledTaskUiTexts.Runs.Summary, values);
     }
 }

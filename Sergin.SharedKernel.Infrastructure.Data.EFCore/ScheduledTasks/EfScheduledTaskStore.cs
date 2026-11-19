@@ -21,6 +21,14 @@ internal sealed class EfScheduledTaskStore<TContext>(TContext context, string sc
     private readonly string lockRunSql =
         "SELECT 1 FROM \"" + schema + "\".\"scheduled_task_runs\" WHERE id = {0} FOR UPDATE";
 
+    // The heartbeat in one round trip: the stamp of a Running item, returning whether its run was asked to cancel. The item
+    // id is {0}, the time {1}; a single "Value" column is what SqlQueryRaw<bool> reads.
+    private readonly string touchRunItemSql =
+        "UPDATE \"" + schema + "\".\"scheduled_task_run_items\" AS item SET last_activity_at_utc = {1} "
+        + "WHERE item.id = {0} AND item.status = 'Running' "
+        + "RETURNING (SELECT run.cancel_requested_at_utc IS NOT NULL FROM \"" + schema + "\".\"scheduled_task_runs\" AS run "
+        + "WHERE run.id = item.run_id) AS \"Value\"";
+
     public string Schema => schema;
 
     public Task<ScheduledTask?> GetTaskAsync(ScheduledTaskId id, bool ignoreScope, CancellationToken ct)
@@ -202,25 +210,25 @@ internal sealed class EfScheduledTaskStore<TContext>(TContext context, string sc
                 ct);
 
     /// <summary>
-    /// The stamp and the read of the run's cancel request in one transaction. Set-based both, so an item the caller holds
-    /// tracked is never saved over. A cancel request is never withdrawn, so a read that sees none only means a later beat
-    /// will.
+    /// The stamp and the read of the run's cancel request in one statement, set-based, so an item the caller holds tracked
+    /// is never saved over. An item no longer Running is not stamped, and its run's cancel request is then read on its own.
+    /// A cancel request is never withdrawn, so a read that sees none only means a later beat will.
     /// </summary>
     public async Task<RunItemHeartbeat> TouchRunItemAsync(Guid runItemId, DateTime now, CancellationToken ct)
     {
-        await using IDbContextTransaction transaction = await context.Database.BeginTransactionAsync(ct);
+        // Not composed further (no First or Single), so EF sends the UPDATE as written rather than wrapping it.
+        List<bool> touched = await context.Database.SqlQueryRaw<bool>(touchRunItemSql, runItemId, now).ToListAsync(ct);
 
-        bool touched = await context.ScheduledTaskRunItems
-            .Where(item => item.Id == runItemId && item.Status == ScheduledRunItemStatus.Running)
-            .ExecuteUpdateAsync(set => set.SetProperty(item => item.LastActivityAtUtc, now), ct) == 1;
+        if (touched.Count == 1)
+        {
+            return new RunItemHeartbeat(true, touched[0]);
+        }
 
         bool cancelRequested = await context.ScheduledTaskRunItems
             .Where(item => item.Id == runItemId)
             .AnyAsync(item => context.ScheduledTaskRuns.Any(run => run.Id == item.RunId && run.CancelRequestedAtUtc != null), ct);
 
-        await transaction.CommitAsync(ct);
-
-        return new RunItemHeartbeat(touched, cancelRequested);
+        return new RunItemHeartbeat(false, cancelRequested);
     }
 
     /// <summary>

@@ -299,6 +299,9 @@ public sealed partial class SerginScheduledTasksSection : IDisposable
     [LoggerMessage(Level = LogLevel.Error, Message = "The scheduled tasks section of {Schema} record {TargetId} failed to read its runs; it stopped polling.")]
     private static partial void LogPollFailed(ILogger logger, Exception exception, string schema, Guid targetId);
 
+    [LoggerMessage(Level = LogLevel.Error, Message = "Cancelling scheduled run {RunId} of {Schema} failed.")]
+    private static partial void LogCancelFailed(ILogger logger, Exception exception, string schema, Guid runId);
+
     private string NextRunText(ScheduledTaskListItem task)
     {
         if (task.State != ScheduledTaskState.Active)
@@ -353,15 +356,25 @@ public sealed partial class SerginScheduledTasksSection : IDisposable
 
     /// <summary>
     /// Cancels a Running one-off run, then reads the lists again whatever the answer. A run that finished meanwhile is no
-    /// error to the user (the reload shows how it ended); any other refusal is notified.
+    /// error to the user (the reload shows how it ended); any other refusal is notified, and a send that throws says the
+    /// run could not be cancelled rather than faulting the circuit.
     /// </summary>
     internal async Task CancelRunAsync(Guid runId)
     {
-        ErrorOr<Success> result = await Dispatcher.SendAsync(new CancelBackgroundRunCommand(Schema, runId));
-
-        if (result.IsError && result.FirstError.Code != ScheduledTaskErrors.RunFinished.Code)
+        try
         {
-            ErrorPresenter.Notify(result.FirstError);
+            ErrorOr<Success> result = await Dispatcher.SendAsync(new CancelBackgroundRunCommand(Schema, runId));
+
+            if (result.IsError && result.FirstError.Code != ScheduledTaskErrors.RunFinished.Code)
+            {
+                ErrorPresenter.Notify(result.FirstError);
+            }
+        }
+        catch (Exception exception)
+        {
+            // A click handler: anything escaping here would fault the circuit.
+            LogCancelFailed(Logger, exception, Schema, runId);
+            Snackbar.Add(Localizer.Text(ScheduledTaskUiTexts.Activity.CancelFailed), Severity.Error);
         }
 
         await ReloadAsync();

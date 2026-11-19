@@ -22,8 +22,10 @@ internal enum ActivityState
 /// One run as the activity indicator shows it: the command's view label (null when no view names it, and
 /// <paramref name="CommandName"/> shows instead), the target's stored label or a record count, the target's detail link
 /// for a one-record root target, where the run stands, a one-record run's first error as stored, its target id and
-/// progress (0–100, null until its command reports), and the caption of the module the run belongs to (null when no UI
-/// module has its schema).
+/// progress (0–100, null until its command reports), the caption of the module the run belongs to (null when no UI
+/// module has its schema), and its count of cancelled items (zero until it completes). <paramref name="Done"/> is the
+/// items no longer waiting while the run is running (a run's counts are written only when it completes, so a cancelled
+/// item counts as done for the bar), and its succeeded and failed items once it finished.
 /// </summary>
 internal sealed record ActivityRow(
     BackgroundRunRef Ref,
@@ -40,7 +42,8 @@ internal sealed record ActivityRow(
     string? FirstErrorDescription,
     Guid? TargetId,
     int? Progress,
-    TextDefinition? ModuleCaption)
+    TextDefinition? ModuleCaption,
+    int Cancelled)
 {
     public bool IsRunning => State == ActivityState.Running;
 }
@@ -102,15 +105,10 @@ internal static class ActivityRows
             return ActivityState.Running;
         }
 
-        if (item.Cancelled > 0 && item.Succeeded == 0 && item.Failed == 0)
+        // A run cancelled part way through, with no failure, reads as cancelled: the finished message counts what was done.
+        if (item.Failed == 0)
         {
-            return ActivityState.Cancelled;
-        }
-
-        // Cancelled items beside succeeded ones leave the run partly done, as a failure beside them would.
-        if (item.Failed == 0 && item.Cancelled == 0)
-        {
-            return ActivityState.Succeeded;
+            return item.Cancelled > 0 ? ActivityState.Cancelled : ActivityState.Succeeded;
         }
 
         return item.Succeeded == 0 ? ActivityState.Failed : ActivityState.PartlyFailed;
@@ -135,14 +133,19 @@ internal static class ActivityRows
             StateOf(item),
             item.StartedAtUtc,
             item.CompletedAtUtc,
-            item.Succeeded + item.Failed,
+            DoneOf(item),
             item.Total,
             item.FirstErrorCode,
             item.FirstErrorDescription,
             item.Total == 1 ? item.TargetId : null,
             item.Total == 1 ? item.Progress : null,
-            moduleCaption(item.Ref.Schema));
+            moduleCaption(item.Ref.Schema),
+            item.Cancelled);
     }
+
+    // The run's succeeded and failed counts are written only when it completes: while it runs, done is what no longer waits.
+    private static int DoneOf(ActivityItem item) =>
+        item.Unfinished > 0 ? item.Total - item.Unfinished : item.Succeeded + item.Failed;
 
     private static TextDefinition? LabelOf(ScheduledCommand? command, AggregateViewModel? model)
     {

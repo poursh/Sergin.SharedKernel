@@ -37,8 +37,12 @@ namespace Sergin.SharedKernel.Application.ScheduledTasks;
 /// <para>
 /// A cancel of the run reaches the item wherever it was asked (another circuit, another process) through the heartbeat,
 /// which ticks every <c>min(StaleAfter / 3, HeartbeatInterval)</c> and reads the run's cancel request: the send's token is
-/// cancelled and the item ends Cancelled, final, beating a timeout; a send that returned first keeps its outcome. A cancel
-/// that landed between the claim and the read sends nothing, and a would-be retry of a run asked to cancel ends Cancelled.
+/// cancelled and the item ends Cancelled, final, beating a timeout; a send that returned first keeps its outcome. The send's
+/// end is read before the heartbeat stops, so a beat that fires the cancel in the instant after the send returned, before
+/// that read, records Cancelled even though the command finished. A cancel that landed between the claim and the read
+/// sends nothing, and a would-be retry of a run asked to cancel ends Cancelled (asked again after the Retrying save, and a
+/// later delivery that finds a waiting item of a cancelled run cancels it). A command that finishes within one heartbeat
+/// interval cannot be stopped once running; its run's items not yet started still are.
 /// </para>
 /// <para>
 /// A command reports progress through <see cref="IRunProgress"/>, which writes it, throttled, while the command runs; the
@@ -70,12 +74,18 @@ internal sealed partial class ScheduledRunItemExecutor(
         {
             // Finished by an earlier delivery that may have stopped between saving the item and completing the run, or
             // cancelled: completing is idempotent, so finish that step, or the run stays open and the overlap rule skips
-            // every later firing of its task. Otherwise it is purged, another delivery holds it, or its run is being
-            // cancelled (the cancel moves it on): nothing to do, and the command is never sent.
-            if (await store.GetRunItemAsync(runItemId, ct) is { Item.Status: ScheduledRunItemStatus.Succeeded or ScheduledRunItemStatus.Failed or ScheduledRunItemStatus.Cancelled } finished)
+            // every later firing of its task. A waiting item of a run asked to cancel (a retry saved just after the cancel
+            // moved the run's waiting items on) is cancelled here, so the run completes without waiting for the recovery.
+            // Otherwise it is purged or another delivery holds it: nothing to do, and the command is never sent.
+            switch (await store.GetRunItemAsync(runItemId, ct))
             {
-                await store.CompleteRunIfFinishedAsync(finished.Run.Id, clock.UtcNow, ct);
-                Notify(store, finished.Run);
+                case { Item.Status: ScheduledRunItemStatus.Succeeded or ScheduledRunItemStatus.Failed or ScheduledRunItemStatus.Cancelled } finished:
+                    await store.CompleteRunIfFinishedAsync(finished.Run.Id, clock.UtcNow, ct);
+                    Notify(store, finished.Run);
+                    break;
+                case { Item.Status: ScheduledRunItemStatus.Pending or ScheduledRunItemStatus.Retrying, Run.CancelRequestedAtUtc: not null } waiting:
+                    await FinishCancelledAsync(store, waiting.Run, waiting.Item, ct);
+                    break;
             }
 
             return false;
@@ -187,6 +197,15 @@ internal sealed partial class ScheduledRunItemExecutor(
             {
                 item.MarkRetrying(outcome.FirstError.Code, outcome.FirstError.Description, clock.UtcNow);
                 await store.SaveAsync(ct);
+
+                // A cancel that committed between the read above and this save left the item Retrying under a cancelled
+                // run, which no delivery would claim: asked once more, so it ends Cancelled now rather than at the recovery.
+                if ((await store.TouchRunItemAsync(item.Id, clock.UtcNow, ct)).CancelRequested)
+                {
+                    await FinishCancelledAsync(store, run, item, ct);
+                    return false;
+                }
+
                 Notify(store, run);
                 return true;
             }
