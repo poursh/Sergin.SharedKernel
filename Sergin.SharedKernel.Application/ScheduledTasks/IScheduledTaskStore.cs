@@ -74,6 +74,13 @@ public interface IScheduledTaskStore
     Task<RunItemHeartbeat> TouchRunItemAsync(Guid runItemId, DateTime now, CancellationToken ct);
 
     /// <summary>
+    /// A command's progress while it runs: one conditional update stores <paramref name="percent"/> (clamped to 0–100)
+    /// and stamps the item's activity with <paramref name="now"/> while it is Running. Commits; a finished, purged or no
+    /// longer Running item is left alone. A claim clears the progress, so each attempt starts from none.
+    /// </summary>
+    Task SetRunItemProgressAsync(Guid runItemId, int percent, DateTime now, CancellationToken ct);
+
+    /// <summary>
     /// The unfinished run items quiet since before <paramref name="quietSince"/>: their jobs are taken for lost. An item
     /// of a run asked to cancel is left out: it is never sent again, and <see cref="CancelAbandonedRunItemsAsync"/> settles it.
     /// </summary>

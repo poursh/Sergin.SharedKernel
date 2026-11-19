@@ -81,6 +81,9 @@ public static class ScheduledTasksModelBuilderExtensions
             item.ToTable("scheduled_task_run_items");
             item.HasKey(x => x.Id);
             item.Property(x => x.Status).IsRequired().HasConversion<string>();
+
+            // A percent, 0 to 100: a smallint is enough.
+            item.Property(x => x.Progress).HasConversion<short>().HasColumnType("smallint");
             item.HasOne<ScheduledTaskRun>().WithMany().HasForeignKey(x => x.RunId).OnDelete(DeleteBehavior.Cascade);
 
             // The recovery sweep's lookup: unfinished items quiet since before a cutoff.

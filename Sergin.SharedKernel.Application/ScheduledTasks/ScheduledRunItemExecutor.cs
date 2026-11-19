@@ -1,3 +1,4 @@
+using System.Runtime.CompilerServices;
 using MediatR;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
@@ -38,6 +39,10 @@ namespace Sergin.SharedKernel.Application.ScheduledTasks;
 /// which ticks every <c>min(StaleAfter / 3, HeartbeatInterval)</c> and reads the run's cancel request: the send's token is
 /// cancelled and the item ends Cancelled, final, beating a timeout; a send that returned first keeps its outcome. A cancel
 /// that landed between the claim and the read sends nothing, and a would-be retry of a run asked to cancel ends Cancelled.
+/// </para>
+/// <para>
+/// A command reports progress through <see cref="IRunProgress"/>, which writes it, throttled, while the command runs; the
+/// last value reported is read from the send's scope when the send ends and saved with the outcome, whatever it is.
 /// </para>
 /// </summary>
 internal sealed partial class ScheduledRunItemExecutor(
@@ -126,10 +131,11 @@ internal sealed partial class ScheduledRunItemExecutor(
         ErrorOr<Success> outcome;
         bool cancelled;
         bool timedOut;
+        var progress = new StrongBox<int?>();
 
         try
         {
-            outcome = await SendAsync(run, item, command, sendSource.Token);
+            outcome = await SendAsync(schema, run, item, command, progress, sendSource.Token);
         }
         catch (OperationCanceledException) when (!ct.IsCancellationRequested && (cancelSource.IsCancellationRequested || timeoutSource.IsCancellationRequested))
         {
@@ -144,6 +150,13 @@ internal sealed partial class ScheduledRunItemExecutor(
             timedOut = timeout.HasValue && timeoutSource.IsCancellationRequested;
             await stopHeartbeat.CancelAsync();
             await heartbeat;
+        }
+
+        // The last value the command reported, which the throttle may have held back: kept on the item by whichever
+        // save follows (succeeded, failed, retrying, timed out or cancelled), so the item shows it whatever the outcome.
+        if (progress.Value is { } percent)
+        {
+            item.SetProgress(percent);
         }
 
         // However the send ended once the cancel fired (a wrapped cancellation, an error, even a late success), the run was
@@ -208,7 +221,13 @@ internal sealed partial class ScheduledRunItemExecutor(
     private void Notify(IScheduledTaskStore store, ScheduledTaskRun run) =>
         notifier.Publish(new RunChanged(new BackgroundRunRef(store.Schema, run.Id), run.ActingUserId));
 
-    private async Task<ErrorOr<Success>> SendAsync(ScheduledTaskRun run, ScheduledTaskRunItem item, ScheduledCommand? command, CancellationToken ct)
+    /// <summary>
+    /// Sends the command in its own scope. <paramref name="progress"/> receives the last progress the command reported,
+    /// read from the scope's <see cref="RunProgress"/> before the scope is disposed, however the send ended (a throw
+    /// included), so the caller can keep it on the item.
+    /// </summary>
+    private async Task<ErrorOr<Success>> SendAsync(
+        string schema, ScheduledTaskRun run, ScheduledTaskRunItem item, ScheduledCommand? command, StrongBox<int?> progress, CancellationToken ct)
     {
         if (command is null)
         {
@@ -227,11 +246,18 @@ internal sealed partial class ScheduledRunItemExecutor(
             await using AsyncServiceScope scope = scopes.CreateAsyncScope();
             scope.ServiceProvider.GetRequiredService<UserContextAccessor>().Current = new DelegatedUserContext(run.ActingUserId, run.Id);
             scope.ServiceProvider.GetRequiredService<IAuthorizationScopeContext>().Set(run.ScopeId);
-            scope.ServiceProvider.GetRequiredService<RunItemContext>().Set(item.Id);
+            scope.ServiceProvider.GetRequiredService<RunItemContext>().Set(item.Id, schema, run.Id, run.ActingUserId);
 
-            object? response = await scope.ServiceProvider.GetRequiredService<ISender>().Send(built.Value, ct);
+            try
+            {
+                object? response = await scope.ServiceProvider.GetRequiredService<ISender>().Send(built.Value, ct);
 
-            return response is IErrorOr { IsError: true, Errors: [Error first, ..] } ? first : Result.Success;
+                return response is IErrorOr { IsError: true, Errors: [Error first, ..] } ? first : Result.Success;
+            }
+            finally
+            {
+                progress.Value = scope.ServiceProvider.GetRequiredService<RunProgress>().Last;
+            }
         }
         // A cancellation is the send's own only when its token caused it (the host stopping, or the timeout). One the
         // command raised by itself (an HTTP client's timeout, say) is a failed attempt like any other exception.

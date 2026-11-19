@@ -39,6 +39,15 @@ public sealed class ScheduledTaskRunItem
     /// </summary>
     public DateTime LastActivityAtUtc { get; private set; }
 
+    /// <summary>
+    /// How far the command said it got, 0 to 100; null until it reports. Each attempt starts again from null, and a
+    /// finished item keeps the last value its command reported, whatever the outcome.
+    /// </summary>
+    public int? Progress { get; private set; }
+
+    /// <summary>The highest progress, in percent.</summary>
+    public const int MaxProgress = 100;
+
     /// <summary>The longest label kept; a longer one is cut at start.</summary>
     public const int MaxTargetLabelLength = 200;
 
@@ -61,7 +70,7 @@ public sealed class ScheduledTaskRunItem
     }
 
     /// <summary>
-    /// An attempt starts: counted, and the first one's time kept. The executor claims an item in the database instead
+    /// An attempt starts: counted, the first one's time kept, and the last attempt's progress cleared. The executor claims an item in the database instead
     /// (the same change, made by one conditional update so two deliveries cannot both start it); this is its in-memory form.
     /// </summary>
     public void MarkRunning(DateTime at)
@@ -70,7 +79,11 @@ public sealed class ScheduledTaskRunItem
         Attempts++;
         StartedAtUtc ??= at;
         LastActivityAtUtc = at;
+        Progress = null;
     }
+
+    /// <summary>The command's progress, clamped to 0–100.</summary>
+    public void SetProgress(int percent) => Progress = Math.Clamp(percent, 0, MaxProgress);
 
     public void MarkSucceeded(DateTime at)
     {

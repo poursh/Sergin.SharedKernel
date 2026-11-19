@@ -181,8 +181,25 @@ internal sealed class EfScheduledTaskStore<TContext>(TContext context, string sc
                     .SetProperty(item => item.Status, ScheduledRunItemStatus.Running)
                     .SetProperty(item => item.Attempts, item => item.Attempts + 1)
                     .SetProperty(item => item.StartedAtUtc, item => item.StartedAtUtc ?? now)
-                    .SetProperty(item => item.LastActivityAtUtc, now),
+                    .SetProperty(item => item.LastActivityAtUtc, now)
+                    // A new attempt starts from nothing. It also means the executor, which reads the item after the claim,
+                    // holds it with no progress, so the last value it puts on the item before the outcome's save is always
+                    // a change the save writes, whatever the throttled writes left in the row meanwhile.
+                    .SetProperty(item => item.Progress, (int?)null),
                 ct) == 1;
+
+    /// <summary>
+    /// Set-based, so the item the executor holds tracked is never saved over; the executor puts the last value on that
+    /// item itself before the outcome's save.
+    /// </summary>
+    public async Task SetRunItemProgressAsync(Guid runItemId, int percent, DateTime now, CancellationToken ct) =>
+        await context.ScheduledTaskRunItems
+            .Where(item => item.Id == runItemId && item.Status == ScheduledRunItemStatus.Running)
+            .ExecuteUpdateAsync(
+                set => set
+                    .SetProperty(item => item.Progress, Math.Clamp(percent, 0, ScheduledTaskRunItem.MaxProgress))
+                    .SetProperty(item => item.LastActivityAtUtc, now),
+                ct);
 
     /// <summary>
     /// The stamp and the read of the run's cancel request in one transaction. Set-based both, so an item the caller holds
