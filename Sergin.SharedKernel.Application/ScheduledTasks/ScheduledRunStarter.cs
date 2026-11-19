@@ -1,5 +1,7 @@
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
+using Sergin.SharedKernel.Application.ScheduledTasks.Activity;
+using Sergin.SharedKernel.Application.ScheduledTasks.Commands;
 using Sergin.SharedKernel.Application.Times;
 using Sergin.SharedKernel.Domain.ScheduledTasks;
 using Sergin.SharedKernel.Domain.Users;
@@ -15,7 +17,8 @@ internal sealed record ScheduledRunStart(
     string ScopePath,
     string CommandName,
     string Arguments,
-    IReadOnlyCollection<ScheduledTaskTarget> Targets);
+    IReadOnlyCollection<ScheduledTaskTarget> Targets,
+    IReadOnlyDictionary<Guid, string>? TargetLabels = null);
 
 /// <summary>
 /// The one way a run begins, whatever started it (a cron fire, "Run now", a one-off): writes the run, copying the
@@ -24,7 +27,7 @@ internal sealed record ScheduledRunStart(
 /// The engine is resolved when a run starts, not injected: the engine is the adapter's to register, and a host
 /// (or a test host) that opts a module in without one must still build its container.
 /// </summary>
-internal sealed partial class ScheduledRunStarter(IServiceProvider services, IDateTimeProvider clock, ILogger<ScheduledRunStarter> logger)
+internal sealed partial class ScheduledRunStarter(IServiceProvider services, IDateTimeProvider clock, IRunNotifier notifier, ILogger<ScheduledRunStarter> logger)
 {
     public async Task<ErrorOr<Guid>> StartAsync(IScheduledTaskStore store, ScheduledRunStart start, CancellationToken ct)
     {
@@ -34,7 +37,7 @@ internal sealed partial class ScheduledRunStarter(IServiceProvider services, IDa
         var definition = new ScheduledRunDefinition(
             start.TaskId, start.Trigger, start.ActingUserId, start.ScopeId, start.ScopePath, start.CommandName, start.Arguments);
         var run = ScheduledTaskRun.Start(definition, start.Targets.Count, clock.UtcNow);
-        ScheduledTaskRunItem[] items = [.. start.Targets.Select(target => ScheduledTaskRunItem.Create(run.Id, target.TargetId, target.RootId, clock.UtcNow))];
+        ScheduledTaskRunItem[] items = [.. start.Targets.Select(target => ScheduledTaskRunItem.Create(run.Id, target.TargetId, target.RootId, clock.UtcNow, LabelOf(start, target)))];
 
         // No targets: nothing will ever finish the run, so it is complete at once rather than open forever.
         if (items.Length == 0)
@@ -83,11 +86,38 @@ internal sealed partial class ScheduledRunStarter(IServiceProvider services, IDa
 
             await store.SaveAsync(ct);
             await store.CompleteRunIfFinishedAsync(run.Id, clock.UtcNow, ct);
+            notifier.Publish(new RunChanged(new BackgroundRunRef(store.Schema, run.Id), start.ActingUserId));
 
             return ScheduledTaskErrors.EngineUnavailable;
         }
 
+        notifier.Publish(new RunChanged(new BackgroundRunRef(store.Schema, run.Id), start.ActingUserId));
+
         return run.Id;
+    }
+
+    // A label is user data kept as stored, only trimmed and cut; a blank one is none.
+    private static string? LabelOf(ScheduledRunStart start, ScheduledTaskTarget target)
+    {
+        if (start.TargetLabels is null || !start.TargetLabels.TryGetValue(target.TargetId, out string? label) || string.IsNullOrWhiteSpace(label))
+        {
+            return null;
+        }
+
+        return CutLabel(label.Trim());
+    }
+
+    // At most the column's length, never ending on half a surrogate pair: the cut backs off one char instead.
+    internal static string CutLabel(string label)
+    {
+        int max = ScheduledTaskRunItem.MaxTargetLabelLength;
+
+        if (label.Length <= max)
+        {
+            return label;
+        }
+
+        return char.IsHighSurrogate(label[max - 1]) ? label[..(max - 1)] : label[..max];
     }
 
     [LoggerMessage(Level = LogLevel.Error, Message = "The job engine failed while enqueueing the items of scheduled run {RunId} ({CommandName}); its unqueued items were failed.")]

@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Components;
 using MudBlazor;
 using Sergin.SharedKernel.Application.Commands;
 using Sergin.SharedKernel.Application.ScheduledTasks;
+using Sergin.SharedKernel.Application.ScheduledTasks.Commands;
 using Sergin.SharedKernel.Application.Securities.Authorization;
 using Sergin.SharedKernel.Domain;
 using Sergin.SharedKernel.Domain.ScheduledTasks;
@@ -99,6 +100,9 @@ public sealed partial class GeneratedListBody<TItem> : IGeneratedListBody
     private ISnackbar Snackbar { get; set; } = default!;
 
     [Inject]
+    private ActivityPanelState ActivityPanel { get; set; } = default!;
+
+    [Inject]
     private IScopeAuthorization ScopeAuthorization { get; set; } = default!;
 
     [Inject]
@@ -173,6 +177,9 @@ public sealed partial class GeneratedListBody<TItem> : IGeneratedListBody
 
         parametersSet = true;
     }
+
+    // The row's title as the list shows it, kept on the run item so the activity list can name it.
+    private string LabelOf(TItem item) => GeneratedViewSupport.DisplayOf(item, titleField, IdOf(item));
 
     private static Guid IdOf(TItem item) => GeneratedViewSupport.IdOf(idReader, item!);
 
@@ -267,7 +274,7 @@ public sealed partial class GeneratedListBody<TItem> : IGeneratedListBody
         else if (command.Background is not null)
         {
             // Only started: nothing has changed yet, so the rows are not read again.
-            Snackbar.Add(Localizer.Text(ShellTexts.CommandActions.BackgroundStarted), Severity.Info);
+            ActivityPanel.NotifyStarted(Snackbar, Localizer, Localizer.Text(ShellTexts.CommandActions.BackgroundStarted));
             return;
         }
         else if (command.SucceededText is { } succeeded)
@@ -318,7 +325,7 @@ public sealed partial class GeneratedListBody<TItem> : IGeneratedListBody
 
         if (command.Background is not null)
         {
-            ViewSendResult started = await GeneratedViewSupport.SendFromIdAsync(Dispatcher, command, id, version: null);
+            ViewSendResult started = await GeneratedViewSupport.SendFromIdAsync(Dispatcher, command, id, version: null, LabelOf(item));
             return started.IsError ? ErrorsOf(started) : Result.Success;
         }
 
@@ -408,7 +415,7 @@ public sealed partial class GeneratedListBody<TItem> : IGeneratedListBody
     private async Task StartSelectedAsync(CommandView command, IReadOnlyList<TItem> items)
     {
         ViewSendResult result = await GeneratedViewSupport.StartManyAsync(
-            Dispatcher, command, [.. items.Select(item => new ScheduledTaskTarget(IdOf(item), null))]);
+            Dispatcher, command, [.. items.Select(item => new BackgroundTarget(IdOf(item), null, LabelOf(item)))]);
 
         if (result.IsError)
         {
@@ -416,8 +423,8 @@ public sealed partial class GeneratedListBody<TItem> : IGeneratedListBody
         }
         else
         {
-            Snackbar.Add(
-                Localizer.Text(ShellTexts.CommandActions.BackgroundStartedMany, new { Count = Formatter.Number(items.Count) }), Severity.Info);
+            ActivityPanel.NotifyStarted(
+                Snackbar, Localizer, Localizer.Text(ShellTexts.CommandActions.BackgroundStartedMany, new { Count = Formatter.Number(items.Count) }));
         }
 
         await ChangedAsync();

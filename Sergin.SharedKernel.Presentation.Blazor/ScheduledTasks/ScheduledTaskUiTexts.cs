@@ -156,6 +156,37 @@ public static class ScheduledTaskUiTexts
         public static TextDefinition ItemFailed { get; } = runs.Text("ItemFailed", "Failed");
     }
 
+    /// <summary>The app bar's activity indicator: the user's running and recently finished background runs.</summary>
+    public static class Activity
+    {
+        private static readonly TextCategory activity = category.Child("Activity");
+
+        public static TextDefinition Heading { get; } = activity.Text("Title", "Activity");
+
+        public static TextDefinition Running { get; } = activity.Text("Running", "Running");
+
+        public static TextDefinition Finished { get; } = activity.Text("Finished", "Finished in the last 24 hours");
+
+        public static TextDefinition NothingRunning { get; } = activity.Text("Empty", "Nothing is running.");
+
+        public static TextDefinition Records { get; } = activity.Text("Records", "{Count} records");
+
+        public static TextDefinition OneRecord { get; } = activity.Text("OneRecord", "1 record");
+
+        public static TextDefinition Clear { get; } = activity.Text("Clear", "Clear");
+
+        public static TextDefinition Show { get; } = activity.Text("Show", "Show");
+
+        public static TextDefinition FinishedSucceeded { get; } = activity.Text("FinishedSucceeded", "{Command} finished for {Target}.");
+
+        public static TextDefinition FinishedFailed { get; } = activity.Text("FinishedFailed", "{Command} failed for {Target}.");
+
+        public static TextDefinition FinishedPartly { get; } =
+            activity.Text("FinishedPartly", "{Command} finished for {Done} of {Total} records.");
+
+        public static TextDefinition OpenLabel { get; } = activity.Text("OpenLabel", "Activity, {Count} running");
+    }
+
     /// <summary>The cron picker.</summary>
     public static class Cron
     {

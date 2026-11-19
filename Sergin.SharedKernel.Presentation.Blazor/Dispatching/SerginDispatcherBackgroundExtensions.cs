@@ -1,6 +1,5 @@
 using Sergin.SharedKernel.Application.Commands;
 using Sergin.SharedKernel.Application.ScheduledTasks.Commands;
-using Sergin.SharedKernel.Domain.ScheduledTasks;
 
 namespace Sergin.SharedKernel.Presentation.Blazor.Dispatching;
 
@@ -14,7 +13,7 @@ public static class SerginDispatcherBackgroundExtensions
     public static Task<ErrorOr<BackgroundRunStartedResponse>> StartAsync(
         this ISerginDispatcher dispatcher,
         IBaseCommand template,
-        IReadOnlyCollection<ScheduledTaskTarget> targets,
+        IReadOnlyCollection<BackgroundTarget> targets,
         CancellationToken ct = default)
     {
         ArgumentNullException.ThrowIfNull(dispatcher);

@@ -11,8 +11,8 @@ using Sergin.SharedKernel.Domain.ScheduledTasks;
 
 namespace Sergin.SharedKernel.Application.ScheduledTasks.Commands;
 
-/// <summary>A run's identity outside its module: the schema whose store holds it, and its id.</summary>
-public sealed record BackgroundRunRef(string Schema, Guid RunId);
+/// <summary>One record a background run works on: its id, its root's id for a child, and its title as the person saw it.</summary>
+public sealed record BackgroundTarget(Guid TargetId, Guid? RootId = null, string? Label = null);
 
 /// <summary>
 /// Starts a background command (one whose configuration calls <c>Background()</c>) over <paramref name="Targets"/>: one
@@ -22,12 +22,16 @@ public sealed record BackgroundRunRef(string Schema, Guid RunId);
 /// </summary>
 public sealed record StartBackgroundCommand(
     IBaseCommand Template,
-    IReadOnlyCollection<ScheduledTaskTarget> Targets) : ICommand<BackgroundRunStartedResponse>;
+    IReadOnlyCollection<BackgroundTarget> Targets) : ICommand<BackgroundRunStartedResponse>;
 
 public sealed record BackgroundRunStartedResponse(BackgroundRunRef Run);
 
 internal sealed class StartBackgroundCommandValidator : AbstractValidator<StartBackgroundCommand>
 {
+    // A null collection reaches the shared rules as it is, so they refuse it as they refuse any other.
+    private static ScheduledTaskTarget[]? ToTargets(IReadOnlyCollection<BackgroundTarget>? targets) =>
+        targets?.Select(target => new ScheduledTaskTarget(target.TargetId, target.RootId)).ToArray();
+
     public StartBackgroundCommandValidator(ScheduledCommandCatalog catalog, IOptions<ScheduledTaskOptions> options)
     {
         ArgumentNullException.ThrowIfNull(catalog);
@@ -39,7 +43,7 @@ internal sealed class StartBackgroundCommandValidator : AbstractValidator<StartB
 
         // The schema is the catalogue's, never the caller's: the shared rules then only refuse an uncatalogued command.
         ScheduledTaskRules.TemplateAndTargets(
-            this, catalog, request => CommandOf(request.Template)?.Schema ?? string.Empty, request => request.Template, request => request.Targets);
+            this, catalog, request => CommandOf(request.Template)?.Schema ?? string.Empty, request => request.Template, request => ToTargets(request.Targets));
 
         // Like the shared rules, these report under the scheduled-task error codes rather than a property name.
         RuleFor(request => request.Template)
@@ -109,10 +113,25 @@ internal sealed class StartBackgroundCommandHandler(
 
         ErrorOr<Guid> started = await starter.StartAsync(
             stores.For(schema),
-            new ScheduledRunStart(null, ScheduledRunTrigger.Background, caller.Id, scopeId, scopePath, command.Name, arguments, request.Targets),
+            new ScheduledRunStart(
+                null, ScheduledRunTrigger.Background, caller.Id, scopeId, scopePath, command.Name, arguments,
+                [.. request.Targets.Select(target => new ScheduledTaskTarget(target.TargetId, target.RootId))],
+                LabelsOf(request.Targets)),
             cancellationToken);
 
         return started.IsError ? started.Errors : new BackgroundRunStartedResponse(new BackgroundRunRef(schema, started.Value));
+    }
+
+    private static Dictionary<Guid, string> LabelsOf(IReadOnlyCollection<BackgroundTarget> targets)
+    {
+        var labels = new Dictionary<Guid, string>();
+
+        foreach (BackgroundTarget target in targets.Where(target => target.Label is not null))
+        {
+            labels[target.TargetId] = target.Label!;
+        }
+
+        return labels;
     }
 
     /// <summary>
@@ -121,12 +140,12 @@ internal sealed class StartBackgroundCommandHandler(
     /// a background command sent outside a run item. Each run item still runs the whole pipeline.
     /// </summary>
     private async Task<List<Error>> ValidateEachAsync(
-        ScheduledCommand command, string arguments, IReadOnlyCollection<ScheduledTaskTarget> targets, CancellationToken ct)
+        ScheduledCommand command, string arguments, IReadOnlyCollection<BackgroundTarget> targets, CancellationToken ct)
     {
         var validator = (IValidator?)services.GetService(typeof(IValidator<>).MakeGenericType(command.RequestType));
         List<Error> refused = [];
 
-        foreach (ScheduledTaskTarget target in targets)
+        foreach (BackgroundTarget target in targets)
         {
             ErrorOr<IBaseCommand> built = ScheduledCommandFactory.Build(command, arguments, target.TargetId, target.RootId);
 

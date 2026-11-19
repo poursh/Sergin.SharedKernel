@@ -31,6 +31,9 @@ public static class SerginBlazorKitExtensions
 
         services.AddSingleton<ScheduledTaskNextRuns>();
 
+        // Per circuit: a started snackbar's "Show" opens this circuit's activity popover.
+        services.AddScoped<ActivityPanelState>();
+
         services.AddScoped<IUiErrorPresenter, MudUiErrorPresenter>();
 
         // Scoped, not singleton: it depends on IJSRuntime, which in Blazor Server is per-circuit.

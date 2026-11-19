@@ -15,6 +15,9 @@ public sealed class ScheduledTaskRunItem
 
     public Guid? RootId { get; private set; }
 
+    /// <summary>The target's title as the person saw it when the run started, as stored (user data); null when none was given.</summary>
+    public string? TargetLabel { get; private set; }
+
     public ScheduledRunItemStatus Status { get; private set; }
 
     public int Attempts { get; private set; }
@@ -36,13 +39,17 @@ public sealed class ScheduledTaskRunItem
     /// </summary>
     public DateTime LastActivityAtUtc { get; private set; }
 
-    public static ScheduledTaskRunItem Create(Guid runId, Guid targetId, Guid? rootId, DateTime at) =>
+    /// <summary>The longest label kept; a longer one is cut at start.</summary>
+    public const int MaxTargetLabelLength = 200;
+
+    public static ScheduledTaskRunItem Create(Guid runId, Guid targetId, Guid? rootId, DateTime at, string? targetLabel = null) =>
         new()
         {
             Id = Guid.CreateVersion7(),
             RunId = runId,
             TargetId = targetId,
             RootId = rootId,
+            TargetLabel = targetLabel,
             Status = ScheduledRunItemStatus.Pending,
             LastActivityAtUtc = at,
         };

@@ -95,6 +95,9 @@ public sealed partial class SerginGeneratedDetailView<TRoot>
     private ISnackbar Snackbar { get; set; } = default!;
 
     [Inject]
+    private ActivityPanelState ActivityPanel { get; set; } = default!;
+
+    [Inject]
     private IScopeAuthorization ScopeAuthorization { get; set; } = default!;
 
     [Inject]
@@ -285,7 +288,7 @@ public sealed partial class SerginGeneratedDetailView<TRoot>
     }
 
     private Task<ViewSendResult> SendAsync(CommandView command) =>
-        GeneratedViewSupport.SendFromIdAsync(Dispatcher, command, Id, version);
+        GeneratedViewSupport.SendFromIdAsync(Dispatcher, command, Id, version, DisplayText);
 
     // Sends a transition (its confirm, if any, was asked by the action). Internal for the host-changed test.
     internal async Task RunAsync(CommandView command)
@@ -301,7 +304,7 @@ public sealed partial class SerginGeneratedDetailView<TRoot>
         // section is, so it lists the new run and polls it while it is Running.
         if (command.Background is not null)
         {
-            Snackbar.Add(Localizer.Text(ShellTexts.CommandActions.BackgroundStarted), Severity.Info);
+            ActivityPanel.NotifyStarted(Snackbar, Localizer, Localizer.Text(ShellTexts.CommandActions.BackgroundStarted));
 
             if (section is not null)
             {

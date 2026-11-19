@@ -40,6 +40,8 @@
         {
             <SerginScopePicker @key="scopeVersion" ScopeChanged="OnScopeChanged" />
         }
+        @* The user's background runs; renders nothing until its first load, after the first interactive render. *@
+        <SerginActivityIndicator />
         <SerginLanguageSwitcher />
         <span class="sergin-appbar-item">
             <MudIcon Icon="@Icons.Material.Filled.Person" />

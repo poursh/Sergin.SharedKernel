@@ -2,6 +2,8 @@ using MediatR;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+using Sergin.SharedKernel.Application.ScheduledTasks.Activity;
+using Sergin.SharedKernel.Application.ScheduledTasks.Commands;
 using Sergin.SharedKernel.Application.Securities.Authorization;
 using Sergin.SharedKernel.Application.Securities.Users;
 using Sergin.SharedKernel.Application.Times;
@@ -38,6 +40,7 @@ internal sealed partial class ScheduledRunItemExecutor(
     IScheduledTaskStoreResolver stores,
     IDateTimeProvider clock,
     IOptions<ScheduledTaskOptions> options,
+    IRunNotifier notifier,
     ILogger<ScheduledRunItemExecutor> logger)
 {
     /// <summary>The description of an item whose attempts all started and none finished.</summary>
@@ -60,6 +63,7 @@ internal sealed partial class ScheduledRunItemExecutor(
             if (await store.GetRunItemAsync(runItemId, ct) is { Item.Status: ScheduledRunItemStatus.Succeeded or ScheduledRunItemStatus.Failed } finished)
             {
                 await store.CompleteRunIfFinishedAsync(finished.Run.Id, clock.UtcNow, ct);
+                Notify(store, finished.Run);
             }
 
             return false;
@@ -72,12 +76,16 @@ internal sealed partial class ScheduledRunItemExecutor(
 
         (ScheduledTaskRun run, ScheduledTaskRunItem item) = found;
 
+        // The claim moved the item to Running.
+        Notify(store, run);
+
         // Every allowed attempt was claimed and lost (the host stopped mid-send, again and again): nothing is left to try.
         if (item.Attempts > settings.MaxAttempts)
         {
             item.MarkFailed(ScheduledTaskErrors.ExhaustedCode, AttemptsLost, clock.UtcNow);
             await store.SaveAsync(ct);
             await store.CompleteRunIfFinishedAsync(run.Id, clock.UtcNow, ct);
+            Notify(store, run);
 
             return false;
         }
@@ -126,6 +134,7 @@ internal sealed partial class ScheduledRunItemExecutor(
             {
                 item.MarkRetrying(outcome.FirstError.Code, outcome.FirstError.Description, clock.UtcNow);
                 await store.SaveAsync(ct);
+                Notify(store, run);
                 return true;
             }
 
@@ -142,9 +151,14 @@ internal sealed partial class ScheduledRunItemExecutor(
 
         await store.SaveAsync(ct);
         await store.CompleteRunIfFinishedAsync(run.Id, clock.UtcNow, ct);
+        Notify(store, run);
 
         return false;
     }
+
+    // After the save it reports has committed; a subscriber's failure never reaches the executor.
+    private void Notify(IScheduledTaskStore store, ScheduledTaskRun run) =>
+        notifier.Publish(new RunChanged(new BackgroundRunRef(store.Schema, run.Id), run.ActingUserId));
 
     private async Task<ErrorOr<Success>> SendAsync(ScheduledTaskRun run, ScheduledTaskRunItem item, ScheduledCommand? command, CancellationToken ct)
     {

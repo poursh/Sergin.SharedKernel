@@ -68,6 +68,9 @@ public static class ScheduledTasksModelBuilderExtensions
 
             // A task's history, newest first.
             run.HasIndex(x => new { x.TaskId, x.StartedAtUtc }).IsDescending(false, true);
+
+            // The app bar's activity list: a caller's runs, newest first.
+            run.HasIndex(x => new { x.ActingUserId, x.StartedAtUtc }).IsDescending(false, true);
         });
 
         modelBuilder.Entity<ScheduledTaskRunItem>(item =>

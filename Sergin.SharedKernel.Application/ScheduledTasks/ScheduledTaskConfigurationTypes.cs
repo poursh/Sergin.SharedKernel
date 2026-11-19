@@ -1,4 +1,5 @@
 using Sergin.SharedKernel.Application.Aggregates;
+using Sergin.SharedKernel.Application.ScheduledTasks.Activity;
 using Sergin.SharedKernel.Application.ScheduledTasks.Commands;
 using Sergin.SharedKernel.Application.ScheduledTasks.Queries;
 
@@ -27,6 +28,7 @@ public static class ScheduledTaskConfigurationTypes
         typeof(RunScheduledTaskNowCommandConfiguration),
         typeof(RunCommandOnceCommandConfiguration),
         typeof(StartBackgroundCommandConfiguration),
+        typeof(GetMyActivityQueryConfiguration),
     ];
 
     /// <summary>The aggregate feature configurations among <see cref="All"/>, which an opting-in context applies.</summary>

@@ -14,6 +14,7 @@ using Sergin.SharedKernel.Application.Events.Integration;
 using Sergin.SharedKernel.Application.Localizations;
 using Sergin.SharedKernel.Application.Localizations.Validation;
 using Sergin.SharedKernel.Application.ScheduledTasks;
+using Sergin.SharedKernel.Application.ScheduledTasks.Activity;
 using Sergin.SharedKernel.Application.Securities.Authorization;
 using Sergin.SharedKernel.Application.Securities.Users;
 using Sergin.SharedKernel.Application.Times;
@@ -132,6 +133,11 @@ public static class SerginCoreExtensions
             .WithDefaults()
             .ValidateOnStart();
         builder.Services.AddSingleton<IValidateOptions<ScheduledTaskOptions>, ScheduledTaskOptionsValidator>();
+
+        // The run notifier and the activity read, in every host: with no module opted in nobody publishes and the
+        // activity is empty, so the app bar's indicator still gets an answer.
+        builder.Services.TryAddSingleton<IRunNotifier, RunNotifier>();
+        builder.Services.AddSerginRunActivity();
 
         // All three no-ops until a module opts in. The rebuild also refuses start for an opted-in host with no engine.
         builder.Services.AddHostedService<ScheduledTaskTriggerRebuildService>();

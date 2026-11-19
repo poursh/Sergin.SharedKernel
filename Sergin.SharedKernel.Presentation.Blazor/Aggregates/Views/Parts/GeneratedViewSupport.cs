@@ -3,7 +3,6 @@ using Sergin.SharedKernel.Application.Commands;
 using Sergin.SharedKernel.Application.Concurrency;
 using Sergin.SharedKernel.Application.ScheduledTasks.Commands;
 using Sergin.SharedKernel.Domain;
-using Sergin.SharedKernel.Domain.ScheduledTasks;
 using Sergin.SharedKernel.Modules;
 using Sergin.SharedKernel.Presentation.Blazor.Dispatching;
 using Sergin.SharedKernel.Presentation.Blazor.Errors;
@@ -132,12 +131,12 @@ internal static class GeneratedViewSupport
     /// a background command is started as a run over the record instead, answering its
     /// <see cref="BackgroundRunStartedResponse"/> with no version sent or read.
     /// </summary>
-    public static Task<ViewSendResult> SendFromIdAsync(ISerginDispatcher dispatcher, CommandView command, Guid id, RowVersion? version)
+    public static Task<ViewSendResult> SendFromIdAsync(ISerginDispatcher dispatcher, CommandView command, Guid id, RowVersion? version, string? label = null)
     {
         ArgumentNullException.ThrowIfNull(command);
 
         return command.Background is not null
-            ? StartManyAsync(dispatcher, command, [new ScheduledTaskTarget(id, null)])
+            ? StartManyAsync(dispatcher, command, [new BackgroundTarget(id, null, label)])
             : SendAsync(dispatcher, command, command.BuildFromId!(id), version);
     }
 
@@ -146,13 +145,13 @@ internal static class GeneratedViewSupport
     /// (a root command from its id, a child command from its root id and id); the run takes each item's ids from its target.
     /// </summary>
     internal static async Task<ViewSendResult> StartManyAsync(
-        ISerginDispatcher dispatcher, CommandView command, IReadOnlyCollection<ScheduledTaskTarget> targets)
+        ISerginDispatcher dispatcher, CommandView command, IReadOnlyCollection<BackgroundTarget> targets)
     {
         ArgumentNullException.ThrowIfNull(dispatcher);
         ArgumentNullException.ThrowIfNull(command);
         ArgumentNullException.ThrowIfNull(targets);
 
-        ScheduledTaskTarget first = targets.FirstOrDefault()
+        BackgroundTarget first = targets.FirstOrDefault()
             ?? throw new ArgumentException("A background command is started over at least one record.", nameof(targets));
         ErrorOr<BackgroundRunStartedResponse> started = await dispatcher.StartAsync((IBaseCommand)TemplateOf(command, first), targets);
 
@@ -161,7 +160,7 @@ internal static class GeneratedViewSupport
             : new ViewSendResult(started.Value, null, []);
     }
 
-    private static object TemplateOf(CommandView command, ScheduledTaskTarget target)
+    private static object TemplateOf(CommandView command, BackgroundTarget target)
     {
         if (command.BuildFromId is { } fromId)
         {
