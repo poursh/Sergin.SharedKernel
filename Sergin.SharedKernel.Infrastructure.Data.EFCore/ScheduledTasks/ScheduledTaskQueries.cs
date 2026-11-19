@@ -205,7 +205,8 @@ internal sealed class ScheduledTaskQueries(
         string sql =
             $$"""
             SELECT i.target_id AS TargetId, i.status AS Status, i.attempts AS Attempts, i.error_code AS ErrorCode,
-                   i.error_description AS ErrorDescription, i.completed_at_utc AS CompletedAtUtc
+                   i.error_description AS ErrorDescription, i.completed_at_utc AS CompletedAtUtc,
+                   i.progress::int AS Progress
             FROM {{quoted}}.scheduled_task_run_items i
             WHERE i.run_id = @RunId
               AND EXISTS (
@@ -232,7 +233,8 @@ internal sealed class ScheduledTaskQueries(
                 row.Attempts,
                 row.ErrorCode,
                 row.ErrorDescription,
-                row.CompletedAtUtc)),
+                row.CompletedAtUtc,
+                row.Progress)),
         ];
 
         return items.ToErrorOr();
@@ -288,14 +290,15 @@ internal sealed class ScheduledTaskQueries(
             $$"""
             SELECT r.id AS RunId, r.command_name AS CommandName, r."trigger" AS Trigger, r.status AS Status,
                    r.started_at_utc AS StartedAtUtc, r.completed_at_utc AS CompletedAtUtc, r.total AS Total,
-                   r.succeeded AS Succeeded, r.failed AS Failed,
+                   r.succeeded AS Succeeded, r.failed AS Failed, r.cancelled AS Cancelled,
                    (SELECT count(*) FROM {{quoted}}.scheduled_task_run_items u
                     WHERE u.run_id = r.id AND u.status IN ('Pending', 'Running', 'Retrying'))::int AS Unfinished,
                    one.target_id AS TargetId, one.root_id AS RootId, one.target_label AS TargetLabel,
-                   one.error_code AS FirstErrorCode, one.error_description AS FirstErrorDescription
+                   one.error_code AS FirstErrorCode, one.error_description AS FirstErrorDescription,
+                   one.progress::int AS Progress
             FROM {{quoted}}.scheduled_task_runs r
             LEFT JOIN LATERAL (
-                SELECT i.target_id, i.root_id, i.target_label, i.error_code, i.error_description
+                SELECT i.target_id, i.root_id, i.target_label, i.error_code, i.error_description, i.progress
                 FROM {{quoted}}.scheduled_task_run_items i
                 WHERE i.run_id = r.id AND r.total = 1
                 ORDER BY i.id
@@ -334,7 +337,9 @@ internal sealed class ScheduledTaskQueries(
                 row.RootId,
                 row.TargetLabel,
                 row.FirstErrorCode,
-                row.FirstErrorDescription)),
+                row.FirstErrorDescription,
+                row.Cancelled,
+                row.Progress)),
         ];
 
         return items.ToErrorOr();
@@ -347,7 +352,7 @@ internal sealed class ScheduledTaskQueries(
     private const string RunColumns =
         "r.id AS Id, r.\"trigger\" AS Trigger, r.acting_user_id AS ActingUserId, r.status AS Status, "
         + "r.started_at_utc AS StartedAtUtc, r.completed_at_utc AS CompletedAtUtc, r.total AS Total, "
-        + "r.succeeded AS Succeeded, r.failed AS Failed";
+        + "r.succeeded AS Succeeded, r.failed AS Failed, r.cancelled AS Cancelled";
 
     private static ScheduledRunListItem ToItem(RunRow row) =>
         new(
@@ -359,7 +364,8 @@ internal sealed class ScheduledTaskQueries(
             row.CompletedAtUtc,
             row.Total,
             row.Succeeded,
-            row.Failed);
+            row.Failed,
+            row.Cancelled);
 
     // Only a schema a module registered reaches the SQL text; the quoting is belt and braces over that match.
     private bool TryQuote(string schema, out string quoted)
@@ -438,6 +444,8 @@ internal sealed class ScheduledTaskQueries(
         public int Succeeded { get; set; }
 
         public int Failed { get; set; }
+
+        public int Cancelled { get; set; }
     }
 
     private sealed class ItemRow
@@ -453,6 +461,8 @@ internal sealed class ScheduledTaskQueries(
         public string? ErrorDescription { get; set; }
 
         public DateTime? CompletedAtUtc { get; set; }
+
+        public int? Progress { get; set; }
     }
 
     private sealed class ActivityRow
@@ -486,5 +496,9 @@ internal sealed class ScheduledTaskQueries(
         public string? FirstErrorCode { get; set; }
 
         public string? FirstErrorDescription { get; set; }
+
+        public int Cancelled { get; set; }
+
+        public int? Progress { get; set; }
     }
 }

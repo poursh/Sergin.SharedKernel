@@ -33,12 +33,15 @@ public sealed record ScheduledRunListItem(
     DateTime? CompletedAtUtc,
     int Total,
     int Succeeded,
-    int Failed);
+    int Failed,
+    int Cancelled);
 
+/// <summary>One item of a run; <see cref="Progress"/> is its command's last reported percent, null until it reports.</summary>
 public sealed record ScheduledRunItemListItem(
     Guid TargetId,
     ScheduledRunItemStatus Status,
     int Attempts,
     string? ErrorCode,
     string? ErrorDescription,
-    DateTime? CompletedAtUtc);
+    DateTime? CompletedAtUtc,
+    int? Progress);

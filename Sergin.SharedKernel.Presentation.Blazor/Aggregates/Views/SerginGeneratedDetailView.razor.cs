@@ -49,8 +49,10 @@ namespace Sergin.SharedKernel.Presentation.Blazor.Aggregates.Views;
 /// prefilled from the record; Inline, for a user who holds its permissions, the detail field itself as a select or switch
 /// (sent on change) or, for any other value, a <see cref="GeneratedInlineEditCard"/> below the fields. Each send goes
 /// through <see cref="GeneratedSetProperty"/>; every error is shown and the record is read again after any outcome.
+/// A <c>Background()</c> command's action carries a spinner while the activity indicator lists its run on this record as
+/// unfinished, and stays clickable; the view re-renders when the indicator's rows change.
 /// </remarks>
-public sealed partial class SerginGeneratedDetailView<TRoot>
+public sealed partial class SerginGeneratedDetailView<TRoot> : IDisposable
     where TRoot : class, IAggregateRoot
 {
     private object? record;
@@ -69,6 +71,8 @@ public sealed partial class SerginGeneratedDetailView<TRoot>
     private GeneratedSetProperty setProperty = default!;
     private IReadOnlyList<CommandView> inlineCards = [];
     private IReadOnlyDictionary<string, object?> recordValues = new Dictionary<string, object?>(StringComparer.Ordinal);
+    private bool watchingActivity;
+    private volatile bool disposed;
 
     [Parameter]
     public Guid Id { get; set; }
@@ -176,7 +180,14 @@ public sealed partial class SerginGeneratedDetailView<TRoot>
     ];
 
     private IReadOnlyList<SerginPageAction> Actions =>
-        record is null ? [] : commands.For(Model, Id, MenuItemsOf, record: record, links: ViewLinkPlacement.AfterCommands, childCreate: true);
+        record is null
+            ? []
+            : commands.For(Model, Id, MenuItemsOf, record: record, links: ViewLinkPlacement.AfterCommands, childCreate: true, busy: IsBackgroundRunning);
+
+    // A background command's run on this record, as the indicator last read it: one-record runs only, since a run over
+    // several records names none of them in the activity read.
+    private bool IsBackgroundRunning(CommandView command) =>
+        command is { Background: not null, ScheduleName: { } name } && ActivityPanel.IsRunning(name, Id);
 
     protected override async Task OnInitializedAsync()
     {
@@ -186,6 +197,14 @@ public sealed partial class SerginGeneratedDetailView<TRoot>
         {
             throw new InvalidOperationException(
                 $"{typeof(TRoot).FullName} has no GetOne query, so its detail view has nothing to load. Add an IGetOneQuery<{typeof(TRoot).Name}, …>.");
+        }
+
+        // Only a root with a background command has an action to mark busy. Subscribed before the first await, so a view
+        // disposed while it initializes has already subscribed and unsubscribes.
+        if (Model.Commands.Any(command => command.Background is not null))
+        {
+            ActivityPanel.RowsChanged += OnActivityChanged;
+            watchingActivity = true;
         }
 
         commands = new GeneratedCommandActions(this, RunAsync, DeleteAsync, EditAsync, ConfirmAsync, MoveAsync);
@@ -198,6 +217,39 @@ public sealed partial class SerginGeneratedDetailView<TRoot>
         await LoadInlineCommandsAsync();
 
         canManageSchedules = Model.HasSchedulableCommand && await ScopeAuthorization.CurrentUserHasAsync(ScheduledTaskPermissions.Manage);
+    }
+
+    /// <inheritdoc />
+    public void Dispose()
+    {
+        disposed = true;
+
+        if (watchingActivity)
+        {
+            ActivityPanel.RowsChanged -= OnActivityChanged;
+            watchingActivity = false;
+        }
+    }
+
+    // Raised by the indicator, which must not be broken by a subscriber: a re-render is queued, never thrown into it.
+    private void OnActivityChanged()
+    {
+        if (!disposed)
+        {
+            _ = RerenderAsync();
+        }
+    }
+
+    private async Task RerenderAsync()
+    {
+        try
+        {
+            await InvokeAsync(StateHasChanged);
+        }
+        catch (Exception exception) when (exception is ObjectDisposedException or InvalidOperationException)
+        {
+            // The renderer went away between the check and the call: nothing is left to draw.
+        }
     }
 
     protected override Task OnParametersSetAsync() => LoadAsync();

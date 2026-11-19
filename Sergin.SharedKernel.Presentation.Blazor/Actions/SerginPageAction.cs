@@ -37,6 +37,10 @@ public enum SerginActionKind
 /// <param name="MenuItems">
 /// Further commands behind a drop-down on the button (a split button); the bar keeps only the ones the user may use.
 /// </param>
+/// <param name="Busy">
+/// Something the action started is still going (a background run on the record): a small spinner shows beside the
+/// label. The action stays clickable; <see cref="Disabled"/> is what stops it.
+/// </param>
 public sealed record SerginPageAction(
     TextDefinition Label,
     string? Icon,
@@ -46,4 +50,5 @@ public sealed record SerginPageAction(
     PermissionDefinition? Permission = null,
     bool AnyScope = false,
     bool Disabled = false,
-    IReadOnlyList<SerginMenuItem>? MenuItems = null);
+    IReadOnlyList<SerginMenuItem>? MenuItems = null,
+    bool Busy = false);

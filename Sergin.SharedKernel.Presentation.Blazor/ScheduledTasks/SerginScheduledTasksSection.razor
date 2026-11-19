@@ -75,6 +75,7 @@
                         <th>@Localizer.Text(ScheduledTaskUiTexts.Runs.Started)</th>
                         <th>@Localizer.Text(ScheduledTaskUiTexts.Runs.ActedBy)</th>
                         <th>@Localizer.Text(ScheduledTaskUiTexts.Runs.Status)</th>
+                        <th style="width: 1%;"></th>
                     </tr>
                 </thead>
                 <tbody>
@@ -84,6 +85,15 @@
                             <td>@Time(run.StartedAtUtc)</td>
                             <td>@NameOf(run.ActingUserId)</td>
                             <td>@OneOffSummaryText(run)</td>
+                            <td style="white-space: nowrap; text-align: right;">
+                                @if (run.Status == ScheduledRunStatus.Running)
+                                {
+                                    <MudButton Size="Size.Small" Variant="Variant.Text" StartIcon="@Icons.Material.Outlined.Cancel"
+                                               Class="sergin-one-off-cancel" OnClick="@(() => CancelRunAsync(run.Id))">
+                                        @Localizer.Text(ScheduledTaskUiTexts.Activity.Cancel)
+                                    </MudButton>
+                                }
+                            </td>
                         </tr>
                     }
                 </tbody>

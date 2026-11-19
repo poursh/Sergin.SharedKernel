@@ -1,10 +1,14 @@
 @* One button of the actions bar. With menu items it is a split button — the action, then a drop-down of further
-   commands; without, the plain button the bar always drew. *@
+   commands; without, the plain button the bar always drew. A busy action carries a small spinner beside its label. *@
 @if (Action.MenuItems is { Count: > 0 })
 {
     <MudButtonGroup Variant="Variant" Color="Color">
         <MudButton StartIcon="@Action.Icon" Href="@Action.Href" OnClick="Action.OnClick" Disabled="Action.Disabled">
             @Localizer.Text(Action.Label)
+            @if (Action.Busy)
+            {
+                <MudProgressCircular Indeterminate="true" Size="Size.Small" Class="ms-2 sergin-action-busy" Style="width: 16px; height: 16px;" />
+            }
         </MudButton>
         <MudMenu Icon="@Icons.Material.Filled.MoreVert" AriaLabel="@Localizer.Text(ShellTexts.CommandActions.More)"
                  Disabled="Action.Disabled" Dense="true" Class="align-self-stretch">
@@ -22,5 +26,9 @@ else
     <MudButton Variant="Variant" Color="Color" StartIcon="@Action.Icon" Href="@Action.Href" OnClick="Action.OnClick"
                Disabled="Action.Disabled">
         @Localizer.Text(Action.Label)
+        @if (Action.Busy)
+        {
+            <MudProgressCircular Indeterminate="true" Size="Size.Small" Class="ms-2 sergin-action-busy" Style="width: 16px; height: 16px;" />
+        }
     </MudButton>
 }

@@ -23,7 +23,7 @@ namespace Sergin.SharedKernel.Presentation.Blazor.ScheduledTasks;
 /// <summary>
 /// The schedules that target one record, as an embedded, outlined section of the record's detail view: command,
 /// schedule, next run, last outcome and state, with Run now, Pause or Resume, Edit and Delete on each row, a click on a
-/// row opening its runs, and below the table the latest one-off runs over the record. It shows nothing at all to a user
+/// row opening its runs, and below the table the latest one-off runs over the record, a Running one with Cancel. It shows nothing at all to a user
 /// who may not manage scheduled tasks.
 /// </summary>
 /// <remarks>
@@ -299,6 +299,9 @@ public sealed partial class SerginScheduledTasksSection : IDisposable
     [LoggerMessage(Level = LogLevel.Error, Message = "The scheduled tasks section of {Schema} record {TargetId} failed to read its runs; it stopped polling.")]
     private static partial void LogPollFailed(ILogger logger, Exception exception, string schema, Guid targetId);
 
+    [LoggerMessage(Level = LogLevel.Error, Message = "Cancelling scheduled run {RunId} of {Schema} failed.")]
+    private static partial void LogCancelFailed(ILogger logger, Exception exception, string schema, Guid runId);
+
     private string NextRunText(ScheduledTaskListItem task)
     {
         if (task.State != ScheduledTaskState.Active)
@@ -349,6 +352,32 @@ public sealed partial class SerginScheduledTasksSection : IDisposable
 
         await Dialogs.ShowAsync<SerginScheduledRunsDialog>(
             string.Empty, parameters, new DialogOptions { MaxWidth = MaxWidth.Large, FullWidth = true, CloseOnEscapeKey = true });
+    }
+
+    /// <summary>
+    /// Cancels a Running one-off run, then reads the lists again whatever the answer. A run that finished meanwhile is no
+    /// error to the user (the reload shows how it ended); any other refusal is notified, and a send that throws says the
+    /// run could not be cancelled rather than faulting the circuit.
+    /// </summary>
+    internal async Task CancelRunAsync(Guid runId)
+    {
+        try
+        {
+            ErrorOr<Success> result = await Dispatcher.SendAsync(new CancelBackgroundRunCommand(Schema, runId));
+
+            if (result.IsError && result.FirstError.Code != ScheduledTaskErrors.RunFinished.Code)
+            {
+                ErrorPresenter.Notify(result.FirstError);
+            }
+        }
+        catch (Exception exception)
+        {
+            // A click handler: anything escaping here would fault the circuit.
+            LogCancelFailed(Logger, exception, Schema, runId);
+            Snackbar.Add(Localizer.Text(ScheduledTaskUiTexts.Activity.CancelFailed), Severity.Error);
+        }
+
+        await ReloadAsync();
     }
 
     private async Task RunNowAsync(ScheduledTaskListItem task)

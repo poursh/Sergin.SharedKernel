@@ -28,6 +28,7 @@ public static class ScheduledTaskConfigurationTypes
         typeof(RunScheduledTaskNowCommandConfiguration),
         typeof(RunCommandOnceCommandConfiguration),
         typeof(StartBackgroundCommandConfiguration),
+        typeof(CancelBackgroundRunCommandConfiguration),
         typeof(GetMyActivityQueryConfiguration),
     ];
 

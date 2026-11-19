@@ -1,3 +1,4 @@
+using System.Diagnostics.CodeAnalysis;
 using Microsoft.Extensions.DependencyInjection;
 using Sergin.SharedKernel.Application.ScheduledTasks;
 
@@ -13,5 +14,14 @@ internal sealed class ScheduledTaskStoreResolver(IServiceProvider services) : IS
         return services.GetKeyedService<IScheduledTaskStore>(schema)
             ?? throw new InvalidOperationException(
                 $"No module opted into scheduled tasks under schema \"{schema}\": its DbContext must implement IScheduledTasksDbContext.");
+    }
+
+    public bool TryFor(string schema, [NotNullWhen(true)] out IScheduledTaskStore? store)
+    {
+        ArgumentNullException.ThrowIfNull(schema);
+
+        store = services.GetKeyedService<IScheduledTaskStore>(schema);
+
+        return store is not null;
     }
 }

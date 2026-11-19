@@ -49,18 +49,37 @@ internal static class ScheduledTaskUiFormat
             ScheduledRunItemStatus.Running => ScheduledTaskUiTexts.Runs.ItemRunning,
             ScheduledRunItemStatus.Retrying => ScheduledTaskUiTexts.Runs.ItemRetrying,
             ScheduledRunItemStatus.Succeeded => ScheduledTaskUiTexts.Runs.ItemSucceeded,
+            ScheduledRunItemStatus.Cancelled => ScheduledTaskUiTexts.Runs.ItemCancelled,
             _ => ScheduledTaskUiTexts.Runs.ItemFailed,
         };
 
-    /// <summary>One sentence for a run: its status and how many records succeeded and failed.</summary>
-    public static string RunSummary(IStringLocalizer localizer, ICultureFormatter formatter, ScheduledRunListItem run) =>
-        localizer.Text(
-            ScheduledTaskUiTexts.Runs.Summary,
-            new
-            {
-                Status = localizer.Text(StatusText(run.Status)),
-                Succeeded = formatter.Number(run.Succeeded),
-                Total = formatter.Number(run.Total),
-                Failed = formatter.Number(run.Failed),
-            });
+    /// <summary>
+    /// An item's status; a Running item that has reported adds its percent.
+    /// </summary>
+    public static string ItemStatus(IStringLocalizer localizer, ICultureFormatter formatter, ScheduledRunItemListItem item)
+    {
+        string status = localizer.Text(ItemStatusText(item.Status));
+
+        return item is { Status: ScheduledRunItemStatus.Running, Progress: { } percent }
+            ? localizer.Text(ScheduledTaskUiTexts.Runs.ItemProgress, new { Status = status, Percent = formatter.Number(percent) })
+            : status;
+    }
+
+    /// <summary>
+    /// One sentence for a run: its status and how many records succeeded and failed, and how many were cancelled when
+    /// any were.
+    /// </summary>
+    public static string RunSummary(IStringLocalizer localizer, ICultureFormatter formatter, ScheduledRunListItem run)
+    {
+        var values = new
+        {
+            Status = localizer.Text(StatusText(run.Status)),
+            Succeeded = formatter.Number(run.Succeeded),
+            Total = formatter.Number(run.Total),
+            Failed = formatter.Number(run.Failed),
+            Cancelled = formatter.Number(run.Cancelled),
+        };
+
+        return localizer.Text(run.Cancelled > 0 ? ScheduledTaskUiTexts.Runs.SummaryWithCancelled : ScheduledTaskUiTexts.Runs.Summary, values);
+    }
 }

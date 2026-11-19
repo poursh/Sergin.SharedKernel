@@ -52,6 +52,13 @@ public static class ScheduledTaskErrors
     public static Error TooManyTargets { get; } =
         Error.Validation("ScheduledTasks.TooManyTargets", "This command cannot be scheduled for that many records.");
 
+    /// <summary>A cancel of a run that is no longer running: it completed, or was skipped.</summary>
+    public static Error RunFinished { get; } =
+        Error.Conflict(
+            "ScheduledTasks.RunFinished",
+            ScheduledTaskTexts.RunFinished.Default,
+            ErrorText.Of(ScheduledTaskTexts.RunFinished.Key.Value));
+
     /// <summary>A background command sent inline instead of started as a run.</summary>
     public static Error MustRunInBackground { get; } =
         Error.Validation(

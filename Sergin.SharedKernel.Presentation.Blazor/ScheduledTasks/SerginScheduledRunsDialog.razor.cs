@@ -78,10 +78,10 @@ public sealed partial class SerginScheduledRunsDialog
         loading = false;
     }
 
-    private async Task ShowItemsAsync(ScheduledRunListItem run)
+    internal async Task ShowItemsAsync(Guid runId)
     {
         ErrorOr<IReadOnlyCollection<ScheduledRunItemListItem>> result =
-            await Dispatcher.SendAsync(new GetScheduledTaskRunItemsQuery(Schema, run.Id));
+            await Dispatcher.SendAsync(new GetScheduledTaskRunItemsQuery(Schema, runId));
 
         if (result.IsError)
         {
@@ -90,7 +90,10 @@ public sealed partial class SerginScheduledRunsDialog
         }
 
         items = result.Value;
-        openRun = run.Id;
+        openRun = runId;
+
+        // Not only a click handler calls it (a test does), so it re-renders on its own.
+        StateHasChanged();
     }
 
     private string Time(DateTime utc) => ScheduledTaskUiFormat.Time(Formatter, timeZone, utc);
@@ -99,7 +102,7 @@ public sealed partial class SerginScheduledRunsDialog
 
     private string TriggerText(ScheduledRunTrigger trigger) => Localizer.Text(ScheduledTaskUiFormat.TriggerText(trigger));
 
-    private string ItemStatusText(ScheduledRunItemStatus status) => Localizer.Text(ScheduledTaskUiFormat.ItemStatusText(status));
+    private string ItemStatusText(ScheduledRunItemListItem item) => ScheduledTaskUiFormat.ItemStatus(Localizer, Formatter, item);
 
     private string SummaryText(ScheduledRunListItem run) => ScheduledTaskUiFormat.RunSummary(Localizer, Formatter, run);
 

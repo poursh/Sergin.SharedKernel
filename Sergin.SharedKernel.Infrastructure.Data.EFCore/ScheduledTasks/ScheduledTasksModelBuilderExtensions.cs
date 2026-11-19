@@ -59,6 +59,9 @@ public static class ScheduledTasksModelBuilderExtensions
             run.Property(x => x.Arguments).IsRequired().HasColumnType(JsonbColumnType);
             run.Property(x => x.Status).IsRequired().HasConversion<string>();
 
+            // Zero for every run that predates cancelling, and for every run until it completes.
+            run.Property(x => x.Cancelled).HasDefaultValue(0);
+
             // A deleted task is soft-deleted and keeps its history, so nothing cascades from it.
             run.HasOne<ScheduledTask>().WithMany().HasForeignKey(x => x.TaskId).OnDelete(DeleteBehavior.Restrict);
 
@@ -78,6 +81,9 @@ public static class ScheduledTasksModelBuilderExtensions
             item.ToTable("scheduled_task_run_items");
             item.HasKey(x => x.Id);
             item.Property(x => x.Status).IsRequired().HasConversion<string>();
+
+            // A percent, 0 to 100: a smallint is enough.
+            item.Property(x => x.Progress).HasConversion<short>().HasColumnType("smallint");
             item.HasOne<ScheduledTaskRun>().WithMany().HasForeignKey(x => x.RunId).OnDelete(DeleteBehavior.Cascade);
 
             // The recovery sweep's lookup: unfinished items quiet since before a cutoff.

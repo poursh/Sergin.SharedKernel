@@ -11,6 +11,8 @@ using Sergin.SharedKernel.Application.ScheduledTasks.Commands;
 using Sergin.SharedKernel.Application.Securities.Users;
 using Sergin.SharedKernel.Application.Times;
 using Sergin.SharedKernel.Presentation.Blazor.Dispatching;
+using Sergin.SharedKernel.Presentation.Blazor.Errors;
+using Sergin.SharedKernel.Presentation.Blazor.Modules;
 using Sergin.SharedKernel.Presentation.Blazor.TimeZones;
 using Sergin.SharedKernel.Presentation.Localizations;
 
@@ -20,8 +22,10 @@ namespace Sergin.SharedKernel.Presentation.Blazor.ScheduledTasks;
 /// The app bar's activity indicator: the signed-in user's own background runs from every module, running or finished in
 /// the last 24 hours. It loads after the first interactive render, then reloads whenever <see cref="IRunNotifier"/> says
 /// one of the user's runs changed (at most once a second: a change inside that second schedules one trailing reload), and
-/// every 5 seconds while a run is unfinished (a run executed by another process publishes nothing here). It never breaks
-/// the shell: an anonymous viewer and a failed load render nothing.
+/// every 5 seconds while a run is unfinished (a run executed by another process publishes nothing here). A running row can
+/// be cancelled from here. Every applied load is handed to <see cref="ActivityPanelState"/>, and a finished run is
+/// announced once per circuit, however often it leaves the read and comes back. It never breaks the shell: an anonymous
+/// viewer and a failed load render nothing.
 /// </summary>
 public sealed partial class SerginActivityIndicator : IDisposable
 {
@@ -31,7 +35,9 @@ public sealed partial class SerginActivityIndicator : IDisposable
     private static readonly TimeSpan pollInterval = TimeSpan.FromSeconds(5);
     private static readonly TimeSpan notifiedReloadInterval = TimeSpan.FromSeconds(1);
 
+    private readonly HashSet<BackgroundRunRef> announced = [];
     private IReadOnlyList<ActivityRow> rows = [];
+    private Func<string, TextDefinition?>? moduleCaption;
     private TimeZoneInfo timeZone = TimeZoneInfo.Utc;
     private DateTime? clearedAtUtc;
     private IDisposable? subscription;
@@ -89,6 +95,12 @@ public sealed partial class SerginActivityIndicator : IDisposable
     private ActivityPanelState Panel { get; set; } = default!;
 
     [Inject]
+    private SerginUiModuleCatalog Modules { get; set; } = default!;
+
+    [Inject]
+    private IUiErrorPresenter ErrorPresenter { get; set; } = default!;
+
+    [Inject]
     private ILogger<SerginActivityIndicator> Logger { get; set; } = default!;
 
     /// <summary>Whether the indicator hears the user's run changes (from the first load until disposal).</summary>
@@ -128,6 +140,8 @@ public sealed partial class SerginActivityIndicator : IDisposable
     }
 
     private string OpenLabel => Localizer.Text(ScheduledTaskUiTexts.Activity.OpenLabel, new { Count = Formatter.Number(RunningCount) });
+
+    private string CancelLabel => Localizer.Text(ScheduledTaskUiTexts.Activity.Cancel);
 
     private string ClearedKey => ClearedKeyPrefix + User.Id.Value.ToString("D", CultureInfo.InvariantCulture);
 
@@ -245,7 +259,9 @@ public sealed partial class SerginActivityIndicator : IDisposable
             return;
         }
 
-        IReadOnlyList<ActivityRow> next = ActivityRows.Build(result.Value, Catalog, Views, ActivityRows.RecordsText(Localizer, Formatter));
+        moduleCaption ??= ActivityRows.ModuleCaption(Modules);
+        IReadOnlyList<ActivityRow> next =
+            ActivityRows.Build(result.Value, Catalog, Views, ActivityRows.RecordsText(Localizer, Formatter), moduleCaption);
 
         if (loaded)
         {
@@ -259,8 +275,42 @@ public sealed partial class SerginActivityIndicator : IDisposable
 
         rows = next;
         loaded = true;
+        Panel.SetRows(rows);
         UpdatePolling();
         StateHasChanged();
+    }
+
+    /// <summary>
+    /// Cancels one of the listed runs, then reloads whatever the answer. A run that finished meanwhile is no error to the
+    /// user (the reload shows how it ended); any other refusal is notified, and a send that throws says the run could not
+    /// be cancelled rather than faulting the circuit.
+    /// </summary>
+    internal async Task CancelAsync(BackgroundRunRef run)
+    {
+        ArgumentNullException.ThrowIfNull(run);
+
+        if (disposed)
+        {
+            return;
+        }
+
+        try
+        {
+            ErrorOr<Success> result = await Dispatcher.SendAsync(new CancelBackgroundRunCommand(run.Schema, run.RunId));
+
+            if (result.IsError && result.FirstError.Code != ScheduledTaskErrors.RunFinished.Code)
+            {
+                ErrorPresenter.Notify(result.FirstError);
+            }
+        }
+        catch (Exception exception)
+        {
+            // A click handler: anything escaping here would fault the circuit.
+            LogCancelFailed(Logger, exception);
+            Snackbar.Add(Localizer.Text(ScheduledTaskUiTexts.Activity.CancelFailed), Severity.Error);
+        }
+
+        await ReloadAsync();
     }
 
     /// <inheritdoc />
@@ -280,6 +330,7 @@ public sealed partial class SerginActivityIndicator : IDisposable
         loaded = false;
         open = false;
         rows = [];
+        Panel.SetRows(rows);
         StopPolling();
         StateHasChanged();
     }
@@ -381,7 +432,8 @@ public sealed partial class SerginActivityIndicator : IDisposable
     private void Close() => open = false;
 
     // A finished row is announced when the previous read had it running, or did not have it at all and it started after
-    // the first successful load (a run fast enough to start and finish between two reads); never one already known.
+    // the first successful load (a run fast enough to start and finish between two reads); never one already known, and
+    // never twice in a circuit: a run whose source dropped out of one read comes back absent from the previous one.
     private void AnnounceFinished(IReadOnlyList<ActivityRow> previous, IReadOnlyList<ActivityRow> next)
     {
         HashSet<BackgroundRunRef> wasRunning = [.. previous.Where(row => row.IsRunning).Select(row => row.Ref)];
@@ -389,7 +441,10 @@ public sealed partial class SerginActivityIndicator : IDisposable
 
         foreach (ActivityRow row in next.Where(row => !row.IsRunning && (wasRunning.Contains(row.Ref) || IsNewSinceFirstLoad(row, known))))
         {
-            ShowFinished(row);
+            if (announced.Add(row.Ref))
+            {
+                ShowFinished(row);
+            }
         }
     }
 
@@ -405,6 +460,19 @@ public sealed partial class SerginActivityIndicator : IDisposable
                 Localizer.Text(ScheduledTaskUiTexts.Activity.FinishedSucceeded, new { Command = command, row.Target }), Severity.Success),
             ActivityState.Failed => (
                 Localizer.Text(ScheduledTaskUiTexts.Activity.FinishedFailed, new { Command = command, row.Target }), Severity.Error),
+            ActivityState.Cancelled when row.Done > 0 => (
+                Localizer.Text(
+                    ScheduledTaskUiTexts.Activity.FinishedPartlyCancelled,
+                    new
+                    {
+                        Command = command,
+                        Done = Formatter.Number(row.Done),
+                        Total = Formatter.Number(row.Total),
+                        Cancelled = Formatter.Number(row.Cancelled),
+                    }),
+                Severity.Normal),
+            ActivityState.Cancelled => (
+                Localizer.Text(ScheduledTaskUiTexts.Activity.FinishedCancelled, new { Command = command, row.Target }), Severity.Normal),
             _ => (
                 Localizer.Text(
                     ScheduledTaskUiTexts.Activity.FinishedPartly,
@@ -535,7 +603,8 @@ public sealed partial class SerginActivityIndicator : IDisposable
         return $"{Formatter.Number(seconds / 60)}:{Formatter.Number(second / 10)}{Formatter.Number(second % 10)}";
     }
 
-    private string ProgressText(ActivityRow row) => $"{Formatter.Number(row.Done)} / {Formatter.Number(row.Total)}";
+    private string ProgressText(ActivityRow row) =>
+        Localizer.Text(ScheduledTaskUiTexts.Activity.Progress, new { Done = Formatter.Number(row.Done), Total = Formatter.Number(row.Total) });
 
     // The first error of a one-record failure as the runs dialog shows it: the item's stored description, else its code.
     private static string? ErrorText(ActivityRow row) =>
@@ -547,6 +616,7 @@ public sealed partial class SerginActivityIndicator : IDisposable
             ActivityState.Running => Icons.Material.Outlined.Pending,
             ActivityState.Succeeded => Icons.Material.Outlined.CheckCircle,
             ActivityState.PartlyFailed => Icons.Material.Outlined.Warning,
+            ActivityState.Cancelled => Icons.Material.Outlined.Block,
             _ => Icons.Material.Outlined.Error,
         };
 
@@ -556,6 +626,7 @@ public sealed partial class SerginActivityIndicator : IDisposable
             ActivityState.Running => Color.Primary,
             ActivityState.Succeeded => Color.Success,
             ActivityState.PartlyFailed => Color.Warning,
+            ActivityState.Cancelled => Color.Default,
             _ => Color.Error,
         };
 
@@ -570,6 +641,9 @@ public sealed partial class SerginActivityIndicator : IDisposable
 
     [LoggerMessage(Level = LogLevel.Error, Message = "The activity indicator's reload after a run change failed.")]
     private static partial void LogTrailingReloadFailed(ILogger logger, Exception exception);
+
+    [LoggerMessage(Level = LogLevel.Error, Message = "The activity indicator could not send a run's cancel.")]
+    private static partial void LogCancelFailed(ILogger logger, Exception exception);
 
     [LoggerMessage(Level = LogLevel.Error, Message = "The activity indicator's poll failed; it stopped polling.")]
     private static partial void LogPollFailed(ILogger logger, Exception exception);

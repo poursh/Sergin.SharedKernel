@@ -34,8 +34,22 @@ public interface IScheduledTaskStore
     /// <summary>The run item and its run, tracked; null when either is gone (purged).</summary>
     Task<(ScheduledTaskRun Run, ScheduledTaskRunItem Item)?> GetRunItemAsync(Guid runItemId, CancellationToken ct);
 
-    /// <summary>Completes the run with its counts once no item is still pending, running or retrying; saves.</summary>
+    /// <summary>The run, tracked; null when it is gone (purged) or never existed.</summary>
+    Task<ScheduledTaskRun?> GetRunAsync(Guid runId, CancellationToken ct);
+
+    /// <summary>
+    /// Completes the run with its counts (succeeded, failed, cancelled) once no item is still pending, running or
+    /// retrying; saves.
+    /// </summary>
     Task CompleteRunIfFinishedAsync(Guid runId, DateTime at, CancellationToken ct);
+
+    /// <summary>
+    /// Cancels a Running run, under the same lock on the run's row as <see cref="CompleteRunIfFinishedAsync"/>, so a cancel
+    /// and a completion never interleave: stamps the run's cancel request with <paramref name="at"/> (once, the first time)
+    /// and moves every Pending or Retrying item to Cancelled, completed at <paramref name="at"/>. A Running item is left to
+    /// its delivery. Commits; a run that is gone or no longer Running is left alone.
+    /// </summary>
+    Task CancelRunAsync(Guid runId, DateTime at, CancellationToken ct);
 
     /// <summary>
     /// Every live task's trigger, in every scope, active or paused: what the engine must hold, enabled exactly when the
@@ -46,20 +60,39 @@ public interface IScheduledTaskStore
     /// <summary>
     /// Starts an attempt of the item, if this delivery may: one conditional update moves a Pending or Retrying item, or a
     /// Running one quiet since before <paramref name="staleBefore"/> (its delivery died), to Running, counts the attempt
-    /// and stamps the activity. True when this call claimed it; false when the item is finished, purged, or another
-    /// delivery holds it. The row lock makes two concurrent claims of one item end with exactly one true.
+    /// and stamps the activity. True when this call claimed it; false when the item is finished, purged, another
+    /// delivery holds it, or its run was asked to cancel. The row lock makes two concurrent claims of one item end with exactly one true.
     /// </summary>
     Task<bool> TryClaimRunItemAsync(Guid runItemId, DateTime now, DateTime staleBefore, CancellationToken ct);
 
     /// <summary>
     /// The heartbeat of a delivery still sending its command: one conditional update stamps the item's activity with
-    /// <paramref name="now"/> while it is Running, so the recovery does not take a long command for a lost one. True when a
-    /// row changed; false when the item is finished, purged, or no longer Running.
+    /// <paramref name="now"/> while it is Running, so the recovery does not take a long command for a lost one, and in the
+    /// same transaction reads whether the item's run was asked to cancel, so the delivery can stop its command.
+    /// <see cref="RunItemHeartbeat.Touched"/> is false when the item is finished, purged, or no longer Running.
     /// </summary>
-    Task<bool> TouchRunItemAsync(Guid runItemId, DateTime now, CancellationToken ct);
+    Task<RunItemHeartbeat> TouchRunItemAsync(Guid runItemId, DateTime now, CancellationToken ct);
 
-    /// <summary>The unfinished run items quiet since before <paramref name="quietSince"/>: their jobs are taken for lost.</summary>
+    /// <summary>
+    /// A command's progress while it runs: one conditional update stores <paramref name="percent"/> (clamped to 0–100)
+    /// and stamps the item's activity with <paramref name="now"/> while it is Running. Commits; a finished, purged or no
+    /// longer Running item is left alone. A claim clears the progress, so each attempt starts from none.
+    /// </summary>
+    Task SetRunItemProgressAsync(Guid runItemId, int percent, DateTime now, CancellationToken ct);
+
+    /// <summary>
+    /// The unfinished run items quiet since before <paramref name="quietSince"/>: their jobs are taken for lost. An item
+    /// of a run asked to cancel is left out: it is never sent again, and <see cref="CancelAbandonedRunItemsAsync"/> settles it.
+    /// </summary>
     Task<IReadOnlyCollection<Guid>> ListStaleRunItemsAsync(DateTime quietSince, CancellationToken ct);
+
+    /// <summary>
+    /// Moves every unfinished (Pending, Running or Retrying) item of a run asked to cancel, quiet since before
+    /// <paramref name="quietSince"/> (its delivery died, or it was left Retrying by a send that failed as the cancel
+    /// landed), to Cancelled, completed at <paramref name="at"/>; answers the distinct runs it touched, for the caller to
+    /// complete. Commits.
+    /// </summary>
+    Task<IReadOnlyCollection<Guid>> CancelAbandonedRunItemsAsync(DateTime quietSince, DateTime at, CancellationToken ct);
 
     /// <summary>
     /// The runs still Running, started before <paramref name="quietSinceUtc"/>, with no item left pending, running or
@@ -87,6 +120,9 @@ public interface IScheduledTaskStore
 
     Task SaveAsync(CancellationToken ct);
 }
+
+/// <summary>What one heartbeat found: whether it stamped the item, and whether the item's run was asked to cancel.</summary>
+public sealed record RunItemHeartbeat(bool Touched, bool CancelRequested);
 
 /// <summary>A live task's trigger as Sergin's row holds it, and whether the engine should fire it.</summary>
 public sealed record ScheduledTaskTriggerState(ScheduledTaskId Id, Guid? EngineTriggerId, ScheduledTrigger Trigger, bool Enabled);

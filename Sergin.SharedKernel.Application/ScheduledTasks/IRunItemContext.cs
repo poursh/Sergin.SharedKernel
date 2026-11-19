@@ -14,5 +14,16 @@ internal sealed class RunItemContext : IRunItemContext
 {
     public Guid? RunItemId { get; private set; }
 
-    public void Set(Guid runItemId) => RunItemId = runItemId;
+    /// <summary>The schema of the module whose store holds the item; set with <see cref="RunItemId"/>.</summary>
+    public string? Schema { get; private set; }
+
+    /// <summary>The item's run and the user it acts for: what a progress report's change notice names.</summary>
+    public (Guid RunId, UserId ActingUser)? Run { get; private set; }
+
+    public void Set(Guid runItemId, string schema, Guid runId, UserId actingUser)
+    {
+        RunItemId = runItemId;
+        Schema = schema;
+        Run = (runId, actingUser);
+    }
 }

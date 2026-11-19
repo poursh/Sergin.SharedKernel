@@ -32,6 +32,14 @@ public sealed class ScheduledTaskOptions
     /// </summary>
     public TimeSpan StaleAfter { get; set; } = TimeSpan.FromMinutes(15);
 
+    /// <summary>
+    /// The longest wait between two heartbeats of a running item; the executor ticks every
+    /// <c>min(StaleAfter / 3, HeartbeatInterval)</c>. Each heartbeat is also when a cancel requested elsewhere (another
+    /// circuit, another process) reaches the running command, so this bounds how late a cancel lands. Default 1 second: a
+    /// command that finishes within one interval cannot be stopped once running (its run's items not yet started still can).
+    /// </summary>
+    public TimeSpan HeartbeatInterval { get; set; } = TimeSpan.FromSeconds(1);
+
     /// <summary>How often the recovery looks for stale run items.</summary>
     public TimeSpan RecoveryInterval { get; set; } = TimeSpan.FromMinutes(1);
 
@@ -68,6 +76,12 @@ public sealed class ScheduledTaskOptions
         if (StaleAfter <= TimeSpan.Zero)
         {
             failure = $"Sergin:{SectionName}:{nameof(StaleAfter)} must be a positive duration.";
+            return false;
+        }
+
+        if (HeartbeatInterval <= TimeSpan.Zero)
+        {
+            failure = $"Sergin:{SectionName}:{nameof(HeartbeatInterval)} must be a positive duration.";
             return false;
         }
 
