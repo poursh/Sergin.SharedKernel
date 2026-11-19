@@ -33,7 +33,7 @@
                             <td>@NameOf(run.ActingUserId)</td>
                             <td>@SummaryText(run)</td>
                             <td>
-                                <MudButton Size="Size.Small" Variant="Variant.Text" OnClick="@(() => ShowItemsAsync(run))">@Localizer.Text(ScheduledTaskUiTexts.Runs.ShowItems)</MudButton>
+                                <MudButton Size="Size.Small" Variant="Variant.Text" OnClick="@(() => ShowItemsAsync(run.Id))">@Localizer.Text(ScheduledTaskUiTexts.Runs.ShowItems)</MudButton>
                             </td>
                         </tr>
                     }
@@ -57,7 +57,7 @@
                         {
                             <tr>
                                 <td>@item.TargetId</td>
-                                <td>@ItemStatusText(item.Status)</td>
+                                <td>@ItemStatusText(item)</td>
                                 <td>@Formatter.Number(item.Attempts)</td>
                                 <td>@item.ErrorDescription</td>
                             </tr>

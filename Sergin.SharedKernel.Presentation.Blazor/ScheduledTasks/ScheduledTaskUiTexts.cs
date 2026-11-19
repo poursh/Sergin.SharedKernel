@@ -154,6 +154,14 @@ public static class ScheduledTaskUiTexts
         public static TextDefinition ItemSucceeded { get; } = runs.Text("ItemSucceeded", "Succeeded");
 
         public static TextDefinition ItemFailed { get; } = runs.Text("ItemFailed", "Failed");
+
+        public static TextDefinition ItemCancelled { get; } = runs.Text("ItemCancelled", "Cancelled");
+
+        /// <summary>A running item's status with the percent its command last reported.</summary>
+        public static TextDefinition ItemProgress { get; } = runs.Text("ItemProgress", "{Status} · {Percent}%");
+
+        /// <summary>Added to a run's summary only when some of its items were cancelled.</summary>
+        public static TextDefinition Cancelled { get; } = runs.Text("Cancelled", "{Count} cancelled");
     }
 
     /// <summary>The app bar's activity indicator: the user's running and recently finished background runs.</summary>

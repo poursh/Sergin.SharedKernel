@@ -78,6 +78,7 @@ internal sealed class GeneratedCommandActions(
     /// The detail bar's actions: a self-parented root's create command (<see cref="AggregateViewModel.ChildCreate"/>) is offered as
     /// a Secondary link to the create route with this record as the parent.
     /// </param>
+    /// <param name="busy">Whether a command's action shows as busy (its background run on the record is going); null for none.</param>
     public IReadOnlyList<SerginPageAction> For(
         AggregateViewModel model,
         Guid id,
@@ -88,7 +89,8 @@ internal sealed class GeneratedCommandActions(
         object? record = null,
         ViewLinkPlacement links = ViewLinkPlacement.None,
         bool row = false,
-        bool childCreate = false)
+        bool childCreate = false,
+        Func<CommandView, bool>? busy = null)
     {
         ArgumentNullException.ThrowIfNull(model);
 
@@ -110,21 +112,21 @@ internal sealed class GeneratedCommandActions(
 
             SerginPageAction? action = command.Role switch
             {
-                CommandRole.Update when model.Routes.Edit is { } edit => Action(command, menuItemsOf) with { Href = edit(id) },
-                CommandRole.Transition => Action(command, menuItemsOf) with
+                CommandRole.Update when model.Routes.Edit is { } edit => Action(command, menuItemsOf, busy) with { Href = edit(id) },
+                CommandRole.Transition => Action(command, menuItemsOf, busy) with
                 {
                     OnClick = EventCallback.Factory.Create(receiver, () => ConfirmedAsync(command, record, runCommand)),
                 },
-                CommandRole.Delete => Action(command, menuItemsOf) with
+                CommandRole.Delete => Action(command, menuItemsOf, busy) with
                 {
                     OnClick = EventCallback.Factory.Create(receiver, () => deleteCommand(command)),
                 },
                 CommandRole.SetProperty when editAsync is not null && command is { EditMode: SerginEditMode.Dialog, ValueField: not null } =>
-                    Action(command, menuItemsOf) with
+                    Action(command, menuItemsOf, busy) with
                     {
                         OnClick = EventCallback.Factory.Create(receiver, () => editAsync(command)),
                     },
-                CommandRole.Move when moveAsync is not null && command.BuildMove is not null => Action(command, menuItemsOf) with
+                CommandRole.Move when moveAsync is not null && command.BuildMove is not null => Action(command, menuItemsOf, busy) with
                 {
                     OnClick = EventCallback.Factory.Create(receiver, () => moveAsync(command)),
                 },
@@ -139,7 +141,7 @@ internal sealed class GeneratedCommandActions(
 
         if (childCreate && model.ChildCreate is { } create && model.ChildCreateHref(id) is { } href)
         {
-            actions.Add(Action(create, menuItemsOf) with { Href = href });
+            actions.Add(Action(create, menuItemsOf, busy) with { Href = href });
         }
 
         return WithLinks(model, id, actions, links);
@@ -170,7 +172,8 @@ internal sealed class GeneratedCommandActions(
             : [.. actions.Where(action => action.Kind != SerginActionKind.Danger), .. links, .. actions.Where(action => action.Kind == SerginActionKind.Danger)];
     }
 
-    private SerginPageAction Action(CommandView command, Func<CommandView, IReadOnlyList<SerginMenuItem>> menuItemsOf)
+    private SerginPageAction Action(
+        CommandView command, Func<CommandView, IReadOnlyList<SerginMenuItem>> menuItemsOf, Func<CommandView, bool>? busy)
     {
         IReadOnlyList<SerginMenuItem> items = menuItemsOf(command);
 
@@ -181,6 +184,7 @@ internal sealed class GeneratedCommandActions(
             Permission: command.Permissions.FirstOrDefault(),
             AnyScope: command.AnyScope,
             Disabled: running.Contains(command.Request),
-            MenuItems: items.Count > 0 ? items : null);
+            MenuItems: items.Count > 0 ? items : null,
+            Busy: busy?.Invoke(command) ?? false);
     }
 }
