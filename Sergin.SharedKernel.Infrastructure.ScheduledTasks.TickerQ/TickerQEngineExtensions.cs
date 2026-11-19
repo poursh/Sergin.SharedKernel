@@ -1,4 +1,6 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Storage;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -71,11 +73,49 @@ public static class TickerQEngineExtensions
     {
         ArgumentNullException.ThrowIfNull(host);
 
-        if (host.Services.GetService<IServiceProviderIsService>()?.IsService(typeof(TickerQScheduledTaskEngine)) == true)
+        if (UsesTickerQ(host.Services))
         {
             host.UseTickerQ();
         }
 
         return host;
     }
+
+    /// <summary>
+    /// Development only: creates TickerQ's tables in the <c>tickerq</c> schema when the real engine is registered and the
+    /// schema holds no table yet, so a developer with a licence file needs no manual step after a database reset. Call it
+    /// after the modules' migrations (they create the database) and before the host starts: TickerQ's cluster-control
+    /// service reads these tables during start. Does nothing for the stand-in, outside Development, or when any table
+    /// already exists; a real environment provides the tables itself.
+    /// </summary>
+    /// <param name="host">The built host, not yet started.</param>
+    /// <param name="cancellationToken">The cancellation token.</param>
+    public static async Task EnsureSerginTickerQStoreAsync(this IHost host, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(host);
+
+        if (!UsesTickerQ(host.Services) || !host.Services.GetRequiredService<IHostEnvironment>().IsDevelopment())
+        {
+            return;
+        }
+
+        IDbContextFactory<TickerQDbContext> contexts = host.Services.GetRequiredService<IDbContextFactory<TickerQDbContext>>();
+        await using TickerQDbContext context = await contexts.CreateDbContextAsync(cancellationToken).ConfigureAwait(false);
+
+        bool hasTables = await context.Database
+            .SqlQuery<bool>($"SELECT EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = {Schema}) AS \"Value\"")
+            .SingleAsync(cancellationToken)
+            .ConfigureAwait(false);
+
+        if (hasTables)
+        {
+            return;
+        }
+
+        await context.Database.ExecuteSqlRawAsync("CREATE SCHEMA IF NOT EXISTS tickerq;", cancellationToken).ConfigureAwait(false);
+        await context.GetService<IRelationalDatabaseCreator>().CreateTablesAsync(cancellationToken).ConfigureAwait(false);
+    }
+
+    private static bool UsesTickerQ(IServiceProvider services) =>
+        services.GetService<IServiceProviderIsService>()?.IsService(typeof(TickerQScheduledTaskEngine)) == true;
 }
