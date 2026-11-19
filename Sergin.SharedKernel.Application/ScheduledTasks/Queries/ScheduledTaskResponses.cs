@@ -24,8 +24,10 @@ public sealed record ScheduledTaskResponse(
     Guid DelegatingUserId,
     IReadOnlyCollection<ScheduledTaskTarget> Targets);
 
+/// <summary>One run; <see cref="CommandName"/> is the scheduled command's stable name, as stored.</summary>
 public sealed record ScheduledRunListItem(
     Guid Id,
+    string CommandName,
     ScheduledRunTrigger Trigger,
     Guid ActingUserId,
     ScheduledRunStatus Status,

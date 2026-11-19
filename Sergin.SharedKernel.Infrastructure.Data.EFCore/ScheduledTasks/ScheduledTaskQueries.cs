@@ -350,13 +350,14 @@ internal sealed class ScheduledTaskQueries(
         value.Kind == DateTimeKind.Unspecified ? DateTime.SpecifyKind(value, DateTimeKind.Utc) : value.ToUniversalTime();
 
     private const string RunColumns =
-        "r.id AS Id, r.\"trigger\" AS Trigger, r.acting_user_id AS ActingUserId, r.status AS Status, "
+        "r.id AS Id, r.command_name AS CommandName, r.\"trigger\" AS Trigger, r.acting_user_id AS ActingUserId, r.status AS Status, "
         + "r.started_at_utc AS StartedAtUtc, r.completed_at_utc AS CompletedAtUtc, r.total AS Total, "
         + "r.succeeded AS Succeeded, r.failed AS Failed, r.cancelled AS Cancelled";
 
     private static ScheduledRunListItem ToItem(RunRow row) =>
         new(
             row.Id,
+            row.CommandName,
             Enum.Parse<ScheduledRunTrigger>(row.Trigger),
             row.ActingUserId,
             Enum.Parse<ScheduledRunStatus>(row.Status),
@@ -428,6 +429,8 @@ internal sealed class ScheduledTaskQueries(
     private sealed class RunRow
     {
         public Guid Id { get; set; }
+
+        public string CommandName { get; set; } = string.Empty;
 
         public string Trigger { get; set; } = string.Empty;
 

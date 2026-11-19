@@ -114,6 +114,20 @@ internal static class ActivityRows
         return item.Succeeded == 0 ? ActivityState.Failed : ActivityState.PartlyFailed;
     }
 
+    /// <summary>
+    /// The view label a scheduled command is shown by (the label of the view command whose request it is, on the root or
+    /// one of its children); null when the catalogue does not know the name or no view names the command.
+    /// </summary>
+    public static TextDefinition? CommandLabel(string commandName, ScheduledCommandCatalog catalog, AggregateViewRegistry views)
+    {
+        ArgumentNullException.ThrowIfNull(catalog);
+        ArgumentNullException.ThrowIfNull(views);
+
+        ScheduledCommand? command = catalog.TryGet(commandName, out ScheduledCommand? found) ? found : null;
+
+        return LabelOf(command, command is null ? null : views.Find(command.Root));
+    }
+
     private static ActivityRow Row(
         ActivityItem item,
         ScheduledCommandCatalog catalog,
