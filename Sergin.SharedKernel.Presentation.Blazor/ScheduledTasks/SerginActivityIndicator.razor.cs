@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Globalization;
 using Microsoft.AspNetCore.Components;
 using Microsoft.Extensions.Logging;
@@ -18,8 +19,9 @@ namespace Sergin.SharedKernel.Presentation.Blazor.ScheduledTasks;
 /// <summary>
 /// The app bar's activity indicator: the signed-in user's own background runs from every module, running or finished in
 /// the last 24 hours. It loads after the first interactive render, then reloads whenever <see cref="IRunNotifier"/> says
-/// one of the user's runs changed, and every 5 seconds while a run is unfinished (a run executed by another process
-/// publishes nothing here). It never breaks the shell: an anonymous viewer and a failed load render nothing.
+/// one of the user's runs changed (at most once a second: a change inside that second schedules one trailing reload), and
+/// every 5 seconds while a run is unfinished (a run executed by another process publishes nothing here). It never breaks
+/// the shell: an anonymous viewer and a failed load render nothing.
 /// </summary>
 public sealed partial class SerginActivityIndicator : IDisposable
 {
@@ -27,6 +29,7 @@ public sealed partial class SerginActivityIndicator : IDisposable
 
     private static readonly TimeSpan window = TimeSpan.FromHours(24);
     private static readonly TimeSpan pollInterval = TimeSpan.FromSeconds(5);
+    private static readonly TimeSpan notifiedReloadInterval = TimeSpan.FromSeconds(1);
 
     private IReadOnlyList<ActivityRow> rows = [];
     private TimeZoneInfo timeZone = TimeZoneInfo.Utc;
@@ -39,6 +42,9 @@ public sealed partial class SerginActivityIndicator : IDisposable
     private volatile bool disposed;
     private bool reloading;
     private bool reloadPending;
+    private long lastNotifiedReload;
+    private bool notifiedReloadScheduled;
+    private DateTime? announceStartedSinceUtc;
 
     [Inject]
     private ISerginDispatcher Dispatcher { get; set; } = default!;
@@ -91,12 +97,17 @@ public sealed partial class SerginActivityIndicator : IDisposable
     /// <summary>Whether the fallback poll runs (while a listed run is unfinished, never after disposal).</summary>
     internal bool IsPolling => poller is not null;
 
+    /// <summary>Whether no read is out and no notifier-driven reload is waiting for its interval.</summary>
+    internal bool IsIdle => !reloading && !notifiedReloadScheduled;
+
     // The shape every anonymous context has: ClaimsPrincipalUserContext.Anonymous and the API's stub alike carry no id.
     private bool IsAnonymous => User.Id.Value == Guid.Empty;
 
     private bool Visible => loaded && !IsAnonymous;
 
     private int RunningCount => rows.Count(row => row.IsRunning);
+
+    private string RunningCountText => Formatter.Number(RunningCount);
 
     private IReadOnlyList<ActivityRow> Running => [.. rows.Where(row => row.IsRunning)];
 
@@ -142,16 +153,30 @@ public sealed partial class SerginActivityIndicator : IDisposable
         }
 
         started = true;
-        timeZone = await ReadTimeZoneAsync();
-        clearedAtUtc = await ReadClearedAsync();
 
-        if (disposed)
+        try
         {
-            return;
-        }
+            timeZone = await ReadTimeZoneAsync();
+            clearedAtUtc = await ReadClearedAsync();
 
-        subscription = Notifier.Subscribe(User.Id, OnRunChangedAsync);
-        await ReloadAsync();
+            if (disposed)
+            {
+                return;
+            }
+
+            subscription = Notifier.Subscribe(User.Id, OnRunChangedAsync);
+            await ReloadAsync();
+        }
+        catch (Exception exception)
+        {
+            // Called from OnAfterRenderAsync: anything escaping here would fault the circuit, so it hides the indicator.
+            LogStartFailed(Logger, exception);
+
+            if (!disposed)
+            {
+                Fail();
+            }
+        }
     }
 
     /// <summary>
@@ -194,13 +219,15 @@ public sealed partial class SerginActivityIndicator : IDisposable
     private async Task LoadOnceAsync()
     {
         ErrorOr<IReadOnlyList<ActivityItem>> result;
+        DateTime readAtUtc = Clock.UtcNow;
 
         try
         {
-            result = await Dispatcher.SendAsync(new GetMyActivityQuery(Clock.UtcNow - window));
+            result = await Dispatcher.SendAsync(new GetMyActivityQuery(readAtUtc - window));
         }
-        catch (Exception exception) when (exception is not OperationCanceledException)
+        catch (Exception exception)
         {
+            // No token is in play, so a cancellation is a failure like any other (an interop or circuit timeout).
             LogLoadThrew(Logger, exception);
             Fail();
             return;
@@ -223,6 +250,11 @@ public sealed partial class SerginActivityIndicator : IDisposable
         if (loaded)
         {
             AnnounceFinished(rows, next);
+        }
+        else
+        {
+            // The first successful load (or the first after a failure) announces nothing; a run started after it is new.
+            announceStartedSinceUtc = readAtUtc;
         }
 
         rows = next;
@@ -262,11 +294,67 @@ public sealed partial class SerginActivityIndicator : IDisposable
 
         try
         {
-            await InvokeAsync(ReloadAsync);
+            await InvokeAsync(ReloadOnChangeAsync);
         }
         catch (ObjectDisposedException)
         {
             // The circuit's renderer went away between the check and the call: nobody is left to show the change.
+        }
+    }
+
+    // On the circuit's context. At most one notifier-driven reload a second: a change inside the interval schedules one
+    // trailing reload (and a change while it waits is covered by it), so nothing is lost and a burst costs one more read.
+    private Task ReloadOnChangeAsync()
+    {
+        if (disposed || notifiedReloadScheduled)
+        {
+            return Task.CompletedTask;
+        }
+
+        TimeSpan since = lastNotifiedReload == 0 ? TimeSpan.MaxValue : Stopwatch.GetElapsedTime(lastNotifiedReload);
+
+        if (since >= notifiedReloadInterval)
+        {
+            lastNotifiedReload = Stopwatch.GetTimestamp();
+            return ReloadAsync();
+        }
+
+        notifiedReloadScheduled = true;
+        _ = TrailingReloadAsync(notifiedReloadInterval - since);
+        return Task.CompletedTask;
+    }
+
+    // The wait is at most a second and holds nothing, so it is not cancelled: disposal is checked once it ends.
+    private async Task TrailingReloadAsync(TimeSpan delay)
+    {
+        try
+        {
+            await Task.Delay(delay);
+
+            if (disposed)
+            {
+                return;
+            }
+
+            await InvokeAsync(async () =>
+            {
+                notifiedReloadScheduled = false;
+
+                if (!disposed)
+                {
+                    lastNotifiedReload = Stopwatch.GetTimestamp();
+                    await ReloadAsync();
+                }
+            });
+        }
+        catch (ObjectDisposedException)
+        {
+            // The circuit's renderer went away while waiting: nobody is left to show the change.
+        }
+        catch (Exception exception)
+        {
+            // A background reload has no caller to observe its failure; the next change or poll reloads again.
+            LogTrailingReloadFailed(Logger, exception);
         }
     }
 
@@ -292,15 +380,21 @@ public sealed partial class SerginActivityIndicator : IDisposable
 
     private void Close() => open = false;
 
+    // A finished row is announced when the previous read had it running, or did not have it at all and it started after
+    // the first successful load (a run fast enough to start and finish between two reads); never one already known.
     private void AnnounceFinished(IReadOnlyList<ActivityRow> previous, IReadOnlyList<ActivityRow> next)
     {
         HashSet<BackgroundRunRef> wasRunning = [.. previous.Where(row => row.IsRunning).Select(row => row.Ref)];
+        HashSet<BackgroundRunRef> known = [.. previous.Select(row => row.Ref)];
 
-        foreach (ActivityRow row in next.Where(row => !row.IsRunning && wasRunning.Contains(row.Ref)))
+        foreach (ActivityRow row in next.Where(row => !row.IsRunning && (wasRunning.Contains(row.Ref) || IsNewSinceFirstLoad(row, known))))
         {
             ShowFinished(row);
         }
     }
+
+    private bool IsNewSinceFirstLoad(ActivityRow row, HashSet<BackgroundRunRef> known) =>
+        !known.Contains(row.Ref) && announceStartedSinceUtc is { } since && row.StartedAtUtc >= since;
 
     private void ShowFinished(ActivityRow row)
     {
@@ -378,9 +472,9 @@ public sealed partial class SerginActivityIndicator : IDisposable
         {
             return await TimeZones.GetTimeZoneAsync();
         }
-        catch (InvalidOperationException)
+        catch (Exception exception) when (exception is InvalidOperationException or JSException or JSDisconnectedException or TaskCanceledException)
         {
-            // No interop in this scope: the app's zone.
+            // No interop in this scope, or it failed or timed out: the app's zone.
             return ScheduledTaskUiFormat.ZoneOf(TimeZoneOptions.Value.TimeZone);
         }
     }
@@ -470,6 +564,12 @@ public sealed partial class SerginActivityIndicator : IDisposable
 
     [LoggerMessage(Level = LogLevel.Error, Message = "The activity indicator failed to load the user's runs; it is hidden.")]
     private static partial void LogLoadThrew(ILogger logger, Exception exception);
+
+    [LoggerMessage(Level = LogLevel.Error, Message = "The activity indicator failed to start; it is hidden.")]
+    private static partial void LogStartFailed(ILogger logger, Exception exception);
+
+    [LoggerMessage(Level = LogLevel.Error, Message = "The activity indicator's reload after a run change failed.")]
+    private static partial void LogTrailingReloadFailed(ILogger logger, Exception exception);
 
     [LoggerMessage(Level = LogLevel.Error, Message = "The activity indicator's poll failed; it stopped polling.")]
     private static partial void LogPollFailed(ILogger logger, Exception exception);

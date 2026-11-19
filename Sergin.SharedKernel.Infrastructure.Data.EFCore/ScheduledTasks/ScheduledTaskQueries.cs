@@ -282,7 +282,8 @@ internal sealed class ScheduledTaskQueries(
         using DbConnection connection = await connectionFactory.CreateConnectionAsync();
 
         // No Reach: these are the caller's own runs, listed whatever their scope and the caller's grants now. The lateral
-        // reads the one item of a one-item run; a run over several records names none of them.
+        // reads the one item of a one-item run; a run over several records names none of them. A Skipped run (an overlap
+        // loser) ran nothing, so it is not activity.
         string sql =
             $$"""
             SELECT r.id AS RunId, r.command_name AS CommandName, r."trigger" AS Trigger, r.status AS Status,
@@ -299,7 +300,7 @@ internal sealed class ScheduledTaskQueries(
                 WHERE i.run_id = r.id AND r.total = 1
                 ORDER BY i.id
                 LIMIT 1) one ON true
-            WHERE r.acting_user_id = @UserId AND r."trigger" IN ('Background', 'RunNow', 'OneOff')
+            WHERE r.acting_user_id = @UserId AND r."trigger" IN ('Background', 'RunNow', 'OneOff') AND r.status <> 'Skipped'
               AND (r.status = 'Running' OR r.completed_at_utc >= @FinishedSince)
             ORDER BY r.started_at_utc DESC, r.id DESC
             LIMIT @Take;

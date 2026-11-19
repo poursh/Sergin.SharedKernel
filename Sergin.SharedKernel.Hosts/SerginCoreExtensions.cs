@@ -134,8 +134,12 @@ public static class SerginCoreExtensions
             .ValidateOnStart();
         builder.Services.AddSingleton<IValidateOptions<ScheduledTaskOptions>, ScheduledTaskOptionsValidator>();
 
-        // All three no-ops until a module opts in. The rebuild also refuses start for an opted-in host with no engine.
+        // The run notifier and the activity read, in every host: with no module opted in nobody publishes and the
+        // activity is empty, so the app bar's indicator still gets an answer.
         builder.Services.TryAddSingleton<IRunNotifier, RunNotifier>();
+        builder.Services.AddSerginRunActivity();
+
+        // All three no-ops until a module opts in. The rebuild also refuses start for an opted-in host with no engine.
         builder.Services.AddHostedService<ScheduledTaskTriggerRebuildService>();
         builder.Services.AddHostedService<ScheduledTaskPurgeService>();
         builder.Services.AddHostedService<ScheduledRunItemRecoveryService>();

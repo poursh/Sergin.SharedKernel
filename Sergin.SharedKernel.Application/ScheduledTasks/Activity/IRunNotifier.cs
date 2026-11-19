@@ -1,4 +1,3 @@
-using Sergin.SharedKernel.Domain.Users;
 
 namespace Sergin.SharedKernel.Application.ScheduledTasks.Activity;
 

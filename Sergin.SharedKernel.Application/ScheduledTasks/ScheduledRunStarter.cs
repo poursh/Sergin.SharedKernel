@@ -104,9 +104,20 @@ internal sealed partial class ScheduledRunStarter(IServiceProvider services, IDa
             return null;
         }
 
-        label = label.Trim();
+        return CutLabel(label.Trim());
+    }
 
-        return label.Length > ScheduledTaskRunItem.MaxTargetLabelLength ? label[..ScheduledTaskRunItem.MaxTargetLabelLength] : label;
+    // At most the column's length, never ending on half a surrogate pair: the cut backs off one char instead.
+    internal static string CutLabel(string label)
+    {
+        int max = ScheduledTaskRunItem.MaxTargetLabelLength;
+
+        if (label.Length <= max)
+        {
+            return label;
+        }
+
+        return char.IsHighSurrogate(label[max - 1]) ? label[..(max - 1)] : label[..max];
     }
 
     [LoggerMessage(Level = LogLevel.Error, Message = "The job engine failed while enqueueing the items of scheduled run {RunId} ({CommandName}); its unqueued items were failed.")]

@@ -2,7 +2,6 @@ using ErrorOr;
 using FluentValidation;
 using MediatR;
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Logging;
 using Sergin.SharedKernel.Application;
 using Sergin.SharedKernel.Application.ScheduledTasks.Activity;
 using Sergin.SharedKernel.Application.ScheduledTasks.Commands;
@@ -50,14 +49,9 @@ public static class ScheduledTaskServiceExtensions
         services.AddTransient<IRequestHandler<GetScheduledTaskRunItemsQuery, ErrorOr<IReadOnlyCollection<ScheduledRunItemListItem>>>, GetScheduledTaskRunItemsQueryHandler>();
         services.AddTransient<IRequestHandler<GetOneOffRunsForTargetQuery, ErrorOr<IReadOnlyCollection<ScheduledRunListItem>>>, GetOneOffRunsForTargetQueryHandler>();
 
-        // A user's own runs across every opted-in module: the directory over the per-context sources, and its query.
-        // The sources' registrations are read when the directory is first built, after the host has added every one, so
-        // a source registered later (another opted-in context, a test's) is still among them.
-        services.AddSingleton<IBackgroundRunDirectory>(provider => new BackgroundRunDirectory(
-            provider.GetRequiredService<IServiceScopeFactory>(),
-            provider.GetRequiredService<ILogger<BackgroundRunDirectory>>(),
-            [.. services.Where(descriptor => descriptor.ServiceType == typeof(IBackgroundRunSource) && !descriptor.IsKeyedService)]));
-        services.AddTransient<IRequestHandler<GetMyActivityQuery, ErrorOr<IReadOnlyList<ActivityItem>>>, GetMyActivityQueryHandler>();
+        // A user's own runs across every opted-in module: the directory over the per-context sources, and its query
+        // (AddSerginCore registers them too, for a host where nothing opts in).
+        services.AddSerginRunActivity();
 
         // The management commands: their handlers and validators by hand, for the same reason; validators scoped, as
         // AddSerginCore registers a module's, so they live in the request scope the validation behavior runs in.

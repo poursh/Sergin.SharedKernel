@@ -11,7 +11,7 @@
         }
     </style>
     <div class="sergin-activity d-flex align-center">
-        <MudBadge Content="@RunningCount" Visible="@(RunningCount > 0)" Color="Color.Secondary" Overlap="true" Origin="Origin.TopRight">
+        <MudBadge Content="@RunningCountText" Visible="@(RunningCount > 0)" Color="Color.Secondary" Overlap="true" Origin="Origin.TopRight">
             <MudIconButton Icon="@Icons.Material.Outlined.Pending" Color="Color.Inherit" title="@OpenLabel" aria-label="@OpenLabel"
                            aria-haspopup="dialog" aria-expanded="@(open ? "true" : "false")" OnClick="ToggleAsync" />
         </MudBadge>
