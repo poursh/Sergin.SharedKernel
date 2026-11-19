@@ -68,6 +68,9 @@ internal sealed class EfScheduledTaskStore<TContext>(TContext context, string sc
         return run is null ? null : (run, item);
     }
 
+    public Task<ScheduledTaskRun?> GetRunAsync(Guid runId, CancellationToken ct) =>
+        context.ScheduledTaskRuns.SingleOrDefaultAsync(run => run.Id == runId, ct);
+
     /// <summary>
     /// Under a lock on the run's row, so items finishing in parallel cannot each see the other unfinished and leave
     /// the run open: whichever takes the lock last counts every item already settled. The run is reloaded under the
@@ -99,7 +102,7 @@ internal sealed class EfScheduledTaskStore<TContext>(TContext context, string sc
             .Select(group => new { Status = group.Key, Count = group.Count() })
             .ToListAsync(ct);
 
-        if (counts.Exists(count => count.Status is not (ScheduledRunItemStatus.Succeeded or ScheduledRunItemStatus.Failed)))
+        if (counts.Exists(count => count.Status is not (ScheduledRunItemStatus.Succeeded or ScheduledRunItemStatus.Failed or ScheduledRunItemStatus.Cancelled)))
         {
             return;
         }
@@ -107,9 +110,45 @@ internal sealed class EfScheduledTaskStore<TContext>(TContext context, string sc
         run.Complete(
             counts.Where(count => count.Status == ScheduledRunItemStatus.Succeeded).Sum(count => count.Count),
             counts.Where(count => count.Status == ScheduledRunItemStatus.Failed).Sum(count => count.Count),
+            counts.Where(count => count.Status == ScheduledRunItemStatus.Cancelled).Sum(count => count.Count),
             at);
 
         await context.SaveChangesAsync(ct);
+        await transaction.CommitAsync(ct);
+    }
+
+    /// <summary>
+    /// Under the run's row lock, like <see cref="CompleteRunIfFinishedAsync"/>: a completion waits for the cancel and then
+    /// counts the cancelled items, and a cancel after a completion finds the run no longer Running. Both writes are
+    /// set-based, not through the change tracker, so a run the caller holds tracked is never saved over; the completion
+    /// that follows reloads it.
+    /// </summary>
+    public async Task CancelRunAsync(Guid runId, DateTime at, CancellationToken ct)
+    {
+        // An early return leaves the transaction uncommitted: disposing it rolls back and releases the lock.
+        await using IDbContextTransaction transaction = await context.Database.BeginTransactionAsync(ct);
+        await context.Database.ExecuteSqlRawAsync(lockRunSql, [runId], ct);
+
+        // The first request's time is kept: a second cancel changes nothing on the run.
+        int running = await context.ScheduledTaskRuns
+            .Where(run => run.Id == runId && run.Status == ScheduledRunStatus.Running)
+            .ExecuteUpdateAsync(set => set.SetProperty(run => run.CancelRequestedAtUtc, run => run.CancelRequestedAtUtc ?? at), ct);
+
+        if (running == 0)
+        {
+            return;
+        }
+
+        // Only items no delivery holds: a Running item is its delivery's to stop.
+        await context.ScheduledTaskRunItems
+            .Where(item => item.RunId == runId
+                && (item.Status == ScheduledRunItemStatus.Pending || item.Status == ScheduledRunItemStatus.Retrying))
+            .ExecuteUpdateAsync(
+                set => set
+                    .SetProperty(item => item.Status, ScheduledRunItemStatus.Cancelled)
+                    .SetProperty(item => item.CompletedAtUtc, at),
+                ct);
+
         await transaction.CommitAsync(ct);
     }
 
@@ -132,6 +171,8 @@ internal sealed class EfScheduledTaskStore<TContext>(TContext context, string sc
     public async Task<bool> TryClaimRunItemAsync(Guid runItemId, DateTime now, DateTime staleBefore, CancellationToken ct) =>
         await context.ScheduledTaskRunItems
             .Where(item => item.Id == runItemId)
+            // A run asked to cancel starts nothing more, a stale Running item's re-delivery included.
+            .Where(item => context.ScheduledTaskRuns.Any(run => run.Id == item.RunId && run.CancelRequestedAtUtc == null))
             .Where(item => item.Status == ScheduledRunItemStatus.Pending
                 || item.Status == ScheduledRunItemStatus.Retrying
                 || item.Status == ScheduledRunItemStatus.Running && item.LastActivityAtUtc < staleBefore)

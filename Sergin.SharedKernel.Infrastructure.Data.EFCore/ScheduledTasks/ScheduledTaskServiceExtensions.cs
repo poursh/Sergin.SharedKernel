@@ -65,6 +65,7 @@ public static class ScheduledTaskServiceExtensions
         services.AddTransient<IRequestHandler<RunScheduledTaskNowCommand, ErrorOr<ScheduledRunStartedResponse>>, RunScheduledTaskNowCommandHandler>();
         services.AddTransient<IRequestHandler<RunCommandOnceCommand, ErrorOr<ScheduledRunStartedResponse>>, RunCommandOnceCommandHandler>();
         services.AddTransient<IRequestHandler<StartBackgroundCommand, ErrorOr<BackgroundRunStartedResponse>>, StartBackgroundCommandHandler>();
+        services.AddTransient<IRequestHandler<CancelBackgroundRunCommand, ErrorOr<Success>>, CancelBackgroundRunCommandHandler>();
         services.AddScoped<IValidator<CreateScheduledTaskCommand>, CreateScheduledTaskCommandValidator>();
         services.AddScoped<IValidator<UpdateScheduledTaskCommand>, UpdateScheduledTaskCommandValidator>();
         services.AddScoped<IValidator<RunCommandOnceCommand>, RunCommandOnceCommandValidator>();

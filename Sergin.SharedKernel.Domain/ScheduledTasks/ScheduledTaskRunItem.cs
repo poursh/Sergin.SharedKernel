@@ -95,6 +95,16 @@ public sealed class ScheduledTaskRunItem
         ErrorDescription = description;
         CompletedAtUtc = at;
     }
+
+    /// <summary>
+    /// The run was cancelled before this item finished: final, never retried. Its last error, if a retry left one, is kept.
+    /// The store cancels items in the database instead (one update under the run's lock); this is its in-memory form.
+    /// </summary>
+    public void MarkCancelled(DateTime at)
+    {
+        Status = ScheduledRunItemStatus.Cancelled;
+        CompletedAtUtc = at;
+    }
 }
 
 public enum ScheduledRunItemStatus
@@ -104,4 +114,7 @@ public enum ScheduledRunItemStatus
     Retrying,
     Succeeded,
     Failed,
+
+    /// <summary>The run was cancelled before the item finished. Final, like Succeeded and Failed.</summary>
+    Cancelled,
 }

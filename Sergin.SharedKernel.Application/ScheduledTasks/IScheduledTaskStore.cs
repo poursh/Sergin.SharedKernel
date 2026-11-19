@@ -34,8 +34,22 @@ public interface IScheduledTaskStore
     /// <summary>The run item and its run, tracked; null when either is gone (purged).</summary>
     Task<(ScheduledTaskRun Run, ScheduledTaskRunItem Item)?> GetRunItemAsync(Guid runItemId, CancellationToken ct);
 
-    /// <summary>Completes the run with its counts once no item is still pending, running or retrying; saves.</summary>
+    /// <summary>The run, tracked; null when it is gone (purged) or never existed.</summary>
+    Task<ScheduledTaskRun?> GetRunAsync(Guid runId, CancellationToken ct);
+
+    /// <summary>
+    /// Completes the run with its counts (succeeded, failed, cancelled) once no item is still pending, running or
+    /// retrying; saves.
+    /// </summary>
     Task CompleteRunIfFinishedAsync(Guid runId, DateTime at, CancellationToken ct);
+
+    /// <summary>
+    /// Cancels a Running run, under the same lock on the run's row as <see cref="CompleteRunIfFinishedAsync"/>, so a cancel
+    /// and a completion never interleave: stamps the run's cancel request with <paramref name="at"/> (once, the first time)
+    /// and moves every Pending or Retrying item to Cancelled, completed at <paramref name="at"/>. A Running item is left to
+    /// its delivery. Commits; a run that is gone or no longer Running is left alone.
+    /// </summary>
+    Task CancelRunAsync(Guid runId, DateTime at, CancellationToken ct);
 
     /// <summary>
     /// Every live task's trigger, in every scope, active or paused: what the engine must hold, enabled exactly when the
@@ -46,8 +60,8 @@ public interface IScheduledTaskStore
     /// <summary>
     /// Starts an attempt of the item, if this delivery may: one conditional update moves a Pending or Retrying item, or a
     /// Running one quiet since before <paramref name="staleBefore"/> (its delivery died), to Running, counts the attempt
-    /// and stamps the activity. True when this call claimed it; false when the item is finished, purged, or another
-    /// delivery holds it. The row lock makes two concurrent claims of one item end with exactly one true.
+    /// and stamps the activity. True when this call claimed it; false when the item is finished, purged, another
+    /// delivery holds it, or its run was asked to cancel. The row lock makes two concurrent claims of one item end with exactly one true.
     /// </summary>
     Task<bool> TryClaimRunItemAsync(Guid runItemId, DateTime now, DateTime staleBefore, CancellationToken ct);
 

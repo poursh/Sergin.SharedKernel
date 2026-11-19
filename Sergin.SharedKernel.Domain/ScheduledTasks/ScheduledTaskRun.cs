@@ -43,6 +43,12 @@ public sealed class ScheduledTaskRun
 
     public int Failed { get; private set; }
 
+    /// <summary>The items cancelled before they ran; counted with the others when the run completes.</summary>
+    public int Cancelled { get; private set; }
+
+    /// <summary>When someone asked to cancel the run; null while nobody has. Stamped once, by the store, under the run's lock.</summary>
+    public DateTime? CancelRequestedAtUtc { get; private set; }
+
     public static ScheduledTaskRun Start(ScheduledRunDefinition definition, int total, DateTime startedAtUtc)
     {
         ArgumentNullException.ThrowIfNull(definition);
@@ -67,14 +73,16 @@ public sealed class ScheduledTaskRun
         return run;
     }
 
-    public void Complete(int succeeded, int failed, DateTime at)
+    public void Complete(int succeeded, int failed, int cancelled, DateTime at)
     {
         ArgumentOutOfRangeException.ThrowIfNegative(succeeded);
         ArgumentOutOfRangeException.ThrowIfNegative(failed);
+        ArgumentOutOfRangeException.ThrowIfNegative(cancelled);
 
         Status = ScheduledRunStatus.Completed;
         Succeeded = succeeded;
         Failed = failed;
+        Cancelled = cancelled;
         CompletedAtUtc = at;
     }
 

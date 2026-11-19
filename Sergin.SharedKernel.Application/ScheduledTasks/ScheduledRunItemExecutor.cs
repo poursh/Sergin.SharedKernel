@@ -57,10 +57,11 @@ internal sealed partial class ScheduledRunItemExecutor(
         // a slow delivery) never sends the command a second time.
         if (!await store.TryClaimRunItemAsync(runItemId, now, now - settings.StaleAfter, ct))
         {
-            // Finished by an earlier delivery that may have stopped between saving the item and completing the run:
-            // completing is idempotent, so finish that step, or the run stays open and the overlap rule skips every later
-            // firing of its task. Otherwise it is purged, or another delivery holds it: nothing to do.
-            if (await store.GetRunItemAsync(runItemId, ct) is { Item.Status: ScheduledRunItemStatus.Succeeded or ScheduledRunItemStatus.Failed } finished)
+            // Finished by an earlier delivery that may have stopped between saving the item and completing the run, or
+            // cancelled: completing is idempotent, so finish that step, or the run stays open and the overlap rule skips
+            // every later firing of its task. Otherwise it is purged, another delivery holds it, or its run is being
+            // cancelled (the cancel moves it on): nothing to do, and the command is never sent.
+            if (await store.GetRunItemAsync(runItemId, ct) is { Item.Status: ScheduledRunItemStatus.Succeeded or ScheduledRunItemStatus.Failed or ScheduledRunItemStatus.Cancelled } finished)
             {
                 await store.CompleteRunIfFinishedAsync(finished.Run.Id, clock.UtcNow, ct);
                 Notify(store, finished.Run);

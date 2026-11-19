@@ -60,3 +60,11 @@ internal sealed class StartBackgroundCommandConfiguration : ICommandConfiguratio
     public void Configure(CommandConfigurationBuilder<StartBackgroundCommand> builder) =>
         builder.NotShown(x => x.Template).NotShown(x => x.Targets);
 }
+
+// No permission either: the handler lets the run's acting user cancel, and otherwise checks Manage on the run's scope,
+// which a configuration cannot name.
+internal sealed class CancelBackgroundRunCommandConfiguration : ICommandConfiguration<CancelBackgroundRunCommand>
+{
+    public void Configure(CommandConfigurationBuilder<CancelBackgroundRunCommand> builder) =>
+        builder.NotShown(x => x.Schema).NotShown(x => x.RunId);
+}

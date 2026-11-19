@@ -42,7 +42,7 @@ internal sealed partial class ScheduledRunStarter(IServiceProvider services, IDa
         // No targets: nothing will ever finish the run, so it is complete at once rather than open forever.
         if (items.Length == 0)
         {
-            run.Complete(0, 0, clock.UtcNow);
+            run.Complete(0, 0, 0, clock.UtcNow);
         }
 
         store.AddRun(run, items);

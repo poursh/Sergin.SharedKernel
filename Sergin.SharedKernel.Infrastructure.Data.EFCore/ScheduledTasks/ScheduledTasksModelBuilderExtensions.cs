@@ -59,6 +59,9 @@ public static class ScheduledTasksModelBuilderExtensions
             run.Property(x => x.Arguments).IsRequired().HasColumnType(JsonbColumnType);
             run.Property(x => x.Status).IsRequired().HasConversion<string>();
 
+            // Zero for every run that predates cancelling, and for every run until it completes.
+            run.Property(x => x.Cancelled).HasDefaultValue(0);
+
             // A deleted task is soft-deleted and keeps its history, so nothing cascades from it.
             run.HasOne<ScheduledTask>().WithMany().HasForeignKey(x => x.TaskId).OnDelete(DeleteBehavior.Restrict);
 

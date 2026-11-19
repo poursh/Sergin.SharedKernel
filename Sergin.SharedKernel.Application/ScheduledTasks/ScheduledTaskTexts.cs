@@ -37,4 +37,7 @@ public static class ScheduledTaskTexts
 
     /// <summary>A command started in the background that did not opt in with <c>Background()</c>.</summary>
     public static readonly TextDefinition NotBackground = errors.Text("NotBackground", "This command does not run in the background.");
+
+    /// <summary>A cancel of a run that already finished.</summary>
+    public static readonly TextDefinition RunFinished = errors.Text("RunFinished", "This run has already finished.");
 }
