@@ -19,7 +19,7 @@ using Sergin.SharedKernel.Presentation.Localizations;
 namespace Sergin.SharedKernel.Presentation.Blazor.ScheduledTasks;
 
 /// <summary>
-/// The app bar's activity indicator: the signed-in user's own background runs from every module, running or finished in
+/// The app bar's activity indicator (an Activity button opening a modal): the signed-in user's own background runs from every module, running or finished in
 /// the last 24 hours. It loads after the first interactive render, then reloads whenever <see cref="IRunNotifier"/> says
 /// one of the user's runs changed (at most once a second: a change inside that second schedules one trailing reload), and
 /// every 5 seconds while a run is unfinished (a run executed by another process publishes nothing here). A running row can
@@ -34,6 +34,15 @@ public sealed partial class SerginActivityIndicator : IDisposable
     private static readonly TimeSpan window = TimeSpan.FromHours(24);
     private static readonly TimeSpan pollInterval = TimeSpan.FromSeconds(5);
     private static readonly TimeSpan notifiedReloadInterval = TimeSpan.FromSeconds(1);
+
+    // The panel is a modal: Escape and a backdrop click close it, as its Close button does.
+    private static readonly DialogOptions dialogOptions = new()
+    {
+        MaxWidth = MaxWidth.Small,
+        FullWidth = true,
+        CloseOnEscapeKey = true,
+        BackdropClick = true,
+    };
 
     private readonly HashSet<BackgroundRunRef> announced = [];
     private IReadOnlyList<ActivityRow> rows = [];
@@ -613,7 +622,7 @@ public sealed partial class SerginActivityIndicator : IDisposable
     private static string IconOf(ActivityRow row) =>
         row.State switch
         {
-            ActivityState.Running => Icons.Material.Outlined.Pending,
+            ActivityState.Running => Icons.Material.Outlined.WorkHistory,
             ActivityState.Succeeded => Icons.Material.Outlined.CheckCircle,
             ActivityState.PartlyFailed => Icons.Material.Outlined.Warning,
             ActivityState.Cancelled => Icons.Material.Outlined.Block,

@@ -26,7 +26,7 @@
                 <MudTh Style="width: 1%;" />
             </HeaderContent>
             <RowTemplate>
-                <MudTd DataLabel="@Localizer.Text(ScheduledTaskUiTexts.Columns.Command)">@CommandText(context.CommandName)</MudTd>
+                <MudTd DataLabel="@Localizer.Text(ScheduledTaskUiTexts.Columns.Command)"><div class="d-flex align-center gap-2 sergin-scheduled-command">@if (CommandIcon(context.CommandName) is { } icon){<MudIcon Icon="@icon" Size="Size.Small" Color="Color.Primary" />}<span>@CommandText(context.CommandName)</span></div></MudTd>
                 <MudTd DataLabel="@Localizer.Text(ScheduledTaskUiTexts.Columns.Schedule)"><code>@context.Cron</code> <MudText Typo="Typo.caption" Class="d-inline">@context.TimeZoneId</MudText></MudTd>
                 <MudTd DataLabel="@Localizer.Text(ScheduledTaskUiTexts.Columns.NextRun)">@NextRunText(context)</MudTd>
                 <MudTd DataLabel="@Localizer.Text(ScheduledTaskUiTexts.Columns.LastOutcome)">@LastOutcomeText(context)</MudTd>
@@ -83,10 +83,18 @@
                     @foreach (ScheduledRunListItem run in oneOffRuns)
                     {
                         <tr>
-                            <td>@CommandText(run.CommandName)</td>
+                            <td><div class="d-flex align-center gap-2 sergin-scheduled-command">@if (CommandIcon(run.CommandName) is { } icon){<MudIcon Icon="@icon" Size="Size.Small" Color="Color.Primary" />}<span>@CommandText(run.CommandName)</span></div></td>
                             <td>@Time(run.StartedAtUtc)</td>
                             <td>@NameOf(run.ActingUserId)</td>
-                            <td>@OneOffSummaryText(run)</td>
+                            <td>
+                                <div class="d-flex align-center gap-2">
+                                    @if (run.Status == ScheduledRunStatus.Running)
+                                    {
+                                        <MudProgressCircular Indeterminate="true" Size="Size.Small" Color="Color.Primary" Class="sergin-one-off-progress" />
+                                    }
+                                    <span>@OneOffSummaryText(run)</span>
+                                </div>
+                            </td>
                             <td style="white-space: nowrap; text-align: right;">
                                 @if (run.Status == ScheduledRunStatus.Running)
                                 {

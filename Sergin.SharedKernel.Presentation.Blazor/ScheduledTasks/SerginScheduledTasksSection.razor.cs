@@ -349,6 +349,9 @@ public sealed partial class SerginScheduledTasksSection : IDisposable
     private string CommandText(string commandName) =>
         ActivityRows.CommandLabel(commandName, Catalog, Views) is { } label ? Localizer.Text(label) : commandName;
 
+    // The icon its view command shows by, beside the name; none when no view names the command or it declares no icon.
+    private string? CommandIcon(string commandName) => ActivityRows.CommandIcon(commandName, Catalog, Views);
+
     private async Task ShowRunsAsync(TableRowClickEventArgs<ScheduledTaskListItem> click)
     {
         DialogParameters<SerginScheduledRunsDialog> parameters = new()

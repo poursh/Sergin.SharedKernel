@@ -118,14 +118,24 @@ internal static class ActivityRows
     /// The view label a scheduled command is shown by (the label of the view command whose request it is, on the root or
     /// one of its children); null when the catalogue does not know the name or no view names the command.
     /// </summary>
-    public static TextDefinition? CommandLabel(string commandName, ScheduledCommandCatalog catalog, AggregateViewRegistry views)
+    public static TextDefinition? CommandLabel(string commandName, ScheduledCommandCatalog catalog, AggregateViewRegistry views) =>
+        CommandViewOf(commandName, catalog, views)?.Label;
+
+    /// <summary>
+    /// The icon of the view command a scheduled command is shown by; null when the catalogue does not know the name, no view
+    /// names the command, or the view declares no icon for it.
+    /// </summary>
+    public static string? CommandIcon(string commandName, ScheduledCommandCatalog catalog, AggregateViewRegistry views) =>
+        CommandViewOf(commandName, catalog, views)?.Icon;
+
+    private static CommandView? CommandViewOf(string commandName, ScheduledCommandCatalog catalog, AggregateViewRegistry views)
     {
         ArgumentNullException.ThrowIfNull(catalog);
         ArgumentNullException.ThrowIfNull(views);
 
         ScheduledCommand? command = catalog.TryGet(commandName, out ScheduledCommand? found) ? found : null;
 
-        return LabelOf(command, command is null ? null : views.Find(command.Root));
+        return ViewOf(command, command is null ? null : views.Find(command.Root));
     }
 
     private static ActivityRow Row(
@@ -161,15 +171,17 @@ internal static class ActivityRows
     private static int DoneOf(ActivityItem item) =>
         item.Unfinished > 0 ? item.Total - item.Unfinished : item.Succeeded + item.Failed;
 
-    private static TextDefinition? LabelOf(ScheduledCommand? command, AggregateViewModel? model)
+    private static TextDefinition? LabelOf(ScheduledCommand? command, AggregateViewModel? model) => ViewOf(command, model)?.Label;
+
+    private static CommandView? ViewOf(ScheduledCommand? command, AggregateViewModel? model)
     {
         if (command is null || model is null)
         {
             return null;
         }
 
-        return model.Commands.FirstOrDefault(view => view.Request == command.RequestType)?.Label
-            ?? model.Children.SelectMany(child => child.Commands).FirstOrDefault(view => view.Request == command.RequestType)?.Label;
+        return model.Commands.FirstOrDefault(view => view.Request == command.RequestType)
+            ?? model.Children.SelectMany(child => child.Commands).FirstOrDefault(view => view.Request == command.RequestType);
     }
 
     // A link only for one record of the root itself: a child target's page needs its root, and many targets have no one page.
