@@ -58,7 +58,7 @@ internal sealed partial class RunNotifier(ILogger<RunNotifier> logger) : IRunNot
 
         try
         {
-            Task task = subscription.Handler(change);
+            Task task = subscription.Invoke(change);
 
             if (!task.IsCompleted)
             {
@@ -95,15 +95,34 @@ internal sealed partial class RunNotifier(ILogger<RunNotifier> logger) : IRunNot
     [LoggerMessage(Level = LogLevel.Warning, Message = "A subscriber to the changes of run {RunId} failed; the run is not affected.")]
     private partial void LogHandlerFaulted(Exception exception, Guid runId);
 
+    /// <summary>
+    /// One handler, with the execution context it was subscribed in. A publisher is a worker thread (a run item, the
+    /// recovery sweep) running in the host's default culture; a subscriber is a Blazor circuit running in the viewer's.
+    /// Calling the handler on the publisher's context made the circuit's InvokeAsync — which runs inline when the circuit
+    /// is idle — render the page in the host's culture on every publish, so the handler runs in the subscriber's context,
+    /// as a timer callback or a <c>Task.Run</c> continuation does.
+    /// </summary>
     private sealed class Subscription(RunNotifier owner, UserId user, Func<RunChanged, Task> handler) : IDisposable
     {
+        private readonly ExecutionContext? context = ExecutionContext.Capture();
         private volatile bool disposed;
 
         public UserId User { get; } = user;
 
-        public Func<RunChanged, Task> Handler { get; } = handler;
-
         public bool IsDisposed => disposed;
+
+        public Task Invoke(RunChanged change)
+        {
+            if (context is null)
+            {
+                // Flow was suppressed when subscribing: there is no context to restore.
+                return handler(change);
+            }
+
+            Task task = Task.CompletedTask;
+            ExecutionContext.Run(context, _ => task = handler(change), null);
+            return task;
+        }
 
         public void Dispose()
         {
