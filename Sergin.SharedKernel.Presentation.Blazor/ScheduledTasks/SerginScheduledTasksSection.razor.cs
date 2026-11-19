@@ -23,14 +23,14 @@ namespace Sergin.SharedKernel.Presentation.Blazor.ScheduledTasks;
 /// <summary>
 /// The schedules that target one record, as an embedded, outlined section of the record's detail view: command,
 /// schedule, next run, last outcome and state, with Run now, Pause or Resume, Edit and Delete on each row, a click on a
-/// row opening its runs, and below the table the latest one-off runs over the record, a Running one with Cancel. It shows nothing at all to a user
+/// row opening its runs, and below the table the latest one-off runs over the record a Running one with Cancel. It shows nothing at all to a user
 /// who may not manage scheduled tasks.
 /// </summary>
 /// <remarks>
 /// It has no route and holds no module knowledge, only the module's <see cref="Schema"/> and the record's id. Edit
 /// changes a schedule's time and zone and keeps its arguments as saved: the section rebuilds the saved command from the
 /// catalogue, and the module's own arguments form is the module view's to offer through <see cref="SerginScheduleDialog"/>.
-/// The command is shown by its stable name, as stored.
+/// A command is shown by its view label, the one the activity indicator uses, or by its stable name when no view names it.
 /// </remarks>
 public sealed partial class SerginScheduledTasksSection : IDisposable
 {
@@ -127,6 +127,9 @@ public sealed partial class SerginScheduledTasksSection : IDisposable
 
     [Inject]
     private ScheduledCommandCatalog Catalog { get; set; } = default!;
+
+    [Inject]
+    private AggregateViewRegistry Views { get; set; } = default!;
 
     // Read for its FiresTriggers only: a schedule saved with an engine that fires nothing must not look as if it will run.
     [Inject]
@@ -340,6 +343,11 @@ public sealed partial class SerginScheduledTasksSection : IDisposable
     private string NameOf(Guid userId) => ScheduledTaskUiFormat.NameOf(names, userId);
 
     private string OneOffSummaryText(ScheduledRunListItem run) => ScheduledTaskUiFormat.RunSummary(Localizer, Formatter, run);
+
+    // A schedule and a one-off run are named by their command's view label (Read profile), as the activity indicator
+    // names it; a command no view names shows its stable name, as stored.
+    private string CommandText(string commandName) =>
+        ActivityRows.CommandLabel(commandName, Catalog, Views) is { } label ? Localizer.Text(label) : commandName;
 
     private async Task ShowRunsAsync(TableRowClickEventArgs<ScheduledTaskListItem> click)
     {
