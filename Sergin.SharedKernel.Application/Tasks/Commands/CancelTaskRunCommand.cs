@@ -17,6 +17,7 @@ public sealed record CancelTaskRunCommand(string Schema, Guid RunId) : ICommand;
 
 internal sealed class CancelTaskRunCommandHandler(
     ITaskStoreResolver stores,
+    TaskCatalog catalog,
     IUserContext caller,
     IScopeAuthorization auth,
     IDateTimeProvider clock,
@@ -42,6 +43,12 @@ internal sealed class CancelTaskRunCommandHandler(
         if (run.Status != TaskRunStatus.Running)
         {
             return TaskErrors.RunFinished;
+        }
+
+        // A task that declares NotCancelable() is refused for its own user and a Manage holder alike, before any write.
+        if (catalog.ByName(run.CommandName) is { Settings.Cancelable: false })
+        {
+            return TaskErrors.NotCancelable;
         }
 
         await store.CancelRunAsync(run.Id, clock.UtcNow, cancellationToken);

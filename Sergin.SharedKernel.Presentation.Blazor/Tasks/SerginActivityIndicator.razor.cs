@@ -150,8 +150,6 @@ public sealed partial class SerginActivityIndicator : IDisposable
 
     private string OpenLabel => Localizer.Text(TaskUiTexts.Activity.OpenLabel, new { Count = Formatter.Number(RunningCount) });
 
-    private string CancelLabel => Localizer.Text(TaskUiTexts.Activity.Cancel);
-
     private string ClearedKey => ClearedKeyPrefix + User.Id.Value.ToString("D", CultureInfo.InvariantCulture);
 
     protected override void OnInitialized() => Panel.OpenRequested += OnOpenRequestedAsync;

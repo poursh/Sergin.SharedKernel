@@ -23,7 +23,7 @@ internal enum ActivityState
 /// <paramref name="CommandName"/> shows instead), the target's stored label or a record count, the target's detail link
 /// for a one-record root target, where the run stands, a one-record run's first error as stored, its target id and
 /// progress (0–100, null until its command reports), the caption of the module the run belongs to (null when no UI
-/// module has its schema), and its count of cancelled items (zero until it completes). <paramref name="Done"/> is the
+/// module has its schema), its count of cancelled items (zero until it completes) and whether a person may cancel it. <paramref name="Done"/> is the
 /// items no longer waiting while the run is running (a run's counts are written only when it completes, so a cancelled
 /// item counts as done for the bar), and its succeeded and failed items once it finished.
 /// </summary>
@@ -43,7 +43,8 @@ internal sealed record ActivityRow(
     Guid? TargetId,
     int? Progress,
     TextDefinition? ModuleCaption,
-    int Cancelled)
+    int Cancelled,
+    bool Cancelable = true)
 {
     public bool IsRunning => State == ActivityState.Running;
 }
@@ -164,7 +165,8 @@ internal static class ActivityRows
             item.Total == 1 ? item.TargetId : null,
             item.Total == 1 ? item.Progress : null,
             moduleCaption(item.Ref.Schema),
-            item.Cancelled);
+            item.Cancelled,
+            item.Cancelable);
     }
 
     // The run's succeeded and failed counts are written only when it completes: while it runs, done is what no longer waits.

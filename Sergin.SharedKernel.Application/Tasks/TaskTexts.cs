@@ -46,4 +46,7 @@ public static class TaskTexts
 
     /// <summary>A cancel of a run that already finished.</summary>
     public static readonly TextDefinition RunFinished = errors.Text("RunFinished", "This run has already finished.");
+
+    /// <summary>A cancel of a run whose task declares <c>NotCancelable()</c>.</summary>
+    public static readonly TextDefinition NotCancelable = errors.Text("NotCancelable", "This task cannot be cancelled.");
 }

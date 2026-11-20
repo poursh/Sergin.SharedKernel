@@ -4,6 +4,7 @@ using ErrorOr;
 using Sergin.SharedKernel.Application;
 using Sergin.SharedKernel.Application.Commands.Queries;
 using Sergin.SharedKernel.Application.Concurrency;
+using Sergin.SharedKernel.Application.Tasks;
 using Sergin.SharedKernel.Application.Tasks.Activity;
 using Sergin.SharedKernel.Application.Tasks.Commands;
 using Sergin.SharedKernel.Application.Tasks.Queries;
@@ -30,7 +31,8 @@ namespace Sergin.SharedKernel.Infrastructure.Data.EFCore.Tasks;
 internal sealed class TaskQueries(
     IDbConnectionFactory connectionFactory,
     ScopeFilter scopeFilter,
-    IEnumerable<TasksRegistration> registrations) : ITaskQueries
+    IEnumerable<TasksRegistration> registrations,
+    TaskCatalog catalog) : ITaskQueries
 {
     private const int MaxOneOffTake = 100;
 
@@ -339,7 +341,8 @@ internal sealed class TaskQueries(
                 row.FirstErrorCode,
                 row.FirstErrorDescription,
                 row.Cancelled,
-                row.Progress)),
+                row.Progress,
+                CancelableOf(row.CommandName))),
         ];
 
         return items.ToErrorOr();
@@ -354,7 +357,10 @@ internal sealed class TaskQueries(
         + "r.started_at_utc AS StartedAtUtc, r.completed_at_utc AS CompletedAtUtc, r.total AS Total, "
         + "r.succeeded AS Succeeded, r.failed AS Failed, r.cancelled AS Cancelled";
 
-    private static TaskRunListItem ToItem(RunRow row) =>
+    // A name the catalogue no longer knows is cancelable: the cancel handler decides by the same rule.
+    private bool CancelableOf(string commandName) => catalog.ByName(commandName)?.Settings.Cancelable ?? true;
+
+    private TaskRunListItem ToItem(RunRow row) =>
         new(
             row.Id,
             row.CommandName,
@@ -366,7 +372,8 @@ internal sealed class TaskQueries(
             row.Total,
             row.Succeeded,
             row.Failed,
-            row.Cancelled);
+            row.Cancelled,
+            CancelableOf(row.CommandName));
 
     // Only a schema a module registered reaches the SQL text; the quoting is belt and braces over that match.
     private bool TryQuote(string schema, out string quoted)

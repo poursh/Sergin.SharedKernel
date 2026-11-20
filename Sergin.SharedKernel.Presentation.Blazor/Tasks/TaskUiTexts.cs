@@ -206,6 +206,8 @@ public static class TaskUiTexts
 
         public static TextDefinition Cancelled { get; } = activity.Text("Cancelled", "Cancelled");
 
+        public static TextDefinition NotCancelable { get; } = activity.Text("NotCancelable", "Can't be cancelled");
+
         public static TextDefinition FinishedCancelled { get; } = activity.Text("FinishedCancelled", "{Command} was cancelled for {Target}.");
 
         public static TextDefinition CancelFailed { get; } = activity.Text("CancelFailed", "The run could not be cancelled.");

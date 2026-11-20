@@ -74,6 +74,16 @@ public static class TaskErrors
             TaskTexts.RunFinished.Default,
             ErrorText.Of(TaskTexts.RunFinished.Key.Value));
 
+    /// <summary><see cref="NotCancelable"/>'s code.</summary>
+    public const string NotCancelableCode = "Tasks.NotCancelable";
+
+    /// <summary>A cancel of a run whose task declares <c>NotCancelable()</c>: refused for everyone, nothing is written.</summary>
+    public static Error NotCancelable { get; } =
+        Error.Conflict(
+            NotCancelableCode,
+            TaskTexts.NotCancelable.Default,
+            ErrorText.Of(TaskTexts.NotCancelable.Key.Value));
+
     /// <summary>A task (<c>ITaskCommand</c>) sent inline instead of started as a run; refused by its type.</summary>
     public static Error MustRunAsTask { get; } =
         Error.Validation(

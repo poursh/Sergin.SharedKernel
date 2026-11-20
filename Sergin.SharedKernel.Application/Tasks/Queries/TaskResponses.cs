@@ -36,7 +36,8 @@ public sealed record TaskRunListItem(
     int Total,
     int Succeeded,
     int Failed,
-    int Cancelled);
+    int Cancelled,
+    bool Cancelable = true);
 
 /// <summary>One item of a run; <see cref="Progress"/> is its command's last reported percent, null until it reports.</summary>
 public sealed record TaskRunItemListItem(

@@ -44,11 +44,7 @@
                                     }
                                 </div>
                                 <MudText Typo="Typo.caption" Class="mud-text-secondary">@WhenText(row)</MudText>
-                                @if (row.IsRunning)
-                                {
-                                    <MudIconButton Icon="@Icons.Material.Outlined.Cancel" Size="Size.Small" title="@CancelLabel"
-                                                   aria-label="@CancelLabel" OnClick="@(() => CancelAsync(row.Ref))" />
-                                }
+                                <SerginActivityRowAction Running="row.IsRunning" Cancelable="row.Cancelable" OnCancel="@(() => CancelAsync(row.Ref))" />
                             </div>
                             <div class="d-flex align-center gap-2 ms-6">
                                 @if (row.Href is { } href)

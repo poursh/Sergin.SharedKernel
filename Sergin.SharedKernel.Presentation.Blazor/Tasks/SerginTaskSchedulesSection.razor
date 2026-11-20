@@ -96,7 +96,11 @@
                                 </div>
                             </td>
                             <td style="white-space: nowrap; text-align: right;">
-                                @if (run.Status == TaskRunStatus.Running)
+                                @if (run.Status == TaskRunStatus.Running && !run.Cancelable)
+                                {
+                                    <MudText Typo="Typo.caption" Class="mud-text-secondary">@Localizer.Text(TaskUiTexts.Activity.NotCancelable)</MudText>
+                                }
+                                else if (run.Status == TaskRunStatus.Running)
                                 {
                                     <MudButton Size="Size.Small" Variant="Variant.Text" StartIcon="@Icons.Material.Outlined.Cancel"
                                                Class="sergin-one-off-cancel" OnClick="@(() => CancelRunAsync(run.Id))">

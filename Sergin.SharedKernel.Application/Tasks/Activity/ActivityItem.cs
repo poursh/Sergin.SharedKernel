@@ -9,7 +9,7 @@ namespace Sergin.SharedKernel.Application.Tasks.Activity;
 /// <see cref="FirstErrorDescription"/> (the item's stored error, as the runs dialog shows it) are set only for a one-item
 /// run: a run over several records names none of them. <see cref="Cancelled"/> is the run's count of cancelled items
 /// (zero until it completes). <see cref="Progress"/> is the one item's progress, 0–100, likewise only for a one-item run,
-/// and null until its command reports.
+/// and null until its command reports. <see cref="Cancelable"/> is false for a task declaring <c>NotCancelable()</c>.
 /// </summary>
 public sealed record ActivityItem(
     TaskRunRef Ref,
@@ -28,4 +28,5 @@ public sealed record ActivityItem(
     string? FirstErrorCode,
     string? FirstErrorDescription,
     int Cancelled,
-    int? Progress);
+    int? Progress,
+    bool Cancelable = true);
