@@ -87,9 +87,8 @@ internal sealed class StartTaskCommandHandler(
         TaskDescriptor command = catalog.ByRequest(request.Template.GetType())!;
         string schema = command.Schema!;
 
-        // The validator refused a missing id for an entity task. Task 8: a collection task takes no target id; until it
-        // is built, a start that reaches here without one is refused rather than thrown on.
-        if (request.Targets.Any(target => target.TargetId is null))
+        // The validator refused a missing id for an entity task, and any target for a collection task; this is its backstop.
+        if (command.TargetKind == CommandTargetKind.Entity && request.Targets.Any(target => target.TargetId is null))
         {
             return TaskErrors.TargetWithoutId;
         }
@@ -106,7 +105,11 @@ internal sealed class StartTaskCommandHandler(
                 return Error.Forbidden();
             }
 
-            List<Error> refused = await ValidateEachAsync(command, arguments, request.Targets, cancellationToken);
+            // A collection task is built and checked once, with no target id.
+            IReadOnlyCollection<Guid?> targetIds = command.TargetKind == CommandTargetKind.Collection
+                ? [null]
+                : [.. request.Targets.Select(target => target.TargetId)];
+            List<Error> refused = await ValidateEachAsync(command, arguments, targetIds, cancellationToken);
 
             if (refused.Count > 0)
             {
@@ -153,14 +156,14 @@ internal sealed class StartTaskCommandHandler(
     /// a task sent outside a run item. Each run item still runs the whole pipeline.
     /// </summary>
     private async Task<List<Error>> ValidateEachAsync(
-        TaskDescriptor command, string arguments, IReadOnlyCollection<TaskTarget> targets, CancellationToken ct)
+        TaskDescriptor command, string arguments, IReadOnlyCollection<Guid?> targetIds, CancellationToken ct)
     {
         var validator = (IValidator?)services.GetService(typeof(IValidator<>).MakeGenericType(command.RequestType));
         List<Error> refused = [];
 
-        foreach (TaskTarget target in targets)
+        foreach (Guid? targetId in targetIds)
         {
-            ErrorOr<IBaseCommand> built = TaskCommandFactory.Build(command, arguments, target.TargetId);
+            ErrorOr<IBaseCommand> built = TaskCommandFactory.Build(command, arguments, targetId);
 
             if (built.IsError)
             {

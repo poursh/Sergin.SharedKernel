@@ -39,6 +39,11 @@ internal static class TaskScheduleRules
                 ? command
                 : null;
 
+        // A collection task (ITaskCommand<TRoot>) takes no record, whether or not it may be scheduled here.
+        bool IsCollection(T request) =>
+            templateOf(request) is { } value
+            && catalog.ByRequest(value.GetType()) is { TargetKind: CommandTargetKind.Collection };
+
         validator.RuleFor(template).NotNull();
 
         validator.RuleFor(template)
@@ -53,9 +58,14 @@ internal static class TaskScheduleRules
 
         Named(validator.RuleFor(targets).NotNull());
 
+        // An entity task needs at least one record; a collection task none.
         Named(validator.RuleFor(targets).Must(picked => picked.Count > 0))
             .WithMessage(_ => ValidationTexts.Template(TaskTexts.NoTargets))
-            .When(request => targetsOf(request) is not null);
+            .When(request => targetsOf(request) is not null && !IsCollection(request));
+
+        Named(validator.RuleFor(targets).Must(picked => picked.Count == 0))
+            .WithMessage(_ => ValidationTexts.Template(TaskTexts.CollectionTargets))
+            .When(request => targetsOf(request) is not null && IsCollection(request));
 
         // The targets' key is (schedule_id, target_id): one id twice, whatever its root, would collide.
         Named(validator.RuleFor(targets).Must(picked => picked.Select(target => target.TargetId).Distinct().Count() == picked.Count))
@@ -63,7 +73,7 @@ internal static class TaskScheduleRules
             .When(request => targetsOf(request) is not null);
 
         validator.RuleFor(targets)
-            .Must((request, picked) => picked.Count <= 1 || CommandOf(request) is null or { Selectable: true })
+            .Must((request, picked) => picked.Count <= 1 || IsCollection(request) || CommandOf(request) is null or { Selectable: true })
             .OverridePropertyName(TaskErrors.TooManyTargets.Code)
             .WithMessage(_ => ValidationTexts.Template(TaskTexts.TooManyTargets))
             .When(request => targetsOf(request) is not null);

@@ -29,11 +29,13 @@ internal sealed partial class TaskScheduleRunner(
         }
 
         (Guid scopeId, string scopePath) = store.ScopeOf(task);
+        TaskDescriptor? command = catalog.ByName(task.CommandName);
         var definition = new TaskRunDefinition(
-            task.Id, TaskRunTrigger.Schedule, task.DelegatingUserId, scopeId, scopePath, task.CommandName, task.Arguments);
+            task.Id, TaskRunTrigger.Schedule, task.DelegatingUserId, scopeId, scopePath, task.CommandName, task.Arguments,
+            TaskRunStarter.KindOf(command));
 
         // A name no task holds any more is left to the run item, which fails it as UnknownCommand.
-        if (catalog.ByName(task.CommandName) is { Settings.Schedulable: false })
+        if (command is { Settings.Schedulable: false })
         {
             LogNotSchedulable(task.Id.Value, task.CommandName);
             await AddFailedRunAsync(store, definition, task.Targets, ct);
@@ -53,14 +55,15 @@ internal sealed partial class TaskScheduleRunner(
                 return;
             }
 
-            if (started.FirstError.Code != TaskErrors.Overlap.Code)
+            if (started.FirstError.Code is not (TaskErrors.OverlapCode or TaskErrors.AlreadyRunningCode))
             {
                 LogStartFailed(task.Id.Value, task.CommandName, string.Join("; ", started.Errors.Select(error => error.Code)));
                 return;
             }
         }
 
-        // Overlap, whether seen up front or lost to a concurrent firing at the unique index.
+        // Overlap, whether seen up front or lost to a concurrent firing at the unique index; or, for a collection task, a
+        // run of it already Running in the schedule's scope, however that run started.
         store.AddRun(TaskRun.Skipped(definition, clock.UtcNow), []);
         await store.SaveAsync(ct);
     }
@@ -70,8 +73,9 @@ internal sealed partial class TaskScheduleRunner(
         ITaskStore store, TaskRunDefinition definition, IReadOnlyCollection<TaskScheduleTarget> targets, CancellationToken ct)
     {
         DateTime now = clock.UtcNow;
-        var run = TaskRun.Start(definition, targets.Count, now);
-        TaskRunItem[] items = [.. targets.Select(target => TaskRunItem.Create(run.Id, target.TargetId, now))];
+        IReadOnlyList<Guid?> itemTargets = TaskRunStarter.ItemTargetsOf(definition.TargetKind, targets);
+        var run = TaskRun.Start(definition, itemTargets.Count, now);
+        TaskRunItem[] items = [.. itemTargets.Select(target => TaskRunItem.Create(run.Id, target, now))];
 
         foreach (TaskRunItem item in items)
         {

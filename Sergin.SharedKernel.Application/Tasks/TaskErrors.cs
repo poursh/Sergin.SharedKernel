@@ -42,9 +42,33 @@ public static class TaskErrors
     public static Error TriggerEngineUnavailable { get; } =
         Error.Unexpected("Tasks.EngineUnavailable", "The job engine could not accept the schedule; nothing was saved.");
 
+    /// <summary><see cref="Overlap"/>'s code.</summary>
+    public const string OverlapCode = "Tasks.Overlap";
+
     /// <summary>Another run of the same task started first; the overlap rule skips this one.</summary>
     public static Error Overlap { get; } =
-        Error.Conflict("Tasks.Overlap", "A previous run of this task is still unfinished.");
+        Error.Conflict(OverlapCode, "A previous run of this task is still unfinished.");
+
+    /// <summary><see cref="AlreadyRunning"/>'s code.</summary>
+    public const string AlreadyRunningCode = "Tasks.AlreadyRunning";
+
+    /// <summary>
+    /// A collection task started (now, run once, run now or a cron fire) while a run of it is Running in the same scope.
+    /// <paramref name="taskLabel"/> and <paramref name="scopeName"/> fill the text as they are given.
+    /// </summary>
+    public static Error AlreadyRunning(string taskLabel, string scopeName)
+    {
+        Dictionary<string, object?> arguments = new(StringComparer.Ordinal)
+        {
+            ["Task"] = taskLabel,
+            ["Scope"] = scopeName,
+        };
+
+        return Error.Conflict(
+            AlreadyRunningCode,
+            TextPlaceholders.Format(TaskTexts.AlreadyRunning.Default, arguments, CultureInfo.InvariantCulture),
+            ErrorText.Of(TaskTexts.AlreadyRunning.Key.Value, arguments));
+    }
 
     /// <summary><see cref="NotSchedulable"/>'s code.</summary>
     public const string NotSchedulableCode = "Tasks.NotSchedulable";

@@ -31,6 +31,12 @@ public interface ITaskStore
     /// <summary>Whether a run of the task still has items to finish: the overlap rule's question.</summary>
     Task<bool> HasUnfinishedRunAsync(TaskScheduleId id, CancellationToken ct);
 
+    /// <summary>
+    /// Whether a run of the collection task <paramref name="commandName"/> is Running in <paramref name="scopeId"/>: the
+    /// collection overlap rule's advisory question (the store's unique index is its guarantee).
+    /// </summary>
+    Task<bool> HasRunningCollectionRunAsync(string commandName, Guid scopeId, CancellationToken ct);
+
     /// <summary>The run item and its run, tracked; null when either is gone (purged).</summary>
     Task<(TaskRun Run, TaskRunItem Item)?> GetRunItemAsync(Guid runItemId, CancellationToken ct);
 
@@ -113,10 +119,11 @@ public interface ITaskStore
     Task<int> PurgeAsync(DateTime olderThanUtc, CancellationToken ct);
 
     /// <summary>
-    /// Saves a run just added. False when the store's one-running-run-per-task guarantee refused it (another run of the
-    /// same task is Running); the pending changes are then discarded, so the caller can record a Skipped run instead.
+    /// Saves a run just added, and answers which overlap guarantee refused it, if one did: another run of the same
+    /// schedule is Running, or another run of the same collection task is Running in the same scope. When refused, the
+    /// pending changes are discarded, so the caller can record a Skipped run instead.
     /// </summary>
-    Task<bool> TrySaveStartedRunAsync(CancellationToken ct);
+    Task<StartedRunSave> TrySaveStartedRunAsync(CancellationToken ct);
 
     Task SaveAsync(CancellationToken ct);
 }
@@ -126,3 +133,15 @@ public sealed record RunItemHeartbeat(bool Touched, bool CancelRequested);
 
 /// <summary>A live task's trigger as Sergin's row holds it, and whether the engine should fire it.</summary>
 public sealed record TaskScheduleTriggerState(TaskScheduleId Id, Guid? EngineTriggerId, TaskScheduleTrigger Trigger, bool Enabled);
+
+/// <summary>What saving a started run came to.</summary>
+public enum StartedRunSave
+{
+    Saved,
+
+    /// <summary>Another run of the same schedule is Running.</summary>
+    ScheduleRunning,
+
+    /// <summary>Another run of the same collection task is Running in the same scope.</summary>
+    CollectionRunning,
+}

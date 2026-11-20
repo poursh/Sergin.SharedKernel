@@ -1,5 +1,6 @@
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
+using Sergin.SharedKernel.Application.Commands.Types;
 using Sergin.SharedKernel.Application.Tasks.Activity;
 using Sergin.SharedKernel.Application.Tasks.Commands;
 using Sergin.SharedKernel.Application.Times;
@@ -23,21 +24,42 @@ internal sealed record TaskRunStart(
 /// <summary>
 /// The one way a run begins, whatever started it (a cron fire, "Run now", a one-off): writes the run, copying the
 /// command and its arguments onto it, and one item per target; saves; then hands each item to the engine and stores
-/// the engine's job id on it. A run is saved before anything is enqueued, so a job always finds its rows.
+/// the engine's job id on it. A run is saved before anything is enqueued, so a job always finds its rows. A collection
+/// task's run has one item with no target, and is refused with <see cref="TaskErrors.AlreadyRunning"/> while a run of
+/// the task is Running in the same scope: checked first (advisory), then held by the store's unique index.
 /// The engine is resolved when a run starts, not injected: the engine is the adapter's to register, and a host
 /// (or a test host) that opts a module in without one must still build its container.
 /// </summary>
-internal sealed partial class TaskRunStarter(IServiceProvider services, IDateTimeProvider clock, IRunNotifier notifier, ILogger<TaskRunStarter> logger)
+internal sealed partial class TaskRunStarter(
+    IServiceProvider services, TaskCatalog catalog, IDateTimeProvider clock, IRunNotifier notifier, ILogger<TaskRunStarter> logger)
 {
+    /// <summary>What a run of <paramref name="command"/> targets; a name the catalogue no longer holds is taken as an entity task.</summary>
+    internal static TaskRunTargetKind KindOf(TaskDescriptor? command) =>
+        command?.TargetKind == CommandTargetKind.Collection ? TaskRunTargetKind.Collection : TaskRunTargetKind.Entity;
+
+    /// <summary>The target of each item: one per picked record, or one null for a collection task, which takes no record.</summary>
+    internal static IReadOnlyList<Guid?> ItemTargetsOf(TaskRunTargetKind kind, IReadOnlyCollection<TaskScheduleTarget> targets) =>
+        kind == TaskRunTargetKind.Collection ? [null] : [.. targets.Select(target => (Guid?)target.TargetId)];
+
     public async Task<ErrorOr<Guid>> StartAsync(ITaskStore store, TaskRunStart start, CancellationToken ct)
     {
         ArgumentNullException.ThrowIfNull(store);
         ArgumentNullException.ThrowIfNull(start);
 
+        TaskRunTargetKind kind = KindOf(catalog.ByName(start.CommandName));
+        bool collection = kind == TaskRunTargetKind.Collection;
+
+        // Advisory: two starts may both pass it, and the unique index below then refuses the second insert.
+        if (collection && await store.HasRunningCollectionRunAsync(start.CommandName, start.ScopeId, ct))
+        {
+            return AlreadyRunning(start);
+        }
+
         var definition = new TaskRunDefinition(
-            start.ScheduleId, start.Trigger, start.ActingUserId, start.ScopeId, start.ScopePath, start.CommandName, start.Arguments);
-        var run = TaskRun.Start(definition, start.Targets.Count, clock.UtcNow);
-        TaskRunItem[] items = [.. start.Targets.Select(target => TaskRunItem.Create(run.Id, target.TargetId, clock.UtcNow, LabelOf(start, target)))];
+            start.ScheduleId, start.Trigger, start.ActingUserId, start.ScopeId, start.ScopePath, start.CommandName, start.Arguments, kind);
+        IReadOnlyList<Guid?> targets = ItemTargetsOf(kind, start.Targets);
+        var run = TaskRun.Start(definition, targets.Count, clock.UtcNow);
+        TaskRunItem[] items = [.. targets.Select(target => TaskRunItem.Create(run.Id, target, clock.UtcNow, LabelOf(start, target)))];
 
         // No targets: nothing will ever finish the run, so it is complete at once rather than open forever.
         if (items.Length == 0)
@@ -47,12 +69,20 @@ internal sealed partial class TaskRunStarter(IServiceProvider services, IDateTim
 
         store.AddRun(run, items);
 
-        if (run.ScheduleId is not null)
+        if (run.ScheduleId is not null || collection)
         {
-            // The store's one-Running-run-per-task guarantee: a concurrent starter that got there first wins.
-            if (!await store.TrySaveStartedRunAsync(ct))
+            // The store's one-Running-run guarantees (per schedule, and per collection task and scope): a concurrent
+            // starter that got there first wins.
+            StartedRunSave saved = await store.TrySaveStartedRunAsync(ct);
+
+            if (saved == StartedRunSave.ScheduleRunning)
             {
                 return TaskErrors.Overlap;
+            }
+
+            if (saved == StartedRunSave.CollectionRunning)
+            {
+                return AlreadyRunning(start);
             }
         }
         else
@@ -96,10 +126,13 @@ internal sealed partial class TaskRunStarter(IServiceProvider services, IDateTim
         return run.Id;
     }
 
+    // The starter holds no person-facing task label or scope name: the task's name and the scope's path stand in.
+    private static Error AlreadyRunning(TaskRunStart start) => TaskErrors.AlreadyRunning(start.CommandName, start.ScopePath);
+
     // A label is user data kept as stored, only trimmed and cut; a blank one is none.
-    private static string? LabelOf(TaskRunStart start, TaskScheduleTarget target)
+    private static string? LabelOf(TaskRunStart start, Guid? target)
     {
-        if (start.TargetLabels is null || !start.TargetLabels.TryGetValue(target.TargetId, out string? label) || string.IsNullOrWhiteSpace(label))
+        if (target is not { } id || start.TargetLabels is null || !start.TargetLabels.TryGetValue(id, out string? label) || string.IsNullOrWhiteSpace(label))
         {
             return null;
         }

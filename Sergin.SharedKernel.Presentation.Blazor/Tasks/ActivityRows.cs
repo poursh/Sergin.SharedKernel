@@ -52,12 +52,22 @@ internal sealed record ActivityRow(
 /// <summary>Turns the activity read into rows: pure, so it is tested without a browser.</summary>
 internal static class ActivityRows
 {
+    /// <param name="items">The runs read.</param>
+    /// <param name="catalog">The task catalogue.</param>
+    /// <param name="views">The view registry.</param>
+    /// <param name="recordsText">What names a run with no stored label by its count.</param>
+    /// <param name="moduleCaption">What names a schema's module.</param>
+    /// <param name="scopeName">
+    /// The name of a scope the circuit lists, or null: what names a collection task's run, which has no record. A scope
+    /// not listed is named by its short id.
+    /// </param>
     public static IReadOnlyList<ActivityRow> Build(
         IReadOnlyList<ActivityItem> items,
         TaskCatalog catalog,
         AggregateViewRegistry views,
         Func<int, string> recordsText,
-        Func<string, TextDefinition?> moduleCaption)
+        Func<string, TextDefinition?> moduleCaption,
+        Func<Guid, string?>? scopeName = null)
     {
         ArgumentNullException.ThrowIfNull(items);
         ArgumentNullException.ThrowIfNull(catalog);
@@ -65,7 +75,7 @@ internal static class ActivityRows
         ArgumentNullException.ThrowIfNull(recordsText);
         ArgumentNullException.ThrowIfNull(moduleCaption);
 
-        return [.. items.Select(item => Row(item, catalog, views, recordsText, moduleCaption))];
+        return [.. items.Select(item => Row(item, catalog, views, recordsText, moduleCaption, scopeName))];
     }
 
     /// <summary>
@@ -144,7 +154,8 @@ internal static class ActivityRows
         TaskCatalog catalog,
         AggregateViewRegistry views,
         Func<int, string> recordsText,
-        Func<string, TextDefinition?> moduleCaption)
+        Func<string, TextDefinition?> moduleCaption,
+        Func<Guid, string?>? scopeName)
     {
         TaskDescriptor? command = catalog.ByName(item.CommandName);
         AggregateViewModel? model = command is null ? null : views.Find(command.Root);
@@ -153,7 +164,7 @@ internal static class ActivityRows
             item.Ref,
             LabelOf(command, model),
             item.CommandName,
-            item.TargetLabel ?? recordsText(item.Total),
+            TargetOf(item, recordsText, scopeName),
             HrefOf(item, command, model),
             StateOf(item),
             item.StartedAtUtc,
@@ -167,6 +178,23 @@ internal static class ActivityRows
             moduleCaption(item.Ref.Schema),
             item.Cancelled,
             item.Cancelable);
+    }
+
+    // A record's stored label; else, for a collection task's run, the scope it runs in (a name is user data, as stored);
+    // else a record count.
+    private static string TargetOf(ActivityItem item, Func<int, string> recordsText, Func<Guid, string?>? scopeName)
+    {
+        if (item.TargetLabel is { } label)
+        {
+            return label;
+        }
+
+        if (item.ScopeId is { } scope)
+        {
+            return scopeName?.Invoke(scope) ?? scope.ToString("N")[..8];
+        }
+
+        return recordsText(item.Total);
     }
 
     // The run's succeeded and failed counts are written only when it completes: while it runs, done is what no longer waits.

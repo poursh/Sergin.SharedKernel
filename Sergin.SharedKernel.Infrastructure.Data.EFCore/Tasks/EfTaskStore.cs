@@ -62,6 +62,14 @@ internal sealed class EfTaskStore<TContext>(TContext context, string schema) : I
     public Task<bool> HasUnfinishedRunAsync(TaskScheduleId id, CancellationToken ct) =>
         context.TaskRuns.AnyAsync(run => run.ScheduleId == id && run.Status == TaskRunStatus.Running, ct);
 
+    public Task<bool> HasRunningCollectionRunAsync(string commandName, Guid scopeId, CancellationToken ct) =>
+        context.TaskRuns.AnyAsync(
+            run => run.CommandName == commandName
+                && run.ScopeId == scopeId
+                && run.Status == TaskRunStatus.Running
+                && run.TargetKind == TaskRunTargetKind.Collection,
+            ct);
+
     public async Task<(TaskRun Run, TaskRunItem Item)?> GetRunItemAsync(Guid runItemId, CancellationToken ct)
     {
         TaskRunItem? item = await context.TaskRunItems.SingleOrDefaultAsync(one => one.Id == runItemId, ct);
@@ -300,18 +308,24 @@ internal sealed class EfTaskStore<TContext>(TContext context, string schema) : I
             .Where(run => run.CompletedAtUtc != null && run.CompletedAtUtc < olderThanUtc)
             .ExecuteDeleteAsync(ct);
 
-    public async Task<bool> TrySaveStartedRunAsync(CancellationToken ct)
+    public async Task<StartedRunSave> TrySaveStartedRunAsync(CancellationToken ct)
     {
         try
         {
             await context.SaveChangesAsync(ct);
-            return true;
+            return StartedRunSave.Saved;
         }
         catch (DbUpdateException exception) when (
             exception.InnerException is Npgsql.PostgresException { SqlState: "23505", ConstraintName: TasksModelBuilderExtensions.OneRunningIndexName })
         {
             context.ChangeTracker.Clear();
-            return false;
+            return StartedRunSave.ScheduleRunning;
+        }
+        catch (DbUpdateException exception) when (
+            exception.InnerException is Npgsql.PostgresException { SqlState: "23505", ConstraintName: TasksModelBuilderExtensions.CollectionRunningIndexName })
+        {
+            context.ChangeTracker.Clear();
+            return StartedRunSave.CollectionRunning;
         }
     }
 

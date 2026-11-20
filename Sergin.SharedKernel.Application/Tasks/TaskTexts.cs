@@ -41,6 +41,12 @@ public static class TaskTexts
     /// <summary>A run item stopped at its task's <c>MaxDuration</c>, however it reported.</summary>
     public static readonly TextDefinition MaxDurationExceeded = errors.Text("MaxDurationExceeded", "Stopped after the {MaxDuration} limit.");
 
+    /// <summary>A record picked for a task over the whole collection (<c>ITaskCommand&lt;TRoot&gt;</c>), which takes none.</summary>
+    public static readonly TextDefinition CollectionTargets = errors.Text("CollectionTargets", "This task works on the whole collection. Pick no record.");
+
+    /// <summary>A start of a collection task while a run of it is still running in the same scope.</summary>
+    public static readonly TextDefinition AlreadyRunning = errors.Text("AlreadyRunning", "{Task} is already running in {Scope}.");
+
     /// <summary>A cancel of a run that already finished.</summary>
     public static readonly TextDefinition RunFinished = errors.Text("RunFinished", "This run has already finished.");
 

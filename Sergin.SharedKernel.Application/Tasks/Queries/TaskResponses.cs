@@ -41,7 +41,7 @@ public sealed record TaskRunListItem(
 
 /// <summary>One item of a run; <see cref="Progress"/> is its command's last reported percent, null until it reports.</summary>
 public sealed record TaskRunItemListItem(
-    Guid TargetId,
+    Guid? TargetId,
     TaskRunItemStatus Status,
     int Attempts,
     string? ErrorCode,

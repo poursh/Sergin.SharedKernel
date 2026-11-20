@@ -13,6 +13,7 @@ using Sergin.SharedKernel.Application.Times;
 using Sergin.SharedKernel.Presentation.Blazor.Dispatching;
 using Sergin.SharedKernel.Presentation.Blazor.Errors;
 using Sergin.SharedKernel.Presentation.Blazor.Modules;
+using Sergin.SharedKernel.Presentation.Blazor.Scopes;
 using Sergin.SharedKernel.Presentation.Blazor.TimeZones;
 using Sergin.SharedKernel.Presentation.Localizations;
 
@@ -105,6 +106,9 @@ public sealed partial class SerginActivityIndicator : IDisposable
 
     [Inject]
     private SerginUiModuleCatalog Modules { get; set; } = default!;
+
+    [Inject]
+    private SerginScopeSession Scopes { get; set; } = default!;
 
     [Inject]
     private IUiErrorPresenter ErrorPresenter { get; set; } = default!;
@@ -268,7 +272,13 @@ public sealed partial class SerginActivityIndicator : IDisposable
 
         moduleCaption ??= ActivityRows.ModuleCaption(Modules);
         IReadOnlyList<ActivityRow> next =
-            ActivityRows.Build(result.Value, Catalog, Views, ActivityRows.RecordsText(Localizer, Formatter), moduleCaption);
+            ActivityRows.Build(
+                result.Value,
+                Catalog,
+                Views,
+                ActivityRows.RecordsText(Localizer, Formatter),
+                moduleCaption,
+                scopeId => Scopes.Options.FirstOrDefault(option => option.Id == scopeId)?.Name);
 
         if (loaded)
         {

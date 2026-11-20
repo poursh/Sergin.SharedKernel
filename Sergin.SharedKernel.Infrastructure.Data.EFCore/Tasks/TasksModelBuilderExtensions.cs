@@ -17,6 +17,12 @@ public static class TasksModelBuilderExtensions
     /// <summary>The partial unique index that lets only one run of a task be Running: the overlap rule's guarantee.</summary>
     internal const string OneRunningIndexName = "ix_task_runs_schedule_id_running";
 
+    /// <summary>
+    /// The partial unique index that lets only one run of a collection task be Running per task name and scope: decision
+    /// 10's guarantee. The start's check before the insert is advisory.
+    /// </summary>
+    internal const string CollectionRunningIndexName = "ix_task_runs_collection_running";
+
     internal const string StaleItemsIndexName = "ix_task_run_items_unfinished_last_activity";
 
     public static ModelBuilder ApplyTasks(this ModelBuilder modelBuilder)
@@ -58,6 +64,7 @@ public static class TasksModelBuilderExtensions
             run.Property(x => x.CommandName).IsRequired();
             run.Property(x => x.Arguments).IsRequired().HasColumnType(JsonbColumnType);
             run.Property(x => x.Status).IsRequired().HasConversion<string>();
+            run.Property(x => x.TargetKind).IsRequired().HasConversion<string>();
 
             // Zero for every run that predates cancelling, and for every run until it completes.
             run.Property(x => x.Cancelled).HasDefaultValue(0);
@@ -68,6 +75,10 @@ public static class TasksModelBuilderExtensions
             // HasUnfinishedRunAsync is check-then-act and races; this is the guarantee. One-off runs (no task) and Skipped
             // or Completed runs fall outside the filter. Statuses are stored as their names.
             run.HasIndex(x => x.ScheduleId).IsUnique().HasDatabaseName(OneRunningIndexName).HasFilter("status = 'Running'");
+
+            // A collection task runs once at a time in a scope, whatever started it. Entity runs fall outside the filter.
+            run.HasIndex(x => new { x.CommandName, x.ScopeId }).IsUnique().HasDatabaseName(CollectionRunningIndexName)
+                .HasFilter("status = 'Running' AND target_kind = 'Collection'");
 
             // A task's history, newest first.
             run.HasIndex(x => new { x.ScheduleId, x.StartedAtUtc }).IsDescending(false, true);

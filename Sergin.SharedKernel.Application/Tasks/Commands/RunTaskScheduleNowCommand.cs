@@ -70,18 +70,31 @@ internal sealed class RunTaskScheduleNowCommandHandler(
                 return new TaskScheduleRunStartedResponse(started.Value);
             }
 
-            if (started.FirstError.Code != TaskErrors.Overlap.Code)
+            if (started.FirstError.Code is not (TaskErrors.OverlapCode or TaskErrors.AlreadyRunningCode))
             {
+                return started.Errors;
+            }
+
+            // A collection task already Running in the schedule's scope: recorded like an overlap, answered as itself.
+            if (started.FirstError.Code == TaskErrors.AlreadyRunningCode)
+            {
+                await AddSkippedAsync(store, start, command, cancellationToken);
                 return started.Errors;
             }
         }
 
         // Overlap, seen up front or lost to a concurrent start at the unique index: recorded, as a firing records it.
-        var definition = new TaskRunDefinition(
-            start.ScheduleId, start.Trigger, start.ActingUserId, start.ScopeId, start.ScopePath, start.CommandName, start.Arguments);
-        store.AddRun(TaskRun.Skipped(definition, clock.UtcNow), []);
-        await store.SaveAsync(cancellationToken);
+        await AddSkippedAsync(store, start, command, cancellationToken);
 
         return TaskErrors.Overlap;
+    }
+
+    private async Task AddSkippedAsync(ITaskStore store, TaskRunStart start, TaskDescriptor command, CancellationToken cancellationToken)
+    {
+        var definition = new TaskRunDefinition(
+            start.ScheduleId, start.Trigger, start.ActingUserId, start.ScopeId, start.ScopePath, start.CommandName, start.Arguments,
+            TaskRunStarter.KindOf(command));
+        store.AddRun(TaskRun.Skipped(definition, clock.UtcNow), []);
+        await store.SaveAsync(cancellationToken);
     }
 }

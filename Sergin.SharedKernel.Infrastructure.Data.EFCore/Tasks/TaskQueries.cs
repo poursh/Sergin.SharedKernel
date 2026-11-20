@@ -297,7 +297,8 @@ internal sealed class TaskQueries(
                     WHERE u.run_id = r.id AND u.status IN ('Pending', 'Running', 'Retrying'))::int AS Unfinished,
                    one.target_id AS TargetId, one.target_label AS TargetLabel,
                    one.error_code AS FirstErrorCode, one.error_description AS FirstErrorDescription,
-                   one.progress::int AS Progress
+                   one.progress::int AS Progress,
+                   CASE WHEN r.target_kind = 'Collection' THEN r.scope_id END AS ScopeId
             FROM {{quoted}}.task_runs r
             LEFT JOIN LATERAL (
                 SELECT i.target_id, i.target_label, i.error_code, i.error_description, i.progress
@@ -341,7 +342,8 @@ internal sealed class TaskQueries(
                 row.FirstErrorDescription,
                 row.Cancelled,
                 row.Progress,
-                CancelableOf(row.CommandName))),
+                CancelableOf(row.CommandName),
+                row.ScopeId)),
         ];
 
         return items.ToErrorOr();
@@ -457,7 +459,7 @@ internal sealed class TaskQueries(
 
     private sealed class ItemRow
     {
-        public Guid TargetId { get; set; }
+        public Guid? TargetId { get; set; }
 
         public string Status { get; set; } = string.Empty;
 
@@ -505,5 +507,7 @@ internal sealed class TaskQueries(
         public int Cancelled { get; set; }
 
         public int? Progress { get; set; }
+
+        public Guid? ScopeId { get; set; }
     }
 }

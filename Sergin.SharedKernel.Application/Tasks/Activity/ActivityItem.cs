@@ -10,6 +10,7 @@ namespace Sergin.SharedKernel.Application.Tasks.Activity;
 /// run: a run over several records names none of them. <see cref="Cancelled"/> is the run's count of cancelled items
 /// (zero until it completes). <see cref="Progress"/> is the one item's progress, 0–100, likewise only for a one-item run,
 /// and null until its command reports. <see cref="Cancelable"/> is false for a task declaring <c>NotCancelable()</c>.
+/// <see cref="ScopeId"/> is the run's scope for a collection task's run, which has no target to name it by; null otherwise.
 /// </summary>
 public sealed record ActivityItem(
     TaskRunRef Ref,
@@ -28,4 +29,5 @@ public sealed record ActivityItem(
     string? FirstErrorDescription,
     int Cancelled,
     int? Progress,
-    bool Cancelable = true);
+    bool Cancelable = true,
+    Guid? ScopeId = null);

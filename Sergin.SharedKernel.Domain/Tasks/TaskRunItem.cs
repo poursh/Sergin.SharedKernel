@@ -11,7 +11,8 @@ public sealed class TaskRunItem
 
     public Guid RunId { get; private set; }
 
-    public Guid TargetId { get; private set; }
+    /// <summary>The record the item works on; null for the one item of a collection task's run.</summary>
+    public Guid? TargetId { get; private set; }
 
     /// <summary>The target's title as the person saw it when the run started, as stored (user data); null when none was given.</summary>
     public string? TargetLabel { get; private set; }
@@ -49,7 +50,7 @@ public sealed class TaskRunItem
     /// <summary>The longest label kept; a longer one is cut at start.</summary>
     public const int MaxTargetLabelLength = 200;
 
-    public static TaskRunItem Create(Guid runId, Guid targetId, DateTime at, string? targetLabel = null) =>
+    public static TaskRunItem Create(Guid runId, Guid? targetId, DateTime at, string? targetLabel = null) =>
         new()
         {
             Id = Guid.CreateVersion7(),

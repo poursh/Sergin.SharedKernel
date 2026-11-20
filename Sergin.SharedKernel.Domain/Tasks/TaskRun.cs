@@ -31,6 +31,13 @@ public sealed class TaskRun
 
     public string Arguments { get; private set; } = string.Empty;
 
+    /// <summary>
+    /// Whether the run's items each target a record (<see cref="TaskRunTargetKind.Entity"/>) or the run has one item with
+    /// no target (<see cref="TaskRunTargetKind.Collection"/>, an <c>ITaskCommand&lt;TRoot&gt;</c>). A collection task has at
+    /// most one Running run per task name and scope.
+    /// </summary>
+    public TaskRunTargetKind TargetKind { get; private set; }
+
     public TaskRunStatus Status { get; private set; }
 
     public DateTime StartedAtUtc { get; private set; }
@@ -103,6 +110,7 @@ public sealed class TaskRun
             ScopePath = definition.ScopePath,
             CommandName = definition.CommandName,
             Arguments = definition.Arguments,
+            TargetKind = definition.TargetKind,
             StartedAtUtc = startedAtUtc,
         };
     }
@@ -116,7 +124,18 @@ public sealed record TaskRunDefinition(
     Guid ScopeId,
     string ScopePath,
     string CommandName,
-    string Arguments);
+    string Arguments,
+    TaskRunTargetKind TargetKind = TaskRunTargetKind.Entity);
+
+/// <summary>What a run's items target; stored as its name.</summary>
+public enum TaskRunTargetKind
+{
+    /// <summary>One item per picked record, each with its target id.</summary>
+    Entity,
+
+    /// <summary>One item with no target: a task over the whole collection in the run's scope.</summary>
+    Collection,
+}
 
 public enum TaskRunTrigger
 {
