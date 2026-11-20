@@ -630,6 +630,8 @@ internal sealed class AggregateViewModelJoin(
                 _ when effects.Contains(typeof(IUpdateCommand<,>)) => CommandRole.Update,
                 _ when effects.Contains(typeof(IDeleteCommand<,>)) => CommandRole.Delete,
                 _ when effects.Contains(typeof(ITransitionCommand<,>)) => CommandRole.Transition,
+                // An entity task is started as a root's transition is, until tasks get their own placement.
+                _ when effects.Contains(typeof(ITaskCommand<,>)) => CommandRole.Transition,
                 _ when effects.Contains(typeof(ISetPropertyCommand<,>)) => CommandRole.SetProperty,
                 _ when effects.Contains(typeof(IMoveCommand<,>)) => CommandRole.Move,
                 _ => null,

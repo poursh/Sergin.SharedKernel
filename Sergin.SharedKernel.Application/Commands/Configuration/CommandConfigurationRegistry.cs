@@ -13,12 +13,13 @@ namespace Sergin.SharedKernel.Application.Commands.Configuration;
 /// interface from <c>Commands.Types</c>) takes its aggregate root from its type, configured or not: it is checked on
 /// any scope unless that root is <c>Scoped()</c>, read from the aggregate feature configurations the same sources
 /// carry, and a command on an existing entity, child or child collection of a <c>Versioned()</c> root requires an
-/// expected version unless its configuration calls <c>WithoutExpectedVersion()</c>. An untyped request has no root, is
+/// expected version unless its configuration calls <c>WithoutExpectedVersion()</c>; a task (<see cref="ITaskCommand"/>)
+/// never does. An untyped request has no root, is
 /// checked on the current scope and never requires a version. Refuses two configurations for one request, a
 /// configuration without a parameterless constructor, a configuration whose Configure throws, a required permission
 /// no aggregate registered, an opt-out where nothing is required, and a <c>Background()</c> that is not also
 /// <c>Schedulable(name)</c>, has a timeout outside (0, <see cref="BackgroundSettings.MaxTimeout"/>], or is declared on
-/// anything but a root's <c>ITransitionCommand</c> — each naming the type.
+/// anything but a root's <c>ITransitionCommand</c> or entity <c>ITaskCommand</c> — each naming the type.
 /// </summary>
 public sealed class CommandConfigurationRegistry
 {
@@ -206,7 +207,7 @@ public sealed class CommandConfigurationRegistry
             throw new InvalidOperationException(
                 $"Command configuration {configurationType.FullName} calls WithoutExpectedVersion() for {requestType.FullName}, "
                 + "which would not require an expected version anyway: only a command on an existing entity, child or child "
-                + "collection of a Versioned() root does. Drop WithoutExpectedVersion().");
+                + "collection of a Versioned() root does, and never a task. Drop WithoutExpectedVersion().");
         }
 
         EnsureBackground(configurationType, requestType, builder);
@@ -249,12 +250,15 @@ public sealed class CommandConfigurationRegistry
         }
 
         // The generated views start a background command from a root's action, with no value to ask for and no confirm:
-        // the shape a root's ITransitionCommand has. Any other effect would be sent there inline, and refused.
-        if (!CommandTypes.EffectsOf(requestType).Contains(typeof(ITransitionCommand<,>)))
+        // the shape a root's ITransitionCommand, or an entity task, has. Any other effect would be sent there inline, and refused.
+        IReadOnlyList<Type> effects = CommandTypes.EffectsOf(requestType);
+
+        if (!effects.Contains(typeof(ITransitionCommand<,>)) && !effects.Contains(typeof(ITaskCommand<,>)))
         {
             throw new InvalidOperationException(
-                who + "which is not an ITransitionCommand on an aggregate root: only a root's transition is started in the "
-                + "background by the generated views. Declare the request as ITransitionCommand<TRoot, TId> or drop Background().");
+                who + "which is not an ITransitionCommand or ITaskCommand on an aggregate root: only a root's transition or "
+                + "entity task is started in the background by the generated views. Declare the request as "
+                + "ITaskCommand<TRoot, TId> or drop Background().");
         }
     }
 
@@ -305,10 +309,12 @@ public sealed class CommandConfigurationRegistry
 
     /// <summary>
     /// The version rule a typed request's type implies: a command whose target is an existing root, a child, or a
-    /// root's child collection on a <c>Versioned()</c> root. Creation, criteria, a clone's source and queries carry none.
+    /// root's child collection on a <c>Versioned()</c> root. Creation, criteria, a clone's source, tasks and queries carry
+    /// none: a task runs later than the page read the record, so a version would be stale.
     /// </summary>
     private static bool RequiresVersionByType(Type requestType, CommandTarget target, AggregateFeatures features) =>
         IsCommand(requestType)
+        && !CommandTypes.IsTask(requestType)
         && target.Kind is CommandTargetKind.Root or CommandTargetKind.Entity or CommandTargetKind.ChildEntity
         && !CommandTypes.EffectsOf(requestType).Contains(typeof(ICloneCommand<,>))
         && features.Versioned;

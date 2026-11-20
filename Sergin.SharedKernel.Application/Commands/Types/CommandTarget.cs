@@ -72,7 +72,10 @@ public static class CommandTypes
         return found is null ? null : found with { Parent = parent };
     }
 
-    /// <summary>The open generic effect interfaces the request implements, plus <see cref="ISystemCommand"/>.</summary>
+    /// <summary>
+    /// The open generic effect interfaces the request implements (the two task shapes among them), plus
+    /// <see cref="ISystemCommand"/>.
+    /// </summary>
     public static IReadOnlyList<Type> EffectsOf(Type requestType)
     {
         ArgumentNullException.ThrowIfNull(requestType);
@@ -101,6 +104,16 @@ public static class CommandTypes
     {
         ArgumentNullException.ThrowIfNull(requestType);
         return typeof(ISystemCommand).IsAssignableFrom(requestType);
+    }
+
+    /// <summary>
+    /// Whether the request is a task (<see cref="ITaskCommand"/>): a command that only ever runs as a run item. True for
+    /// the bare marker too, which the type guard refuses.
+    /// </summary>
+    public static bool IsTask(Type requestType)
+    {
+        ArgumentNullException.ThrowIfNull(requestType);
+        return typeof(ITaskCommand).IsAssignableFrom(requestType);
     }
 
     public static bool IsSelectable(Type requestType)
