@@ -1,6 +1,7 @@
 using System.Linq.Expressions;
 using FluentValidation;
 using Sergin.SharedKernel.Application.Commands;
+using Sergin.SharedKernel.Application.Commands.Types;
 using Sergin.SharedKernel.Application.Localizations.Validation;
 using Sergin.SharedKernel.Domain.Tasks;
 
@@ -28,8 +29,8 @@ internal static class TaskScheduleRules
         Func<T, IBaseCommand?> templateOf = template.Compile();
         Func<T, IReadOnlyCollection<TaskScheduleTarget>?> targetsOf = targets.Compile();
 
-        // A task another module's catalogue entry owns is as unschedulable here as one that is not Schedulable(), and,
-        // unless only a schedulable one may be, a non-task: the catalogue holds only tasks.
+        // A task another module's catalogue entry owns is as unschedulable here as one that is not Schedulable(), and so
+        // is a non-task (the catalogue holds only tasks), unless the caller refuses a non-task itself (a start's NotBackground).
         TaskDescriptor? CommandOf(T request) =>
             templateOf(request) is { } value
             && catalog.ByRequest(value.GetType()) is { } command
@@ -44,7 +45,7 @@ internal static class TaskScheduleRules
             .Must((request, _) => CommandOf(request) is not null)
             .OverridePropertyName(TaskErrors.NotSchedulable.Code)
             .WithMessage(_ => ValidationTexts.Template(TaskTexts.NotSchedulable))
-            .When(request => templateOf(request) is not null);
+            .When(request => templateOf(request) is { } value && (schedulableOnly || CommandTypes.IsTask(value.GetType())));
 
         validator.RuleFor(targets).NotNull();
 

@@ -7,8 +7,8 @@ namespace Sergin.SharedKernel.Application.Tasks;
 /// <summary>
 /// Every task (<see cref="ITaskCommand"/>) the sources hold, configured or not, by stable name and by request type,
 /// each with the <see cref="TaskSettings"/> the <see cref="CommandConfigurationRegistry"/> read for it. Built once per
-/// host beside the registry and refuses, naming every offending request, a malformed name (<see cref="TaskNames.IsValid"/>),
-/// a name outside its source's schema and a name two tasks share.
+/// host beside the registry and refuses, naming every offending request, a task in a source with no schema that declares
+/// no name, a malformed name (<see cref="TaskNames.IsValid"/>), a name outside its source's schema and a name two tasks share.
 /// </summary>
 public sealed class TaskCatalog
 {
@@ -88,6 +88,14 @@ public sealed class TaskCatalog
     {
         string name = settings.Name;
         string who = request.FullName ?? request.Name;
+
+        // A source with no schema derives a name with no schema segment; only a declared one says where the task belongs.
+        if (schema is null && name == TaskNames.Derive(null, target.Root, request))
+        {
+            problems.Add(
+                $"{who} is a task in a source with no schema, so its name cannot be derived: declare one with Task(task => task.Name(...)).");
+            return;
+        }
 
         if (!TaskNames.IsValid(name))
         {
