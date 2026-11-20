@@ -32,11 +32,8 @@ public static class TaskTexts
     /// <summary>An edit whose template is another command than the one the schedule was saved with.</summary>
     public static readonly TextDefinition CommandChanged = errors.Text("CommandChanged", "A saved schedule always sends the same command.");
 
-    /// <summary>A background command sent inline instead of started as a run.</summary>
-    public static readonly TextDefinition MustRunInBackground = errors.Text("MustRunInBackground", "This action runs in the background. Start it instead of sending it.");
-
-    /// <summary>A command started as a run that is not a task (<c>ITaskCommand</c>).</summary>
-    public static readonly TextDefinition NotBackground = errors.Text("NotBackground", "This command does not run in the background.");
+    /// <summary>A task (<c>ITaskCommand</c>) sent inline instead of started as a run.</summary>
+    public static readonly TextDefinition MustRunAsTask = errors.Text("MustRunAsTask", "This action runs as a task. Start it instead of sending it.");
 
     /// <summary>A cancel of a run that already finished.</summary>
     public static readonly TextDefinition RunFinished = errors.Text("RunFinished", "This run has already finished.");

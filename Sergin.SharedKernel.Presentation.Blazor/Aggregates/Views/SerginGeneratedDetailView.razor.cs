@@ -1,7 +1,7 @@
 using Microsoft.AspNetCore.Components;
 using MudBlazor;
 using Sergin.SharedKernel.Application.Aggregates;
-using Sergin.SharedKernel.Application.Commands;
+using Sergin.SharedKernel.Application.Commands.Types;
 using Sergin.SharedKernel.Application.Tasks;
 using Sergin.SharedKernel.Application.Securities.Authorization;
 using Sergin.SharedKernel.Domain;
@@ -675,7 +675,7 @@ public sealed partial class SerginGeneratedDetailView<TRoot> : IDisposable
         await DialogService.ShowScheduleAsync(new SerginScheduleRequest(
             Model.Schema,
             command.Label,
-            () => (IBaseCommand)command.BuildFromId!(Id),
+            () => (ITaskCommand)command.BuildFromId!(Id),
             targets,
             [DisplayText]));
 

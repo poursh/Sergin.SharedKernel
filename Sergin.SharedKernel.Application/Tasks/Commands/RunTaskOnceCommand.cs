@@ -1,5 +1,6 @@
 using FluentValidation;
 using Sergin.SharedKernel.Application.Commands;
+using Sergin.SharedKernel.Application.Commands.Types;
 using Sergin.SharedKernel.Application.Securities.Authorization;
 using Sergin.SharedKernel.Application.Securities.Users;
 using Sergin.SharedKernel.Domain.Tasks;
@@ -13,7 +14,7 @@ namespace Sergin.SharedKernel.Application.Tasks.Commands;
 /// </summary>
 public sealed record RunTaskOnceCommand(
     string Schema,
-    IBaseCommand Template,
+    ITaskCommand Template,
     IReadOnlyCollection<TaskScheduleTarget> Targets) : ICommand<TaskScheduleRunStartedResponse>;
 
 internal sealed class RunTaskOnceCommandValidator : AbstractValidator<RunTaskOnceCommand>

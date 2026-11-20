@@ -107,7 +107,7 @@ public static class SerginCoreExtensions
                 options.RegisterServicesFromAssembly(remoteModule.ContractsAssembly);
             }
 
-            options.AddOpenBehavior(typeof(BackgroundCommandGuardBehavior<,>));
+            options.AddOpenBehavior(typeof(TaskCommandGuardBehavior<,>));
             options.AddOpenBehavior(typeof(PermissionCheckPipelineBehavior<,>));
             options.AddOpenBehavior(typeof(ExpectedVersionPipelineBehavior<,>));
             options.AddOpenBehavior(typeof(ValidationPipelineBehavior<,>));

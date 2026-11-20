@@ -40,13 +40,18 @@ public static class TaskErrors
     public static Error Overlap { get; } =
         Error.Conflict("Tasks.Overlap", "A previous run of this task is still unfinished.");
 
-    /// <summary>A command that is not a <c>Schedulable()</c> task.</summary>
-    public static Error NotSchedulable { get; } =
-        Error.Validation("Tasks.NotSchedulable", "This command cannot be scheduled.");
+    /// <summary><see cref="NotSchedulable"/>'s code.</summary>
+    public const string NotSchedulableCode = "Tasks.NotSchedulable";
 
-    /// <summary>A command started as a run that is not a task (<c>ITaskCommand</c>).</summary>
-    public static Error NotBackground { get; } =
-        Error.Validation("Tasks.NotBackground", TaskTexts.NotBackground.Default);
+    /// <summary><see cref="MustRunAsTask"/>'s code.</summary>
+    public const string MustRunAsTaskCode = "Tasks.MustRunAsTask";
+
+    /// <summary>
+    /// A task that is not <c>Schedulable()</c> saved on a schedule or run once, or a saved schedule fired after its task
+    /// lost the call: the run fails, the schedule stays.
+    /// </summary>
+    public static Error NotSchedulable { get; } =
+        Error.Validation(NotSchedulableCode, TaskTexts.NotSchedulable.Default, ErrorText.Of(TaskTexts.NotSchedulable.Key.Value));
 
     /// <summary>More targets than a command that runs once per selected row may take, or more than one for one that does not.</summary>
     public static Error TooManyTargets { get; } =
@@ -59,10 +64,10 @@ public static class TaskErrors
             TaskTexts.RunFinished.Default,
             ErrorText.Of(TaskTexts.RunFinished.Key.Value));
 
-    /// <summary>A background command sent inline instead of started as a run.</summary>
-    public static Error MustRunInBackground { get; } =
+    /// <summary>A task (<c>ITaskCommand</c>) sent inline instead of started as a run; refused by its type.</summary>
+    public static Error MustRunAsTask { get; } =
         Error.Validation(
-            "Tasks.MustRunInBackground",
-            TaskTexts.MustRunInBackground.Default,
-            ErrorText.Of(TaskTexts.MustRunInBackground.Key.Value));
+            MustRunAsTaskCode,
+            TaskTexts.MustRunAsTask.Default,
+            ErrorText.Of(TaskTexts.MustRunAsTask.Key.Value));
 }

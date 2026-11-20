@@ -7,10 +7,13 @@ namespace Sergin.SharedKernel.Application.Tasks;
 /// <summary>
 /// <see cref="ITaskScheduleRunner"/>. A firing loads the task with the scope filter off: the engine's callback has
 /// no caller, and a delegating user who lost reach must still produce a run, whose items then fail Forbidden or
-/// NotFound one by one where the history shows it, instead of the schedule going silent.
+/// NotFound one by one where the history shows it, instead of the schedule going silent. For the same reason a schedule
+/// whose task is no longer <c>Schedulable()</c> fires a run that fails at once with <see cref="TaskErrors.NotSchedulable"/>:
+/// the schedule stays listed, and its history says why it did nothing.
 /// </summary>
 internal sealed partial class TaskScheduleRunner(
     ITaskStoreResolver stores,
+    TaskCatalog catalog,
     TaskRunStarter starter,
     TaskRunItemExecutor executor,
     IDateTimeProvider clock,
@@ -28,6 +31,14 @@ internal sealed partial class TaskScheduleRunner(
         (Guid scopeId, string scopePath) = store.ScopeOf(task);
         var definition = new TaskRunDefinition(
             task.Id, TaskRunTrigger.Schedule, task.DelegatingUserId, scopeId, scopePath, task.CommandName, task.Arguments);
+
+        // A name no task holds any more is left to the run item, which fails it as UnknownCommand.
+        if (catalog.ByName(task.CommandName) is { Settings.Schedulable: false })
+        {
+            LogNotSchedulable(task.Id.Value, task.CommandName);
+            await AddFailedRunAsync(store, definition, task.Targets, ct);
+            return;
+        }
 
         if (!await store.HasUnfinishedRunAsync(task.Id, ct))
         {
@@ -53,6 +64,27 @@ internal sealed partial class TaskScheduleRunner(
         store.AddRun(TaskRun.Skipped(definition, clock.UtcNow), []);
         await store.SaveAsync(ct);
     }
+
+    /// <summary>A completed run whose every item failed <see cref="TaskErrors.NotSchedulable"/>, nothing enqueued.</summary>
+    private async Task AddFailedRunAsync(
+        ITaskStore store, TaskRunDefinition definition, IReadOnlyCollection<TaskScheduleTarget> targets, CancellationToken ct)
+    {
+        DateTime now = clock.UtcNow;
+        var run = TaskRun.Start(definition, targets.Count, now);
+        TaskRunItem[] items = [.. targets.Select(target => TaskRunItem.Create(run.Id, target.TargetId, target.RootId, now))];
+
+        foreach (TaskRunItem item in items)
+        {
+            item.MarkFailed(TaskErrors.NotSchedulableCode, TaskErrors.NotSchedulable.Description, now);
+        }
+
+        run.Complete(0, items.Length, 0, now);
+        store.AddRun(run, items);
+        await store.SaveAsync(ct);
+    }
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "Scheduled task {ScheduleId} ({CommandName}) fired but its task is no longer schedulable; the run failed.")]
+    private partial void LogNotSchedulable(Guid scheduleId, string commandName);
 
     [LoggerMessage(Level = LogLevel.Warning, Message = "Scheduled task {ScheduleId} ({CommandName}) fired but its run did not start: {Errors}.")]
     private partial void LogStartFailed(Guid scheduleId, string commandName, string errors);

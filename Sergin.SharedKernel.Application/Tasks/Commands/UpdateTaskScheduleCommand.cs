@@ -16,7 +16,7 @@ namespace Sergin.SharedKernel.Application.Tasks.Commands;
 public sealed record UpdateTaskScheduleCommand(
     string Schema,
     TaskScheduleId Id,
-    IBaseCommand Template,
+    ITaskCommand Template,
     IReadOnlyCollection<TaskScheduleTarget> Targets,
     string Cron,
     string TimeZoneId) : ICommand<UpdateTaskScheduleCommandResponse>, IUpdateCommand<TaskSchedule, TaskScheduleId>;

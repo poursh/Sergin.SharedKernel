@@ -39,9 +39,15 @@ internal sealed class RunTaskScheduleNowCommandHandler(
             return Error.NotFound();
         }
 
-        if (!catalog.TryGet(task.CommandName, out TaskDescriptor? command))
+        if (catalog.ByName(task.CommandName) is not { } command)
         {
             return TaskErrors.UnknownCommand;
+        }
+
+        // A schedule saved while its task was Schedulable() outlives the call; it is kept, but no longer runs.
+        if (!command.Settings.Schedulable)
+        {
+            return TaskErrors.NotSchedulable;
         }
 
         ErrorOr<Success> allowed = await authority.EnsureMayScheduleAsync(command.RequestType, cancellationToken);

@@ -1,6 +1,6 @@
 using Microsoft.AspNetCore.Components;
 using MudBlazor;
-using Sergin.SharedKernel.Application.Commands;
+using Sergin.SharedKernel.Application.Commands.Types;
 using Sergin.SharedKernel.Application.Tasks;
 using Sergin.SharedKernel.Application.Tasks.Commands;
 using Sergin.SharedKernel.Application.Securities.Authorization;
@@ -140,7 +140,7 @@ public sealed partial class GeneratedListBody<TItem> : IGeneratedListBody
         return new SerginScheduleRequest(
             model.Schema,
             command.Label,
-            () => (IBaseCommand)build(Guid.Empty),
+            () => (ITaskCommand)build(Guid.Empty),
             [.. items.Select(item => new TaskScheduleTarget(IdOf(item), null))],
             [.. items.Select(item => GeneratedViewSupport.DisplayOf(item, title, IdOf(item)))]);
     }
@@ -415,7 +415,7 @@ public sealed partial class GeneratedListBody<TItem> : IGeneratedListBody
     private async Task StartSelectedAsync(CommandView command, IReadOnlyList<TItem> items)
     {
         ViewSendResult result = await GeneratedViewSupport.StartManyAsync(
-            Dispatcher, command, [.. items.Select(item => new TaskTarget(IdOf(item), null, LabelOf(item)))]);
+            Dispatcher, command, [.. items.Select(item => new TaskTarget(IdOf(item), LabelOf(item)))]);
 
         if (result.IsError)
         {

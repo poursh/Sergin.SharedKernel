@@ -1,6 +1,6 @@
 using Microsoft.AspNetCore.Components;
 using MudBlazor;
-using Sergin.SharedKernel.Application.Commands;
+using Sergin.SharedKernel.Application.Commands.Types;
 using Sergin.SharedKernel.Application.Concurrency;
 using Sergin.SharedKernel.Application.Tasks;
 using Sergin.SharedKernel.Application.Tasks.Commands;
@@ -49,7 +49,7 @@ public sealed partial class SerginScheduleDialog
     /// <summary>Builds the command to schedule from the arguments the form holds, called on every validation and send.</summary>
     [Parameter]
     [EditorRequired]
-    public Func<IBaseCommand> BuildTemplate { get; set; } = default!;
+    public Func<ITaskCommand> BuildTemplate { get; set; } = default!;
 
     /// <summary>The module's fields for the command's own arguments; none for a command that has none.</summary>
     [Parameter]

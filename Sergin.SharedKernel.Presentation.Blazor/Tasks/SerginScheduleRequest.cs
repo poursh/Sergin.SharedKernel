@@ -1,6 +1,6 @@
 using Microsoft.AspNetCore.Components;
 using MudBlazor;
-using Sergin.SharedKernel.Application.Commands;
+using Sergin.SharedKernel.Application.Commands.Types;
 using Sergin.SharedKernel.Domain.Tasks;
 
 namespace Sergin.SharedKernel.Presentation.Blazor.Tasks;
@@ -16,7 +16,7 @@ namespace Sergin.SharedKernel.Presentation.Blazor.Tasks;
 public sealed record SerginScheduleRequest(
     string Schema,
     TextDefinition CommandTitle,
-    Func<IBaseCommand> BuildTemplate,
+    Func<ITaskCommand> BuildTemplate,
     IReadOnlyCollection<TaskScheduleTarget> Targets,
     IReadOnlyList<string> TargetLabels,
     RenderFragment? ArgumentsForm = null,

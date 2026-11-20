@@ -120,7 +120,7 @@ internal sealed partial class TaskRunItemExecutor(
             return false;
         }
 
-        TaskDescriptor? command = catalog.TryGet(run.CommandName, out TaskDescriptor? declared) ? declared : null;
+        TaskDescriptor? command = catalog.ByName(run.CommandName);
         TimeSpan? timeout = command?.Settings.InactivityTimeout;
 
         // The heartbeat keeps the item's activity fresh while the command runs, so the recovery never takes a command

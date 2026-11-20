@@ -1,4 +1,3 @@
-using System.Diagnostics.CodeAnalysis;
 using Sergin.SharedKernel.Application.Commands.Configuration;
 using Sergin.SharedKernel.Application.Commands.Types;
 
@@ -75,12 +74,6 @@ public sealed class TaskCatalog
     {
         ArgumentNullException.ThrowIfNull(requestType);
         return byType.GetValueOrDefault(requestType);
-    }
-
-    public bool TryGet(string name, [NotNullWhen(true)] out TaskDescriptor? command)
-    {
-        command = ByName(name);
-        return command is not null;
     }
 
     private static void Add(

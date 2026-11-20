@@ -14,7 +14,7 @@ namespace Sergin.SharedKernel.Application.Tasks.Commands;
 /// </summary>
 public sealed record CreateTaskScheduleCommand(
     string Schema,
-    IBaseCommand Template,
+    ITaskCommand Template,
     IReadOnlyCollection<TaskScheduleTarget> Targets,
     string Cron,
     string TimeZoneId) : ICommand<CreateTaskScheduleCommandResponse>, ICreateCommand<TaskSchedule, TaskScheduleId>;

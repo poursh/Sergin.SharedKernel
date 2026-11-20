@@ -1,6 +1,5 @@
 using System.Linq.Expressions;
 using FluentValidation;
-using Sergin.SharedKernel.Application.Commands;
 using Sergin.SharedKernel.Application.Commands.Types;
 using Sergin.SharedKernel.Application.Localizations.Validation;
 using Sergin.SharedKernel.Domain.Tasks;
@@ -9,7 +8,7 @@ namespace Sergin.SharedKernel.Application.Tasks.Commands;
 
 /// <summary>
 /// The rules the create, update and run-once validators share. The template's own validator is not run: its
-/// arguments are checked per item at run time, where the target is known. Two rules report under the scheduled-task
+/// arguments are checked per item at run time, where the target is known. Two rules report under the task
 /// error codes (<see cref="TaskErrors.NotSchedulable"/>, <see cref="TaskErrors.TooManyTargets"/>)
 /// rather than a property name, since the pipeline turns a failure's property name into the error's code; every
 /// other rule reports under its property.
@@ -22,15 +21,16 @@ internal static class TaskScheduleRules
         AbstractValidator<T> validator,
         TaskCatalog catalog,
         Func<T, string> schemaOf,
-        Expression<Func<T, IBaseCommand>> template,
+        Expression<Func<T, ITaskCommand>> template,
         Expression<Func<T, IReadOnlyCollection<TaskScheduleTarget>>> targets,
-        bool schedulableOnly = true)
+        bool schedulableOnly = true,
+        string? targetsProperty = null)
     {
-        Func<T, IBaseCommand?> templateOf = template.Compile();
+        Func<T, ITaskCommand?> templateOf = template.Compile();
         Func<T, IReadOnlyCollection<TaskScheduleTarget>?> targetsOf = targets.Compile();
 
-        // A task another module's catalogue entry owns is as unschedulable here as one that is not Schedulable(), and so
-        // is a non-task (the catalogue holds only tasks), unless the caller refuses a non-task itself (a start's NotBackground).
+        // A task another module's catalogue entry owns is as unschedulable here as one that is not Schedulable(), and so is
+        // one no source declares. A start (schedulableOnly false) takes a task that is not Schedulable().
         TaskDescriptor? CommandOf(T request) =>
             templateOf(request) is { } value
             && catalog.ByRequest(value.GetType()) is { } command
@@ -43,20 +43,22 @@ internal static class TaskScheduleRules
 
         validator.RuleFor(template)
             .Must((request, _) => CommandOf(request) is not null)
-            .OverridePropertyName(TaskErrors.NotSchedulable.Code)
+            .OverridePropertyName(TaskErrors.NotSchedulableCode)
             .WithMessage(_ => ValidationTexts.Template(TaskTexts.NotSchedulable))
-            .When(request => templateOf(request) is { } value && (schedulableOnly || CommandTypes.IsTask(value.GetType())));
+            .When(request => templateOf(request) is not null);
 
-        validator.RuleFor(targets).NotNull();
+        // A caller whose targets are converted (a start's) names the property, which the expression no longer can.
+        IRuleBuilderOptions<T, TProperty> Named<TProperty>(IRuleBuilderOptions<T, TProperty> rule) =>
+            targetsProperty is null ? rule : rule.OverridePropertyName(targetsProperty);
 
-        validator.RuleFor(targets)
-            .Must(picked => picked.Count > 0)
+        Named(validator.RuleFor(targets).NotNull());
+
+        Named(validator.RuleFor(targets).Must(picked => picked.Count > 0))
             .WithMessage(_ => ValidationTexts.Template(TaskTexts.NoTargets))
             .When(request => targetsOf(request) is not null);
 
         // The targets' key is (schedule_id, target_id): one id twice, whatever its root, would collide.
-        validator.RuleFor(targets)
-            .Must(picked => picked.Select(target => target.TargetId).Distinct().Count() == picked.Count)
+        Named(validator.RuleFor(targets).Must(picked => picked.Select(target => target.TargetId).Distinct().Count() == picked.Count))
             .WithMessage(_ => ValidationTexts.Template(TaskTexts.DuplicateTargets))
             .When(request => targetsOf(request) is not null);
 

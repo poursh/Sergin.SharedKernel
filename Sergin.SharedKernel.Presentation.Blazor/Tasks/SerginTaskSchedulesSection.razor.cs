@@ -3,6 +3,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using MudBlazor;
 using Sergin.SharedKernel.Application.Commands;
+using Sergin.SharedKernel.Application.Commands.Types;
 using Sergin.SharedKernel.Application.Concurrency;
 using Sergin.SharedKernel.Application.Tasks;
 using Sergin.SharedKernel.Application.Tasks.Commands;
@@ -453,7 +454,7 @@ public sealed partial class SerginTaskSchedulesSection : IDisposable
 
         TaskScheduleResponse task = loaded.Value.Value;
 
-        if (!Catalog.TryGet(task.CommandName, out TaskDescriptor? command) || task.Targets.FirstOrDefault() is not { } first)
+        if (Catalog.ByName(task.CommandName) is not { } command || task.Targets.FirstOrDefault() is not { } first)
         {
             ErrorPresenter.Notify(TaskErrors.UnknownCommand);
             return;
@@ -468,7 +469,8 @@ public sealed partial class SerginTaskSchedulesSection : IDisposable
             return;
         }
 
-        IBaseCommand saved = template.Value;
+        // The catalogue holds tasks only, so the command it rebuilt is one.
+        var saved = (ITaskCommand)template.Value;
 
         // Whatever the dialog did (saved, ran once, cancelled), the lists are read again.
         await Dialogs.ShowScheduleAsync(new SerginScheduleRequest(

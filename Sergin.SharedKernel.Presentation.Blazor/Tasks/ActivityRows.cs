@@ -133,7 +133,7 @@ internal static class ActivityRows
         ArgumentNullException.ThrowIfNull(catalog);
         ArgumentNullException.ThrowIfNull(views);
 
-        TaskDescriptor? command = catalog.TryGet(commandName, out TaskDescriptor? found) ? found : null;
+        TaskDescriptor? command = catalog.ByName(commandName);
 
         return ViewOf(command, command is null ? null : views.Find(command.Root));
     }
@@ -145,7 +145,7 @@ internal static class ActivityRows
         Func<int, string> recordsText,
         Func<string, TextDefinition?> moduleCaption)
     {
-        TaskDescriptor? command = catalog.TryGet(item.CommandName, out TaskDescriptor? found) ? found : null;
+        TaskDescriptor? command = catalog.ByName(item.CommandName);
         AggregateViewModel? model = command is null ? null : views.Find(command.Root);
 
         return new ActivityRow(

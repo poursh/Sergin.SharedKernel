@@ -1,5 +1,5 @@
 using System.Reflection;
-using Sergin.SharedKernel.Application.Commands;
+using Sergin.SharedKernel.Application.Commands.Types;
 using Sergin.SharedKernel.Application.Concurrency;
 using Sergin.SharedKernel.Application.Tasks.Commands;
 using Sergin.SharedKernel.Domain;
@@ -136,13 +136,13 @@ internal static class GeneratedViewSupport
         ArgumentNullException.ThrowIfNull(command);
 
         return command.Task is not null
-            ? StartManyAsync(dispatcher, command, [new TaskTarget(id, null, label)])
+            ? StartManyAsync(dispatcher, command, [new TaskTarget(id, label)])
             : SendAsync(dispatcher, command, command.BuildFromId!(id), version);
     }
 
     /// <summary>
-    /// Starts a background command as one run over <paramref name="targets"/>. The template is built from the first target
-    /// (a root command from its id, a child command from its root id and id); the run takes each item's ids from its target.
+    /// Starts a task as one run over <paramref name="targets"/>. The template is built from the first target
+    /// (from its id); the run takes each item's ids from its target.
     /// </summary>
     internal static async Task<ViewSendResult> StartManyAsync(
         ISerginDispatcher dispatcher, CommandView command, IReadOnlyCollection<TaskTarget> targets)
@@ -153,27 +153,23 @@ internal static class GeneratedViewSupport
 
         TaskTarget first = targets.FirstOrDefault()
             ?? throw new ArgumentException("A background command is started over at least one record.", nameof(targets));
-        ErrorOr<TaskRunStartedResponse> started = await dispatcher.StartTaskAsync((IBaseCommand)TemplateOf(command, first), targets);
+        ErrorOr<TaskRunStartedResponse> started = await dispatcher.StartTaskAsync(TemplateOf(command, first), targets);
 
         return started.IsError
             ? new ViewSendResult(null, null, started.Errors)
             : new ViewSendResult(started.Value, null, []);
     }
 
-    private static object TemplateOf(CommandView command, TaskTarget target)
+    // A task is an entity or a collection task (child tasks are refused at host start), so a view builds it from its id.
+    private static ITaskCommand TemplateOf(CommandView command, TaskTarget target)
     {
-        if (command.BuildFromId is { } fromId)
+        if (command.BuildFromId is { } fromId && target.TargetId is { } id && fromId(id) is ITaskCommand task)
         {
-            return fromId(target.TargetId);
-        }
-
-        if (command.BuildFromIds is { } fromIds && target.RootId is { } rootId)
-        {
-            return fromIds(rootId, target.TargetId);
+            return task;
         }
 
         throw new InvalidOperationException(
-            $"{command.Request.FullName} cannot be started from a view: its constructor is neither id-only nor (RootId, Id) with a root id given.");
+            $"{command.Request.FullName} cannot be started from a view: it is not a task built from the record's id alone.");
     }
 
     /// <summary>Sends <paramref name="request"/>, built for <paramref name="command"/>, at <paramref name="version"/> only when the command is version-guarded.</summary>
