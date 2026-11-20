@@ -141,7 +141,7 @@ public sealed partial class GeneratedListBody<TItem> : IGeneratedListBody
             model.Schema,
             command.Label,
             () => (ITaskCommand)build(Guid.Empty),
-            [.. items.Select(item => new TaskScheduleTarget(IdOf(item), null))],
+            [.. items.Select(item => new TaskScheduleTarget(IdOf(item)))],
             [.. items.Select(item => GeneratedViewSupport.DisplayOf(item, title, IdOf(item)))]);
     }
 

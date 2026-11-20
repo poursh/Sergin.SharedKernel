@@ -90,6 +90,14 @@ public sealed class TaskCatalog
             return;
         }
 
+        if (target.Kind == CommandTargetKind.ChildEntity)
+        {
+            problems.Add(
+                $"{who} is a task on a child entity; a task targets a root entity or a root's collection, never a child entity. "
+                + "Target the aggregate root instead.");
+            return;
+        }
+
         if (!TaskNames.IsValid(name))
         {
             problems.Add(

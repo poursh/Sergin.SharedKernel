@@ -37,7 +37,7 @@ internal sealed partial class TaskRunStarter(IServiceProvider services, IDateTim
         var definition = new TaskRunDefinition(
             start.ScheduleId, start.Trigger, start.ActingUserId, start.ScopeId, start.ScopePath, start.CommandName, start.Arguments);
         var run = TaskRun.Start(definition, start.Targets.Count, clock.UtcNow);
-        TaskRunItem[] items = [.. start.Targets.Select(target => TaskRunItem.Create(run.Id, target.TargetId, target.RootId, clock.UtcNow, LabelOf(start, target)))];
+        TaskRunItem[] items = [.. start.Targets.Select(target => TaskRunItem.Create(run.Id, target.TargetId, clock.UtcNow, LabelOf(start, target)))];
 
         // No targets: nothing will ever finish the run, so it is complete at once rather than open forever.
         if (items.Length == 0)

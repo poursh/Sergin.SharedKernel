@@ -25,9 +25,6 @@ public static class TaskTexts
     /// <summary>A target picked for a task that acts on one record, with no record id.</summary>
     public static readonly TextDefinition TargetWithoutId = errors.Text("TargetWithoutId", "Each picked record must have an id.");
 
-    /// <summary>A child-entity command's target that does not name its parent record.</summary>
-    public static readonly TextDefinition TargetWithoutRoot = errors.Text("TargetWithoutRoot", "Each picked record must name the record it belongs to.");
-
     public static readonly TextDefinition InvalidCron = errors.Text("InvalidCron", "'{PropertyName}' is not a schedule the job engine can run.");
 
     public static readonly TextDefinition InvalidTimeZone = errors.Text("InvalidTimeZone", "'{PropertyName}' is not a known time zone.");

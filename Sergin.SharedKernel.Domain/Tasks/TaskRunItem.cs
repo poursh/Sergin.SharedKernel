@@ -13,8 +13,6 @@ public sealed class TaskRunItem
 
     public Guid TargetId { get; private set; }
 
-    public Guid? RootId { get; private set; }
-
     /// <summary>The target's title as the person saw it when the run started, as stored (user data); null when none was given.</summary>
     public string? TargetLabel { get; private set; }
 
@@ -51,13 +49,12 @@ public sealed class TaskRunItem
     /// <summary>The longest label kept; a longer one is cut at start.</summary>
     public const int MaxTargetLabelLength = 200;
 
-    public static TaskRunItem Create(Guid runId, Guid targetId, Guid? rootId, DateTime at, string? targetLabel = null) =>
+    public static TaskRunItem Create(Guid runId, Guid targetId, DateTime at, string? targetLabel = null) =>
         new()
         {
             Id = Guid.CreateVersion7(),
             RunId = runId,
             TargetId = targetId,
-            RootId = rootId,
             TargetLabel = targetLabel,
             Status = TaskRunItemStatus.Pending,
             LastActivityAtUtc = at,

@@ -71,7 +71,7 @@ internal sealed partial class TaskScheduleRunner(
     {
         DateTime now = clock.UtcNow;
         var run = TaskRun.Start(definition, targets.Count, now);
-        TaskRunItem[] items = [.. targets.Select(target => TaskRunItem.Create(run.Id, target.TargetId, target.RootId, now))];
+        TaskRunItem[] items = [.. targets.Select(target => TaskRunItem.Create(run.Id, target.TargetId, now))];
 
         foreach (TaskRunItem item in items)
         {

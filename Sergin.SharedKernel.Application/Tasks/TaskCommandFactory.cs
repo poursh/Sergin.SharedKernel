@@ -7,16 +7,15 @@ namespace Sergin.SharedKernel.Application.Tasks;
 
 /// <summary>
 /// The argument template: a command's non-target arguments as JSON, and the command rebuilt from them per target.
-/// Domain value objects round-trip as their records (<c>{"Note":{"Value":"hello"}}</c>). The target's <c>Id</c> (and
-/// a child's <c>RootId</c>) is never stored: <see cref="Build"/> puts it in from the run item. Reading is strict, so
+/// Domain value objects round-trip as their records (<c>{"Note":{"Value":"hello"}}</c>). The target's <c>Id</c>
+/// is never stored: <see cref="Build"/> puts it in from the run item. Reading is strict, so
 /// arguments a changed command no longer fits (a missing, renamed or retyped property) are
 /// <see cref="TaskErrors.ArgumentsInvalid"/>, never a command with silently defaulted values.
 /// </summary>
 public static class TaskCommandFactory
 {
-    // The property names the target interfaces (IEntityTarget, IChildEntityTarget) fix on every request.
+    // The property name the target interface (IEntityTarget) fixes on every request.
     private const string IdProperty = "Id";
-    private const string RootIdProperty = "RootId";
 
     private static readonly JsonSerializerOptions Options = new()
     {
@@ -25,14 +24,13 @@ public static class TaskCommandFactory
         UnmappedMemberHandling = JsonUnmappedMemberHandling.Disallow,
     };
 
-    /// <summary>The template's arguments as JSON, its <c>Id</c> and <c>RootId</c> left out.</summary>
+    /// <summary>The template's arguments as JSON, its <c>Id</c> left out.</summary>
     public static string ToArguments(IBaseCommand template)
     {
         ArgumentNullException.ThrowIfNull(template);
 
         JsonObject arguments = JsonSerializer.SerializeToNode(template, template.GetType(), Options)!.AsObject();
         arguments.Remove(IdProperty);
-        arguments.Remove(RootIdProperty);
 
         return arguments.ToJsonString(Options);
     }
@@ -41,7 +39,7 @@ public static class TaskCommandFactory
     /// <paramref name="command"/> built from <paramref name="arguments"/> for one target: its id type made from
     /// <paramref name="targetId"/> (a collection task, with no id type, takes none).
     /// </summary>
-    public static ErrorOr<IBaseCommand> Build(TaskDescriptor command, string arguments, Guid targetId)
+    public static ErrorOr<IBaseCommand> Build(TaskDescriptor command, string arguments, Guid? targetId)
     {
         ArgumentNullException.ThrowIfNull(command);
         ArgumentNullException.ThrowIfNull(arguments);
@@ -55,7 +53,12 @@ public static class TaskCommandFactory
 
             if (command.IdType is { } idType)
             {
-                node[IdProperty] = JsonSerializer.SerializeToNode(Activator.CreateInstance(idType, targetId), idType, Options);
+                if (targetId is not { } id)
+                {
+                    return TaskErrors.ArgumentsInvalid;
+                }
+
+                node[IdProperty] = JsonSerializer.SerializeToNode(Activator.CreateInstance(idType, id), idType, Options);
             }
 
             return node.Deserialize(command.RequestType, Options) is IBaseCommand built

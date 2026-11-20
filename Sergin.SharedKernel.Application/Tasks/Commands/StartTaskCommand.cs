@@ -32,7 +32,7 @@ internal sealed class StartTaskCommandValidator : AbstractValidator<StartTaskCom
     // A null collection reaches the shared rules as it is, so they refuse it as they refuse any other. A target with no
     // id is refused below; it is mapped to an empty id only so the shared rules can still count and compare the rest.
     private static TaskScheduleTarget[]? ToTargets(IReadOnlyCollection<TaskTarget>? targets) =>
-        targets?.Select(target => new TaskScheduleTarget(target.TargetId ?? Guid.Empty, null)).ToArray();
+        targets?.Select(target => new TaskScheduleTarget(target.TargetId ?? Guid.Empty)).ToArray();
 
     public StartTaskCommandValidator(TaskCatalog catalog, IOptions<TaskOptions> options)
     {
@@ -125,7 +125,7 @@ internal sealed class StartTaskCommandHandler(
             stores.For(schema),
             new TaskRunStart(
                 null, TaskRunTrigger.Manual, caller.Id, scopeId, scopePath, command.Name, arguments,
-                [.. request.Targets.Select(target => new TaskScheduleTarget(target.TargetId.GetValueOrDefault(), null))],
+                [.. request.Targets.Select(target => new TaskScheduleTarget(target.TargetId.GetValueOrDefault()))],
                 LabelsOf(request.Targets)),
             cancellationToken);
 
@@ -160,7 +160,7 @@ internal sealed class StartTaskCommandHandler(
 
         foreach (TaskTarget target in targets)
         {
-            ErrorOr<IBaseCommand> built = TaskCommandFactory.Build(command, arguments, target.TargetId.GetValueOrDefault());
+            ErrorOr<IBaseCommand> built = TaskCommandFactory.Build(command, arguments, target.TargetId);
 
             if (built.IsError)
             {

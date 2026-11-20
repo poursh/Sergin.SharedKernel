@@ -109,7 +109,7 @@ internal sealed class TaskQueries(
             FROM {{quoted}}.task_schedules
             WHERE id = @Id AND deleted_at_utc IS NULL AND {{ScopeColumns.ReachSql}};
 
-            SELECT x.target_id AS TargetId, x.root_id AS RootId
+            SELECT x.target_id AS TargetId
             FROM {{quoted}}.task_schedule_targets x
             WHERE x.schedule_id = @Id
             ORDER BY x.target_id;
@@ -131,7 +131,7 @@ internal sealed class TaskQueries(
             }
 
             IReadOnlyCollection<TaskScheduleTarget> targets =
-                [.. (await grid.ReadAsync<TargetRow>()).Select(target => new TaskScheduleTarget(target.TargetId, target.RootId))];
+                [.. (await grid.ReadAsync<TargetRow>()).Select(target => new TaskScheduleTarget(target.TargetId))];
 
             return new Versioned<TaskScheduleResponse>(
                 new TaskScheduleResponse(
@@ -295,12 +295,12 @@ internal sealed class TaskQueries(
                    r.succeeded AS Succeeded, r.failed AS Failed, r.cancelled AS Cancelled,
                    (SELECT count(*) FROM {{quoted}}.task_run_items u
                     WHERE u.run_id = r.id AND u.status IN ('Pending', 'Running', 'Retrying'))::int AS Unfinished,
-                   one.target_id AS TargetId, one.root_id AS RootId, one.target_label AS TargetLabel,
+                   one.target_id AS TargetId, one.target_label AS TargetLabel,
                    one.error_code AS FirstErrorCode, one.error_description AS FirstErrorDescription,
                    one.progress::int AS Progress
             FROM {{quoted}}.task_runs r
             LEFT JOIN LATERAL (
-                SELECT i.target_id, i.root_id, i.target_label, i.error_code, i.error_description, i.progress
+                SELECT i.target_id, i.target_label, i.error_code, i.error_description, i.progress
                 FROM {{quoted}}.task_run_items i
                 WHERE i.run_id = r.id AND r.total = 1
                 ORDER BY i.id
@@ -336,7 +336,6 @@ internal sealed class TaskQueries(
                 row.Failed,
                 row.Unfinished,
                 row.TargetId,
-                row.RootId,
                 row.TargetLabel,
                 row.FirstErrorCode,
                 row.FirstErrorDescription,
@@ -429,8 +428,6 @@ internal sealed class TaskQueries(
     private sealed class TargetRow
     {
         public Guid TargetId { get; set; }
-
-        public Guid? RootId { get; set; }
     }
 
     private sealed class RunRow
@@ -498,8 +495,6 @@ internal sealed class TaskQueries(
         public int Unfinished { get; set; }
 
         public Guid? TargetId { get; set; }
-
-        public Guid? RootId { get; set; }
 
         public string? TargetLabel { get; set; }
 

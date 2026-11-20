@@ -82,8 +82,8 @@ public sealed class TaskSchedule : AggregateRoot<TaskScheduleId>
 
 public sealed record TaskScheduleId(Guid Value);
 
-/// <summary>One picked record: the target's id, and its root's for a child-entity command.</summary>
-public sealed record TaskScheduleTarget(Guid TargetId, Guid? RootId);
+/// <summary>One picked record: the target's id.</summary>
+public sealed record TaskScheduleTarget(Guid TargetId);
 
 public enum TaskScheduleState
 {

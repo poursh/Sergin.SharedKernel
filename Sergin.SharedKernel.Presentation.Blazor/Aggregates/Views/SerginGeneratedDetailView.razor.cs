@@ -669,7 +669,7 @@ public sealed partial class SerginGeneratedDetailView<TRoot> : IDisposable
 
     private async Task ScheduleAsync(CommandView command)
     {
-        IReadOnlyCollection<TaskScheduleTarget> targets = [new TaskScheduleTarget(Id, null)];
+        IReadOnlyCollection<TaskScheduleTarget> targets = [new TaskScheduleTarget(Id)];
 
         // Saved, run once or cancelled: the section reads its lists again either way (a one-off run starts Running).
         await DialogService.ShowScheduleAsync(new SerginScheduleRequest(

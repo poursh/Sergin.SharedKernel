@@ -23,7 +23,6 @@ public sealed record ActivityItem(
     int Failed,
     int Unfinished,
     Guid? TargetId,
-    Guid? RootId,
     string? TargetLabel,
     string? FirstErrorCode,
     string? FirstErrorDescription,
