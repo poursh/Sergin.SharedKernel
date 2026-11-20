@@ -1,15 +1,15 @@
 using Microsoft.AspNetCore.Components;
 using MudBlazor;
 using Sergin.SharedKernel.Application.Commands;
-using Sergin.SharedKernel.Application.ScheduledTasks;
-using Sergin.SharedKernel.Application.ScheduledTasks.Commands;
+using Sergin.SharedKernel.Application.Tasks;
+using Sergin.SharedKernel.Application.Tasks.Commands;
 using Sergin.SharedKernel.Application.Securities.Authorization;
 using Sergin.SharedKernel.Domain;
-using Sergin.SharedKernel.Domain.ScheduledTasks;
+using Sergin.SharedKernel.Domain.Tasks;
 using Sergin.SharedKernel.Domain.Securities;
 using Sergin.SharedKernel.Presentation.Blazor.Dispatching;
 using Sergin.SharedKernel.Presentation.Blazor.Errors;
-using Sergin.SharedKernel.Presentation.Blazor.ScheduledTasks;
+using Sergin.SharedKernel.Presentation.Blazor.Tasks;
 using Sergin.SharedKernel.Presentation.Localizations;
 using Sergin.SharedKernel.Presentation.Blazor.Actions;
 using Sergin.SharedKernel.Presentation.Blazor.Lists;
@@ -141,7 +141,7 @@ public sealed partial class GeneratedListBody<TItem> : IGeneratedListBody
             model.Schema,
             command.Label,
             () => (IBaseCommand)build(Guid.Empty),
-            [.. items.Select(item => new ScheduledTaskTarget(IdOf(item), null))],
+            [.. items.Select(item => new TaskScheduleTarget(IdOf(item), null))],
             [.. items.Select(item => GeneratedViewSupport.DisplayOf(item, title, IdOf(item)))]);
     }
 
@@ -159,7 +159,7 @@ public sealed partial class GeneratedListBody<TItem> : IGeneratedListBody
         titleField = GeneratedViewSupport.TitleFieldOf(Model.ListFields, Model.ListTitleField);
         columns = GeneratedViewSupport.ColumnsOf(Model.ListFields, Model.ListFieldSet, titleField);
 
-        canManageSchedules = Model.HasSchedulableCommand && await ScopeAuthorization.CurrentUserHasAsync(ScheduledTaskPermissions.Manage);
+        canManageSchedules = Model.HasSchedulableCommand && await ScopeAuthorization.CurrentUserHasAsync(TaskPermissions.Manage);
         BulkActions = [.. BulkActionsOf()];
     }
 
@@ -243,7 +243,7 @@ public sealed partial class GeneratedListBody<TItem> : IGeneratedListBody
         if (command.ScheduleName is not null && command.BuildFromId is not null && canManageSchedules)
         {
             items.Add(new SerginMenuItem(
-                ScheduledTaskUiTexts.ScheduleAction,
+                TaskUiTexts.ScheduleAction,
                 Icons.Material.Outlined.Schedule,
                 EventCallback.Factory.Create(this, () => DialogService.ShowScheduleAsync(ScheduleRequestFor(Model, command, [item]))),
                 command.Permissions.FirstOrDefault(),
@@ -377,7 +377,7 @@ public sealed partial class GeneratedListBody<TItem> : IGeneratedListBody
                     ?
                     [
                         new SerginBulkMenuItem<TItem>(
-                            ScheduledTaskUiTexts.ScheduleAction,
+                            TaskUiTexts.ScheduleAction,
                             Icons.Material.Outlined.Schedule,
                             items => DialogService.ShowScheduleAsync(ScheduleRequestFor(Model, command, items)),
                             permission,
@@ -415,7 +415,7 @@ public sealed partial class GeneratedListBody<TItem> : IGeneratedListBody
     private async Task StartSelectedAsync(CommandView command, IReadOnlyList<TItem> items)
     {
         ViewSendResult result = await GeneratedViewSupport.StartManyAsync(
-            Dispatcher, command, [.. items.Select(item => new BackgroundTarget(IdOf(item), null, LabelOf(item)))]);
+            Dispatcher, command, [.. items.Select(item => new TaskTarget(IdOf(item), null, LabelOf(item)))]);
 
         if (result.IsError)
         {

@@ -10,7 +10,7 @@ using Sergin.SharedKernel.Application;
 using Sergin.SharedKernel.Application.Aggregates;
 using Sergin.SharedKernel.Application.Commands.Configuration;
 using Sergin.SharedKernel.Application.Localizations;
-using Sergin.SharedKernel.Application.ScheduledTasks;
+using Sergin.SharedKernel.Application.Tasks;
 using Sergin.SharedKernel.Application.Securities.Authorization;
 using Sergin.SharedKernel.Application.Securities.Users;
 using Sergin.SharedKernel.Hosts.Authentication;
@@ -198,7 +198,7 @@ public static class SerginWebUiExtensions
             app.Services.GetRequiredService<AggregateViewRegistry>(), catalog.Modules.Select(module => module.UiAssembly));
 
         // Builds the scheduled command catalogue now, so a bad Schedulable() fails start.
-        app.Services.GetRequiredService<ScheduledCommandCatalog>();
+        app.Services.GetRequiredService<TaskCatalog>();
 
         // Every field a person sees has its label declared.
         app.Services.GetRequiredService<FieldTextGuard>().EnsureLabelled(registry, app.Services.GetRequiredService<TextCatalog>());

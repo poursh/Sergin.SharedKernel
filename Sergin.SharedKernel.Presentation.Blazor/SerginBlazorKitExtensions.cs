@@ -3,7 +3,7 @@ using MudBlazor.Services;
 using Sergin.SharedKernel.Presentation.Blazor.Dispatching;
 using Sergin.SharedKernel.Presentation.Blazor.Errors;
 using Sergin.SharedKernel.Presentation.Blazor.Localizations;
-using Sergin.SharedKernel.Presentation.Blazor.ScheduledTasks;
+using Sergin.SharedKernel.Presentation.Blazor.Tasks;
 using Sergin.SharedKernel.Presentation.Blazor.Theming;
 using Sergin.SharedKernel.Presentation.Blazor.Trees;
 using Sergin.SharedKernel.Presentation.Blazor.Validation;
@@ -26,10 +26,10 @@ public static class SerginBlazorKitExtensions
         // FromTypes reads only the types it is given, so the nested parts (Layout, Navigation, …) are passed too.
         services.AddSingleton(TextSource.FromTypes("common", TextOrigin.Ui, [typeof(ShellTexts), .. typeof(ShellTexts).GetNestedTypes()]));
 
-        // The scheduled-task parts' words, in the same key space as the Application-side ScheduledTaskTexts.
-        services.AddSingleton(TextSource.FromTypes("common", TextOrigin.Ui, [typeof(ScheduledTaskUiTexts), .. typeof(ScheduledTaskUiTexts).GetNestedTypes()]));
+        // The scheduled-task parts' words, in the same key space as the Application-side TaskTexts.
+        services.AddSingleton(TextSource.FromTypes("common", TextOrigin.Ui, [typeof(TaskUiTexts), .. typeof(TaskUiTexts).GetNestedTypes()]));
 
-        services.AddSingleton<ScheduledTaskNextRuns>();
+        services.AddSingleton<TaskScheduleNextRuns>();
 
         // Per circuit: a started snackbar's "Show" opens this circuit's activity popover.
         services.AddScoped<ActivityPanelState>();

@@ -2,8 +2,8 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata;
 using Sergin.SharedKernel.Application.Events.Integration;
 using Sergin.SharedKernel.Application.Securities.Authorization;
-using Sergin.SharedKernel.Domain.ScheduledTasks;
-using Sergin.SharedKernel.Infrastructure.Data.EFCore.ScheduledTasks;
+using Sergin.SharedKernel.Domain.Tasks;
+using Sergin.SharedKernel.Infrastructure.Data.EFCore.Tasks;
 
 namespace Sergin.SharedKernel.Infrastructure.Data.EFCore.Aggregates;
 
@@ -16,7 +16,7 @@ namespace Sergin.SharedKernel.Infrastructure.Data.EFCore.Aggregates;
 /// data anyone edited.
 /// <para>
 /// Registered for every module context by <c>AddModuleDbContext</c>; a context with no scoped aggregate does nothing.
-/// A context opted into scheduled tasks also has its <c>scheduled_task_runs</c> re-pathed: a run's scope path is a
+/// A context opted into scheduled tasks also has its <c>task_runs</c> re-pathed: a run's scope path is a
 /// plain column the run reads are gated on, so it would otherwise keep the old path.
 /// </para>
 /// </summary>
@@ -33,7 +33,7 @@ internal sealed class ScopePathRewriteHandler<TContext>(TContext context, IScope
             .. context.Model.GetEntityTypes()
                 .Where(entityType => entityType.BaseType is null && ScopeColumns.IsScoped(entityType))
                 .Select(QualifiedTable),
-            .. ScheduledRunTables(),
+            .. TaskRunTables(),
         ];
 
         if (tables.Length == 0)
@@ -65,8 +65,8 @@ internal sealed class ScopePathRewriteHandler<TContext>(TContext context, IScope
     /// A run keeps the path it started in as a plain column, not through the scoped-aggregate feature, and a one-off
     /// run (no task) is reached through it alone: so an opted-in context's run table follows a move like a scoped one.
     /// </summary>
-    private IEnumerable<string> ScheduledRunTables() =>
-        context is IScheduledTasksDbContext && context.Model.FindEntityType(typeof(ScheduledTaskRun)) is { } runs
+    private IEnumerable<string> TaskRunTables() =>
+        context is ITasksDbContext && context.Model.FindEntityType(typeof(TaskRun)) is { } runs
             ? [QualifiedTable(runs)]
             : [];
 

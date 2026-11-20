@@ -2,15 +2,15 @@ using Microsoft.AspNetCore.Components;
 using MudBlazor;
 using Sergin.SharedKernel.Application.Aggregates;
 using Sergin.SharedKernel.Application.Commands;
-using Sergin.SharedKernel.Application.ScheduledTasks;
+using Sergin.SharedKernel.Application.Tasks;
 using Sergin.SharedKernel.Application.Securities.Authorization;
 using Sergin.SharedKernel.Domain;
-using Sergin.SharedKernel.Domain.ScheduledTasks;
+using Sergin.SharedKernel.Domain.Tasks;
 using Sergin.SharedKernel.Domain.Securities;
 using Sergin.SharedKernel.Presentation.Blazor.Aggregates.Views.Parts;
 using Sergin.SharedKernel.Presentation.Blazor.Dispatching;
 using Sergin.SharedKernel.Presentation.Blazor.Errors;
-using Sergin.SharedKernel.Presentation.Blazor.ScheduledTasks;
+using Sergin.SharedKernel.Presentation.Blazor.Tasks;
 using Sergin.SharedKernel.Presentation.Blazor.Validation;
 using Sergin.SharedKernel.Presentation.Errors;
 using Sergin.SharedKernel.Presentation.Blazor.Actions;
@@ -61,7 +61,7 @@ public sealed partial class SerginGeneratedDetailView<TRoot> : IDisposable
     private bool canManageSchedules;
     private string? commandName;
     private TextDefinition? commandLabel;
-    private SerginScheduledTasksSection? section;
+    private SerginTaskSchedulesSection? section;
     private GeneratedCommandActions commands = default!;
     private FieldView? titleField;
     private object? overview;
@@ -216,7 +216,7 @@ public sealed partial class SerginGeneratedDetailView<TRoot> : IDisposable
             : null;
         await LoadInlineCommandsAsync();
 
-        canManageSchedules = Model.HasSchedulableCommand && await ScopeAuthorization.CurrentUserHasAsync(ScheduledTaskPermissions.Manage);
+        canManageSchedules = Model.HasSchedulableCommand && await ScopeAuthorization.CurrentUserHasAsync(TaskPermissions.Manage);
     }
 
     /// <inheritdoc />
@@ -640,13 +640,13 @@ public sealed partial class SerginGeneratedDetailView<TRoot> : IDisposable
         if (command.ScheduleName is { } name && canManageSchedules)
         {
             items.Add(new SerginMenuItem(
-                ScheduledTaskUiTexts.ScheduleAction,
+                TaskUiTexts.ScheduleAction,
                 Icons.Material.Outlined.Schedule,
                 EventCallback.Factory.Create(this, () => ScheduleAsync(command)),
                 permission,
                 command.AnyScope));
             items.Add(new SerginMenuItem(
-                ScheduledTaskUiTexts.ViewSchedules,
+                TaskUiTexts.ViewSchedules,
                 Icons.Material.Outlined.EventNote,
                 EventCallback.Factory.Create(this, () => ViewSchedulesAsync(name, command.Label)),
                 permission,
@@ -669,7 +669,7 @@ public sealed partial class SerginGeneratedDetailView<TRoot> : IDisposable
 
     private async Task ScheduleAsync(CommandView command)
     {
-        IReadOnlyCollection<ScheduledTaskTarget> targets = [new ScheduledTaskTarget(Id, null)];
+        IReadOnlyCollection<TaskScheduleTarget> targets = [new TaskScheduleTarget(Id, null)];
 
         // Saved, run once or cancelled: the section reads its lists again either way (a one-off run starts Running).
         await DialogService.ShowScheduleAsync(new SerginScheduleRequest(
@@ -692,7 +692,7 @@ public sealed partial class SerginGeneratedDetailView<TRoot> : IDisposable
         commandLabel = label;
         StateHasChanged();
 
-        await ScrollManager.ScrollIntoViewAsync($"#{SerginScheduledTasksSection.ElementId}", ScrollBehavior.Smooth);
+        await ScrollManager.ScrollIntoViewAsync($"#{SerginTaskSchedulesSection.ElementId}", ScrollBehavior.Smooth);
     }
 
     // The section counted its schedules: the View schedules entries show the new counts.
