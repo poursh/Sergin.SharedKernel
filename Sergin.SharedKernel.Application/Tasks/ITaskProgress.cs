@@ -14,16 +14,24 @@ namespace Sergin.SharedKernel.Application.Tasks;
 public interface ITaskProgress
 {
     /// <summary>
-    /// Reports <paramref name="percent"/>, clamped to 0–100. Written at once the first time, then at most once per
+    /// Reports <paramref name="percent"/>, clamped to 0–100, and resets the task's inactivity timeout, every call, the
+    /// ones whose write the throttle holds back included. Written at once the first time, then at most once per
     /// <see cref="TaskProgress.WriteInterval"/>; the last value reported is always kept on the finished item. A failed
     /// write is logged, never thrown: progress is a courtesy, not part of the command's outcome.
     /// </summary>
     ValueTask ReportAsync(int percent, CancellationToken ct = default);
+
+    /// <summary>
+    /// Resets the task's inactivity timeout without a percent, for a handler that cannot measure how far it got. Writes
+    /// nothing. Neither call revives a task whose timeout already expired, and neither moves its <c>MaxDuration</c>.
+    /// </summary>
+    ValueTask KeepAliveAsync(CancellationToken ct = default);
 }
 
 /// <summary>
-/// The <see cref="ITaskProgress"/> of one send. Each write opens its own scope and store, since the command's own context
-/// may be busy (or mid-change) when it reports, then publishes <see cref="RunChanged"/> for the run's user. The value the
+/// The <see cref="ITaskProgress"/> of one send. Every call resets the send's inactivity timeout, through the
+/// <see cref="TaskTimeouts"/> the executor put on <see cref="RunItemContext"/>. Each write opens its own scope and store,
+/// since the command's own context may be busy (or mid-change) when it reports, then publishes <see cref="RunChanged"/> for the run's user. The value the
 /// throttle held back is read by the run-item executor from <see cref="Last"/> when the send ends, and put on the item
 /// before the outcome's save.
 /// </summary>
@@ -52,6 +60,9 @@ internal sealed partial class TaskProgress(
         {
             return;
         }
+
+        // Before the throttle: a report it holds back still proves the task is moving.
+        runItem.Timeouts?.ResetInactivity();
 
         int value = Math.Clamp(percent, 0, TaskRunItem.MaxProgress);
         DateTime now = clock.UtcNow;
@@ -88,6 +99,12 @@ internal sealed partial class TaskProgress(
 
             LogWriteFailed(exception, runItemId);
         }
+    }
+
+    public ValueTask KeepAliveAsync(CancellationToken ct = default)
+    {
+        runItem.Timeouts?.ResetInactivity();
+        return ValueTask.CompletedTask;
     }
 
     [LoggerMessage(Level = LogLevel.Warning, Message = "The progress of scheduled run item {RunItemId} could not be written; the next report tries again.")]

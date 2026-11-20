@@ -38,6 +38,12 @@ public static class TaskTexts
     /// <summary>A task (<c>ITaskCommand</c>) sent inline instead of started as a run.</summary>
     public static readonly TextDefinition MustRunAsTask = errors.Text("MustRunAsTask", "This action runs as a task. Start it instead of sending it.");
 
+    /// <summary>A run item stopped because its task reported no progress for its inactivity timeout.</summary>
+    public static readonly TextDefinition TimedOut = errors.Text("TimedOut", "Timed out after {Timeout} without progress.");
+
+    /// <summary>A run item stopped at its task's <c>MaxDuration</c>, however it reported.</summary>
+    public static readonly TextDefinition MaxDurationExceeded = errors.Text("MaxDurationExceeded", "Stopped after the {MaxDuration} limit.");
+
     /// <summary>A cancel of a run that already finished.</summary>
     public static readonly TextDefinition RunFinished = errors.Text("RunFinished", "This run has already finished.");
 }

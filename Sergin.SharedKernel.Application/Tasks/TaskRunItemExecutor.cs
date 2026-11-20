@@ -28,11 +28,17 @@ namespace Sergin.SharedKernel.Application.Tasks;
 /// </para>
 /// <para>
 /// While the command runs, a heartbeat stamps the item's activity every third of
-/// <see cref="TaskOptions.StaleAfter"/>, so the recovery never re-sends a command that is still running. A
-/// task whose inactivity timeout passes (a fixed timeout for now) is cancelled and Failed as
-/// <see cref="TaskErrors.TimedOutCode"/>, never retried; a cancellation of the engine's own token (a host
-/// shutdown) is not a timeout, and propagates, leaving the item Running for the recovery. A cancellation the command
-/// raised with neither token cancelled (an HTTP client's own timeout) is an exception like any other, retried.
+/// <see cref="TaskOptions.StaleAfter"/>, so the recovery never re-sends a command that is still running. The heartbeat
+/// proves the worker alive, not the task: it never resets the task's inactivity timeout.
+/// </para>
+/// <para>
+/// A task runs under its <see cref="TaskTimeouts"/>: the inactivity timeout, armed when the send starts and re-armed by
+/// every <see cref="ITaskProgress"/> call, and its <c>MaxDuration</c>, when it declares one, armed once. The one that
+/// expires first cancels the send, and the item is Failed as <see cref="TaskErrors.TimedOutCode"/> or
+/// <see cref="TaskErrors.MaxDurationExceededCode"/>, never retried, however the send ended: a handler that ignores its
+/// token and returns a success late is still timed out. A cancellation of the engine's own token (a host shutdown) is not
+/// a timeout, and propagates, leaving the item Running for the recovery. A cancellation the command raised with no token
+/// cancelled (an HTTP client's own timeout) is an exception like any other, retried.
 /// </para>
 /// <para>
 /// A cancel of the run reaches the item wherever it was asked (another circuit, another process) through the heartbeat,
@@ -121,33 +127,32 @@ internal sealed partial class TaskRunItemExecutor(
         }
 
         TaskDescriptor? command = catalog.ByName(run.CommandName);
-        TimeSpan? timeout = command?.Settings.InactivityTimeout;
 
         // The heartbeat keeps the item's activity fresh while the command runs, so the recovery never takes a command
         // that runs longer than StaleAfter for a lost one, and stops the command (cancelSource) once it reads that the run
         // was asked to cancel. It stops, and is awaited, before the outcome is saved.
         using var stopHeartbeat = CancellationTokenSource.CreateLinkedTokenSource(ct);
-        using var timeoutSource = CancellationTokenSource.CreateLinkedTokenSource(ct);
         using var cancelSource = new CancellationTokenSource();
-        using var sendSource = CancellationTokenSource.CreateLinkedTokenSource(timeoutSource.Token, cancelSource.Token);
 
-        if (timeout is { } limit)
-        {
-            timeoutSource.CancelAfter(limit);
-        }
+        // Armed here, as the send starts; the send's scope reaches them through RunItemContext, so each progress call
+        // re-arms the inactivity timeout. The heartbeat never touches them.
+        using TaskTimeouts? timeouts = command is null ? null : new TaskTimeouts(command.Settings);
+        using var sendSource = CancellationTokenSource.CreateLinkedTokenSource(
+            ct, cancelSource.Token, timeouts?.Token ?? CancellationToken.None);
 
         TimeSpan interval = settings.StaleAfter / 3 < settings.HeartbeatInterval ? settings.StaleAfter / 3 : settings.HeartbeatInterval;
         Task heartbeat = HeartbeatAsync(schema, item.Id, interval, cancelSource.CancelAsync, stopHeartbeat.Token);
         ErrorOr<Success> outcome;
         bool cancelled;
-        bool timedOut;
+        bool inactive;
+        bool capped;
         var progress = new StrongBox<int?>();
 
         try
         {
-            outcome = await SendAsync(schema, run, item, command, progress, sendSource.Token);
+            outcome = await SendAsync(schema, run, item, command, timeouts, progress, sendSource.Token);
         }
-        catch (OperationCanceledException) when (!ct.IsCancellationRequested && (cancelSource.IsCancellationRequested || timeoutSource.IsCancellationRequested))
+        catch (OperationCanceledException) when (!ct.IsCancellationRequested && sendSource.IsCancellationRequested)
         {
             // The run's cancel or the command's own timeout, not a host shutdown: final either way; which one is settled below.
             outcome = Error.Unexpected();
@@ -155,9 +160,11 @@ internal sealed partial class TaskRunItemExecutor(
         finally
         {
             // Read before the heartbeat stops, so only a cancel that fired while the send ran counts; a send that returned
-            // first keeps its own outcome.
+            // first keeps its own outcome. The timeouts are read at the same point: one that expired while the send ran
+            // stands, even under a success the handler returned after it.
             cancelled = cancelSource.IsCancellationRequested;
-            timedOut = timeout.HasValue && timeoutSource.IsCancellationRequested;
+            inactive = timeouts?.InactivityExpired == true;
+            capped = timeouts?.MaxDurationExpired == true;
             await stopHeartbeat.CancelAsync();
             await heartbeat;
         }
@@ -177,10 +184,15 @@ internal sealed partial class TaskRunItemExecutor(
             return false;
         }
 
-        // However the send ended once the timeout fired, the command outran its timeout: record that, never a retry.
-        if (timedOut && !ct.IsCancellationRequested)
+        // However the send ended once a timeout expired (a wrapped cancellation, an error, a late success), the task outran
+        // it: record which, never a retry.
+        if (inactive && timeouts is not null && !ct.IsCancellationRequested)
         {
-            outcome = TaskErrors.TimedOut(timeout!.Value);
+            outcome = TaskErrors.TimedOut(timeouts.InactivityTimeout);
+        }
+        else if (capped && timeouts?.MaxDuration is { } cap && !ct.IsCancellationRequested)
+        {
+            outcome = TaskErrors.MaxDurationExceeded(cap);
         }
 
         if (outcome.IsError && outcome.FirstError.Type == ErrorType.Unexpected)
@@ -246,7 +258,13 @@ internal sealed partial class TaskRunItemExecutor(
     /// included), so the caller can keep it on the item.
     /// </summary>
     private async Task<ErrorOr<Success>> SendAsync(
-        string schema, TaskRun run, TaskRunItem item, TaskDescriptor? command, StrongBox<int?> progress, CancellationToken ct)
+        string schema,
+        TaskRun run,
+        TaskRunItem item,
+        TaskDescriptor? command,
+        TaskTimeouts? timeouts,
+        StrongBox<int?> progress,
+        CancellationToken ct)
     {
         if (command is null)
         {
@@ -265,7 +283,7 @@ internal sealed partial class TaskRunItemExecutor(
             await using AsyncServiceScope scope = scopes.CreateAsyncScope();
             scope.ServiceProvider.GetRequiredService<UserContextAccessor>().Current = new DelegatedUserContext(run.ActingUserId, run.Id);
             scope.ServiceProvider.GetRequiredService<IAuthorizationScopeContext>().Set(run.ScopeId);
-            scope.ServiceProvider.GetRequiredService<RunItemContext>().Set(item.Id, schema, run.Id, run.ActingUserId);
+            scope.ServiceProvider.GetRequiredService<RunItemContext>().Set(item.Id, schema, run.Id, run.ActingUserId, timeouts);
 
             try
             {
@@ -278,7 +296,7 @@ internal sealed partial class TaskRunItemExecutor(
                 progress.Value = scope.ServiceProvider.GetRequiredService<TaskProgress>().Last;
             }
         }
-        // A cancellation is the send's own only when its token caused it (the host stopping, or the timeout). One the
+        // A cancellation is the send's own only when its token caused it (the host stopping, a cancel, a timeout). One the
         // command raised by itself (an HTTP client's timeout, say) is a failed attempt like any other exception.
         catch (Exception exception) when (exception is not OperationCanceledException || !ct.IsCancellationRequested)
         {

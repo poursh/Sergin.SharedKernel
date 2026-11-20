@@ -1,3 +1,5 @@
+using System.Globalization;
+using Sergin.SharedKernel.Application.Localizations;
 using Sergin.SharedKernel.Domain.Localizations;
 
 namespace Sergin.SharedKernel.Application.Tasks;
@@ -8,14 +10,18 @@ public static class TaskErrors
     /// <summary>The run item's code once every attempt threw.</summary>
     public const string ExhaustedCode = "Tasks.Exhausted";
 
-    /// <summary>The run item's code when a background command ran longer than its declared timeout; final, never retried.</summary>
+    /// <summary>The run item's code when its task reported no progress for its inactivity timeout; final, never retried.</summary>
     public const string TimedOutCode = "Tasks.TimedOut";
 
-    /// <summary>A background command cancelled at its declared timeout.</summary>
-    public static Error TimedOut(TimeSpan timeout) =>
-        Error.Failure(
-            TimedOutCode,
-            $"The command ran longer than its timeout of {timeout.ToString("c", System.Globalization.CultureInfo.InvariantCulture)}.");
+    /// <summary>The run item's code when its task ran past its <c>MaxDuration</c>; final, never retried.</summary>
+    public const string MaxDurationExceededCode = "Tasks.MaxDurationExceeded";
+
+    /// <summary>A task stopped after <paramref name="inactivity"/> without progress.</summary>
+    public static Error TimedOut(TimeSpan inactivity) => Stopped(TimedOutCode, TaskTexts.TimedOut, "Timeout", inactivity);
+
+    /// <summary>A task stopped at its <c>MaxDuration</c>, <paramref name="cap"/>, however it reported.</summary>
+    public static Error MaxDurationExceeded(TimeSpan cap) =>
+        Stopped(MaxDurationExceededCode, TaskTexts.MaxDurationExceeded, "MaxDuration", cap);
 
     /// <summary>A stored command name no configuration declares any more.</summary>
     public static Error UnknownCommand { get; } =
@@ -74,4 +80,19 @@ public static class TaskErrors
             MustRunAsTaskCode,
             TaskTexts.MustRunAsTask.Default,
             ErrorText.Of(TaskTexts.MustRunAsTask.Key.Value));
+
+    // A final failure whose description is the text's English default with the time filled in (stored on the item as it
+    // is); the key and the time travel in the metadata for a renderer that translates it.
+    private static Error Stopped(string code, TextDefinition text, string placeholder, TimeSpan time)
+    {
+        Dictionary<string, object?> arguments = new(StringComparer.Ordinal)
+        {
+            [placeholder] = time.ToString("c", CultureInfo.InvariantCulture),
+        };
+
+        return Error.Failure(
+            code,
+            TextPlaceholders.Format(text.Default, arguments, CultureInfo.InvariantCulture),
+            ErrorText.Of(text.Key.Value, arguments));
+    }
 }
