@@ -81,6 +81,7 @@ public sealed class CommandTypeGuard(IEnumerable<Assembly> contractsAssemblies)
     private static List<string> ProblemsOf(
         Type request, CommandConfigurationRegistry registry, AggregateFeatureRegistry aggregates, bool requireTyped)
     {
+        // A child task is refused alone: reading its target would refuse it again, as two target kinds, hiding the reason.
         if (TaskTargetProblem(request) is { } taskProblem)
         {
             return [taskProblem];
