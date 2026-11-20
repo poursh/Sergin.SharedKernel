@@ -39,17 +39,12 @@ public static class TaskCommandFactory
 
     /// <summary>
     /// <paramref name="command"/> built from <paramref name="arguments"/> for one target: its id type made from
-    /// <paramref name="targetId"/>, and for a child-entity command its root's from <paramref name="rootId"/>.
+    /// <paramref name="targetId"/> (a collection task, with no id type, takes none).
     /// </summary>
-    public static ErrorOr<IBaseCommand> Build(TaskDescriptor command, string arguments, Guid targetId, Guid? rootId)
+    public static ErrorOr<IBaseCommand> Build(TaskDescriptor command, string arguments, Guid targetId)
     {
         ArgumentNullException.ThrowIfNull(command);
         ArgumentNullException.ThrowIfNull(arguments);
-
-        if (command.RootIdType is not null && rootId is null)
-        {
-            return TaskErrors.ArgumentsInvalid;
-        }
 
         try
         {
@@ -58,11 +53,9 @@ public static class TaskCommandFactory
                 return TaskErrors.ArgumentsInvalid;
             }
 
-            node[IdProperty] = JsonSerializer.SerializeToNode(Activator.CreateInstance(command.IdType, targetId), command.IdType, Options);
-
-            if (command.RootIdType is not null)
+            if (command.IdType is { } idType)
             {
-                node[RootIdProperty] = JsonSerializer.SerializeToNode(Activator.CreateInstance(command.RootIdType, rootId!.Value), command.RootIdType, Options);
+                node[IdProperty] = JsonSerializer.SerializeToNode(Activator.CreateInstance(idType, targetId), idType, Options);
             }
 
             return node.Deserialize(command.RequestType, Options) is IBaseCommand built

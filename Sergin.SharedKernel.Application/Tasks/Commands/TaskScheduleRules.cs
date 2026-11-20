@@ -22,15 +22,18 @@ internal static class TaskScheduleRules
         TaskCatalog catalog,
         Func<T, string> schemaOf,
         Expression<Func<T, IBaseCommand>> template,
-        Expression<Func<T, IReadOnlyCollection<TaskScheduleTarget>>> targets)
+        Expression<Func<T, IReadOnlyCollection<TaskScheduleTarget>>> targets,
+        bool schedulableOnly = true)
     {
         Func<T, IBaseCommand?> templateOf = template.Compile();
         Func<T, IReadOnlyCollection<TaskScheduleTarget>?> targetsOf = targets.Compile();
 
-        // A command another module's catalogue entry owns is as unschedulable here as one that never opted in.
+        // A task another module's catalogue entry owns is as unschedulable here as one that is not Schedulable(), and,
+        // unless only a schedulable one may be, a non-task: the catalogue holds only tasks.
         TaskDescriptor? CommandOf(T request) =>
             templateOf(request) is { } value
-            && catalog.For(value.GetType()) is { } command
+            && catalog.ByRequest(value.GetType()) is { } command
+            && (command.Settings.Schedulable || !schedulableOnly)
             && (command.Schema is null || command.Schema == schemaOf(request))
                 ? command
                 : null;
@@ -54,11 +57,6 @@ internal static class TaskScheduleRules
         validator.RuleFor(targets)
             .Must(picked => picked.Select(target => target.TargetId).Distinct().Count() == picked.Count)
             .WithMessage(_ => ValidationTexts.Template(TaskTexts.DuplicateTargets))
-            .When(request => targetsOf(request) is not null);
-
-        validator.RuleFor(targets)
-            .Must((request, picked) => CommandOf(request) is not { RootIdType: not null } || picked.All(target => target.RootId is not null))
-            .WithMessage(_ => ValidationTexts.Template(TaskTexts.TargetWithoutRoot))
             .When(request => targetsOf(request) is not null);
 
         validator.RuleFor(targets)

@@ -189,8 +189,8 @@ public static class SerginCoreExtensions
         builder.Services.AddSingleton(provider =>
             CommandConfigurationRegistry.FromSources(provider.GetServices<ModuleConfigurationSource>()));
 
-        // Every request a configuration made Schedulable(name), read from the same sources and the registry above;
-        // resolved at start so a bad declaration fails host start. Empty when no module declares one.
+        // Every task the sources hold, read from the same sources and the registry above;
+        // resolved at start so a badly named task fails host start. Empty when no module declares one.
         builder.Services.AddSingleton(provider => TaskCatalog.FromSources(
             provider.GetServices<ModuleConfigurationSource>(), provider.GetRequiredService<CommandConfigurationRegistry>()));
 

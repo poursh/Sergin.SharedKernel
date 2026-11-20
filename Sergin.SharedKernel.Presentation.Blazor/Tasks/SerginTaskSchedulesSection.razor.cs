@@ -460,7 +460,7 @@ public sealed partial class SerginTaskSchedulesSection : IDisposable
         }
 
         // Only the schedule changes here, so the saved arguments are rebuilt as they are; the template's target id is ignored.
-        ErrorOr<IBaseCommand> template = TaskCommandFactory.Build(command, task.Arguments, first.TargetId, first.RootId);
+        ErrorOr<IBaseCommand> template = TaskCommandFactory.Build(command, task.Arguments, first.TargetId);
 
         if (template.IsError)
         {

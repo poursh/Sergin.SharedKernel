@@ -30,7 +30,7 @@ namespace Sergin.SharedKernel.Presentation.Blazor.Aggregates.Model;
 /// <param name="CreateFields">The create command's shown fields.</param>
 /// <param name="UpdateFields">The update command's shown fields.</param>
 /// <param name="Slots">The components the configuration put in the views' slots.</param>
-/// <param name="HasSchedulableCommand">Whether any command is <c>Schedulable(name)</c>.</param>
+/// <param name="HasSchedulableCommand">Whether any command is a <c>Schedulable()</c> task.</param>
 /// <param name="DetailTitleField">The GetOne response's display property: breadcrumb tail, fields title, schedule target label.</param>
 /// <param name="ListTitleField">The list item's display property.</param>
 /// <param name="ListFilters">The list's identifier filters and where their options come from.</param>

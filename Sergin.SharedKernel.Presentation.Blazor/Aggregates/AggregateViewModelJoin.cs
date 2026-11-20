@@ -78,7 +78,7 @@ internal sealed class AggregateViewModelJoin(
             FormFields(create, builder, getOneResponse),
             FormFields(update, builder, getOneResponse),
             new Dictionary<SerginViewSlot, Type>(builder.Slots),
-            commandViews.Any(command => command.ScheduleName is not null),
+            commandViews.Any(command => command.Task is { Schedulable: true }),
             detailTitle,
             listTitle,
             filters,
@@ -476,7 +476,7 @@ internal sealed class AggregateViewModelJoin(
                 settings.RequiredPermissions,
                 settings.PermissionScope == PermissionScope.Any,
                 settings.RequiresExpectedVersion,
-                settings.ScheduleName,
+                settings.Task,
                 CommandTypes.IsSelectable(request),
                 declared?.DeclaredSucceededText,
                 declared?.ConfirmTitle,
@@ -497,8 +497,7 @@ internal sealed class AggregateViewModelJoin(
                 appliesWhen,
                 declared?.ConfirmLabel,
                 shownMove ? RequestFactory.ForMove(request) : null,
-                moveParentField,
-                settings.Background)
+                moveParentField)
             {
                 ConfirmFields = confirmFields,
             };

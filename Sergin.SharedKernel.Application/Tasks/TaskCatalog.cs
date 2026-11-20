@@ -5,12 +5,10 @@ using Sergin.SharedKernel.Application.Commands.Types;
 namespace Sergin.SharedKernel.Application.Tasks;
 
 /// <summary>
-/// Every request whose configuration called <c>Schedulable(name)</c>, by stable name and by request type. Built once
-/// per host beside the <see cref="CommandConfigurationRegistry"/> and refuses, naming each offending request, a
-/// request that is not an entity or child-entity command (a creation, collection or root target, a system command,
-/// an untyped request), one that still requires an expected version (a version stored with the task is stale by
-/// the next run; <c>WithoutExpectedVersion()</c> waives it), a malformed name, a name outside its source's schema
-/// and a name two requests share.
+/// Every task (<see cref="ITaskCommand"/>) the sources hold, configured or not, by stable name and by request type,
+/// each with the <see cref="TaskSettings"/> the <see cref="CommandConfigurationRegistry"/> read for it. Built once per
+/// host beside the registry and refuses, naming every offending request, a malformed name (<see cref="TaskNames.IsValid"/>),
+/// a name outside its source's schema and a name two tasks share.
 /// </summary>
 public sealed class TaskCatalog
 {
@@ -43,11 +41,9 @@ public sealed class TaskCatalog
 
             foreach (Type request in requests.Distinct().Where(seen.Add))
             {
-                CommandSettings settings = registry.For(request);
-
-                if (settings.ScheduleName is not null)
+                if (registry.For(request).Task is { } settings && CommandTypes.TargetOf(request) is { } target)
                 {
-                    Add(request, settings, source.Schema, found, problems);
+                    Add(request, target, settings, source.Schema, found, problems);
                 }
             }
         }
@@ -55,75 +51,60 @@ public sealed class TaskCatalog
         foreach (IGrouping<string, TaskDescriptor> group in found.GroupBy(command => command.Name, StringComparer.Ordinal).Where(group => group.Count() > 1))
         {
             problems.Add(
-                $"{string.Join(" and ", group.Select(command => command.RequestType.FullName))} are both schedulable as \"{group.Key}\"; a name belongs to one request.");
+                $"{string.Join(" and ", group.Select(command => command.RequestType.FullName))} are all named \"{group.Key}\"; a name belongs to one task. "
+                + "Rename one, or give one another name with Task(task => task.Name(...)).");
         }
 
         if (problems.Count > 0)
         {
-            throw new InvalidOperationException("Schedulable() is declared wrongly: " + string.Join(" ", problems));
+            throw new InvalidOperationException("A task is named wrongly: " + string.Join(" ", problems));
         }
 
         return new TaskCatalog(found);
     }
 
-    public bool TryGet(string name, [NotNullWhen(true)] out TaskDescriptor? command)
+    /// <summary>The task named <paramref name="name"/>, or null.</summary>
+    public TaskDescriptor? ByName(string name)
     {
         ArgumentNullException.ThrowIfNull(name);
-        return byName.TryGetValue(name, out command);
+        return byName.GetValueOrDefault(name);
     }
 
-    /// <summary>The scheduled command for <paramref name="requestType"/>, or null when it is not schedulable.</summary>
-    public TaskDescriptor? For(Type requestType)
+    /// <summary>The task <paramref name="requestType"/> is, or null when it is not a task.</summary>
+    public TaskDescriptor? ByRequest(Type requestType)
     {
         ArgumentNullException.ThrowIfNull(requestType);
         return byType.GetValueOrDefault(requestType);
     }
 
-    private static void Add(Type request, CommandSettings settings, string? schema, List<TaskDescriptor> found, List<string> problems)
+    public bool TryGet(string name, [NotNullWhen(true)] out TaskDescriptor? command)
     {
-        string name = settings.ScheduleName!;
+        command = ByName(name);
+        return command is not null;
+    }
+
+    private static void Add(
+        Type request, CommandTarget target, TaskSettings settings, string? schema, List<TaskDescriptor> found, List<string> problems)
+    {
+        string name = settings.Name;
         string who = request.FullName ?? request.Name;
-        CommandTarget? target = CommandTypes.TargetOf(request);
-        int before = problems.Count;
 
         if (!TaskNames.IsValid(name))
         {
             problems.Add(
-                $"{who} names itself \"{name}\", which is not a valid name: lower-case segments separated by '.', words inside a segment by '-', e.g. dm.devices.read-profile.");
-        }
-        else if (schema is not null && !name.StartsWith(schema + ".", StringComparison.Ordinal))
-        {
-            problems.Add($"{who} names itself \"{name}\", which is outside its module's schema: expected \"{schema}.\" first.");
-        }
-
-        if (CommandTypes.IsSystem(request))
-        {
-            problems.Add($"{who} is a system command and cannot be scheduled: it has no target to substitute.");
-        }
-        else if (target is null)
-        {
-            problems.Add($"{who} implements no target interface and cannot be scheduled: only an entity or child-entity command names a target.");
-        }
-        else if (target.Kind is not (CommandTargetKind.Entity or CommandTargetKind.ChildEntity))
-        {
-            problems.Add(
-                $"{who} targets a {target.Kind} (a creation, collection or root-target command) and cannot be scheduled: it has no per-target Id to substitute.");
-        }
-        else if (settings.RequiresExpectedVersion)
-        {
-            problems.Add(
-                $"{who} requires an expected version and cannot be scheduled: a version stored with the task is stale by the next run. Call WithoutExpectedVersion() as well if the command does not need one.");
-        }
-
-        if (problems.Count > before || target is null)
-        {
+                $"{who} is named \"{name}\", which is not a valid task name: lower-case segments separated by '.', words inside a segment by '-', e.g. dm.device.read-device-profile.");
             return;
         }
 
-        Type idType = request.GetProperty("Id")!.PropertyType;
-        Type? rootIdType = target.Kind == CommandTargetKind.ChildEntity ? request.GetProperty("RootId")!.PropertyType : null;
+        if (schema is not null && !name.StartsWith(schema + ".", StringComparison.Ordinal))
+        {
+            problems.Add($"{who} is named \"{name}\", which is outside its module's schema: expected \"{schema}.\" first.");
+            return;
+        }
 
-        found.Add(new TaskDescriptor(name, schema, request, target.Root, target.Kind, idType, rootIdType, CommandTypes.IsSelectable(request), settings.Background));
+        Type? idType = target.Kind == CommandTargetKind.Entity ? request.GetProperty("Id")?.PropertyType : null;
+
+        found.Add(new TaskDescriptor(name, schema, request, target.Root, target.Kind, idType, CommandTypes.IsSelectable(request), settings));
     }
 
     private static IEnumerable<Type> RequestsConfiguredBy(Type configurationType) =>

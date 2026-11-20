@@ -40,11 +40,11 @@ public static class TaskErrors
     public static Error Overlap { get; } =
         Error.Conflict("Tasks.Overlap", "A previous run of this task is still unfinished.");
 
-    /// <summary>A command that did not opt in with <c>Schedulable(name)</c>.</summary>
+    /// <summary>A command that is not a <c>Schedulable()</c> task.</summary>
     public static Error NotSchedulable { get; } =
         Error.Validation("Tasks.NotSchedulable", "This command cannot be scheduled.");
 
-    /// <summary>A command started in the background whose configuration does not call <c>Background()</c>.</summary>
+    /// <summary>A command started as a run that is not a task (<c>ITaskCommand</c>).</summary>
     public static Error NotBackground { get; } =
         Error.Validation("Tasks.NotBackground", TaskTexts.NotBackground.Default);
 

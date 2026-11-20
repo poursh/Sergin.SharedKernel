@@ -5,7 +5,7 @@ using Sergin.SharedKernel.Application.Commands.Configuration;
 namespace Sergin.SharedKernel.Application.Tasks;
 
 /// <summary>
-/// Refuses a background command that is sent inline, that is, outside a scheduled run item: it is started, never sent.
+/// Refuses a task (<see cref="CommandSettings.Task"/>) that is sent inline, that is, outside a run item: it is started, never sent.
 /// First in the pipeline, so nothing else (permission lookups, validators) runs for a send that will be refused.
 /// </summary>
 internal sealed class BackgroundCommandGuardBehavior<TRequest, TResponse>(
@@ -15,7 +15,7 @@ internal sealed class BackgroundCommandGuardBehavior<TRequest, TResponse>(
 {
     public async Task<TResponse> Handle(TRequest request, RequestHandlerDelegate<TResponse> next, CancellationToken cancellationToken)
     {
-        if (runItem.RunItemId is null && configurations.For(request.GetType()).Background is not null)
+        if (runItem.RunItemId is null && configurations.For(request.GetType()).Task is not null)
         {
             return ErrorOrResponse.TryFrom(TaskErrors.MustRunInBackground, out TResponse refused)
                 ? refused

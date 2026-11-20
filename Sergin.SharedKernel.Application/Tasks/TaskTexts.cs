@@ -11,7 +11,7 @@ public static class TaskTexts
 
     public static readonly TextDefinition Singular = Category.Text("Singular", "Scheduled task");
 
-    /// <summary>The management validators: the template's command did not opt in with <c>Schedulable(name)</c>, or belongs to another module.</summary>
+    /// <summary>The management validators: the template is not a <c>Schedulable()</c> task, or belongs to another module.</summary>
     public static readonly TextDefinition NotSchedulable = errors.Text("NotSchedulable", "This command cannot be scheduled.");
 
     /// <summary>More than one record picked for a command that does not run once per selected row.</summary>
@@ -35,7 +35,7 @@ public static class TaskTexts
     /// <summary>A background command sent inline instead of started as a run.</summary>
     public static readonly TextDefinition MustRunInBackground = errors.Text("MustRunInBackground", "This action runs in the background. Start it instead of sending it.");
 
-    /// <summary>A command started in the background that did not opt in with <c>Background()</c>.</summary>
+    /// <summary>A command started as a run that is not a task (<c>ITaskCommand</c>).</summary>
     public static readonly TextDefinition NotBackground = errors.Text("NotBackground", "This command does not run in the background.");
 
     /// <summary>A cancel of a run that already finished.</summary>

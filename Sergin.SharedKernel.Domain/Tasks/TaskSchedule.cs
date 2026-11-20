@@ -16,7 +16,7 @@ public sealed class TaskSchedule : AggregateRoot<TaskScheduleId>
     {
     }
 
-    /// <summary>The command's stable declared name (<c>Schedulable(name)</c>), never a CLR type name.</summary>
+    /// <summary>The task's stable name (<c>TaskSettings.Name</c>), never a CLR type name.</summary>
     public string CommandName { get; private set; } = string.Empty;
 
     /// <summary>The command's non-target arguments, as JSON.</summary>

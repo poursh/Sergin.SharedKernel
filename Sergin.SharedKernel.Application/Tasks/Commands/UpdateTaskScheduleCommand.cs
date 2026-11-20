@@ -57,7 +57,7 @@ internal sealed class UpdateTaskScheduleCommandHandler(
             return Error.NotFound();
         }
 
-        TaskDescriptor command = catalog.For(request.Template.GetType())!;
+        TaskDescriptor command = catalog.ByRequest(request.Template.GetType())!;
 
         if (command.Name != task.CommandName)
         {

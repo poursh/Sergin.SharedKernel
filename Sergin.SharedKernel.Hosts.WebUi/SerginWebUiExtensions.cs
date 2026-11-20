@@ -197,7 +197,7 @@ public static class SerginWebUiExtensions
         AggregateViewGuard.Ensure(
             app.Services.GetRequiredService<AggregateViewRegistry>(), catalog.Modules.Select(module => module.UiAssembly));
 
-        // Builds the scheduled command catalogue now, so a bad Schedulable() fails start.
+        // Builds the task catalogue now, so a badly named task fails start.
         app.Services.GetRequiredService<TaskCatalog>();
 
         // Every field a person sees has its label declared.

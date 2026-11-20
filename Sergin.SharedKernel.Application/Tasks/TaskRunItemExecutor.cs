@@ -29,7 +29,7 @@ namespace Sergin.SharedKernel.Application.Tasks;
 /// <para>
 /// While the command runs, a heartbeat stamps the item's activity every third of
 /// <see cref="TaskOptions.StaleAfter"/>, so the recovery never re-sends a command that is still running. A
-/// background command whose declared timeout passes is cancelled and Failed as
+/// task whose inactivity timeout passes (a fixed timeout for now) is cancelled and Failed as
 /// <see cref="TaskErrors.TimedOutCode"/>, never retried; a cancellation of the engine's own token (a host
 /// shutdown) is not a timeout, and propagates, leaving the item Running for the recovery. A cancellation the command
 /// raised with neither token cancelled (an HTTP client's own timeout) is an exception like any other, retried.
@@ -121,7 +121,7 @@ internal sealed partial class TaskRunItemExecutor(
         }
 
         TaskDescriptor? command = catalog.TryGet(run.CommandName, out TaskDescriptor? declared) ? declared : null;
-        TimeSpan? timeout = command?.Background?.Timeout;
+        TimeSpan? timeout = command?.Settings.InactivityTimeout;
 
         // The heartbeat keeps the item's activity fresh while the command runs, so the recovery never takes a command
         // that runs longer than StaleAfter for a lost one, and stops the command (cancelSource) once it reads that the run
@@ -253,7 +253,7 @@ internal sealed partial class TaskRunItemExecutor(
             return TaskErrors.UnknownCommand;
         }
 
-        ErrorOr<Application.Commands.IBaseCommand> built = TaskCommandFactory.Build(command, run.Arguments, item.TargetId, item.RootId);
+        ErrorOr<Application.Commands.IBaseCommand> built = TaskCommandFactory.Build(command, run.Arguments, item.TargetId);
 
         if (built.IsError)
         {

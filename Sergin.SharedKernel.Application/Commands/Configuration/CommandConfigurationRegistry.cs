@@ -3,6 +3,7 @@ using System.Reflection;
 using Sergin.SharedKernel.Application.Aggregates;
 using Sergin.SharedKernel.Application.Commands.Types;
 using Sergin.SharedKernel.Application.Localizations;
+using Sergin.SharedKernel.Application.Tasks;
 
 namespace Sergin.SharedKernel.Application.Commands.Configuration;
 
@@ -17,9 +18,10 @@ namespace Sergin.SharedKernel.Application.Commands.Configuration;
 /// never does. An untyped request has no root, is
 /// checked on the current scope and never requires a version. Refuses two configurations for one request, a
 /// configuration without a parameterless constructor, a configuration whose Configure throws, a required permission
-/// no aggregate registered, an opt-out where nothing is required, and a <c>Background()</c> that is not also
-/// <c>Schedulable(name)</c>, has a timeout outside (0, <see cref="BackgroundSettings.MaxTimeout"/>], or is declared on
-/// anything but a root's <c>ITransitionCommand</c> or entity <c>ITaskCommand</c> — each naming the type.
+/// no aggregate registered, an opt-out where nothing is required, and a task whose <c>Task(...)</c> declares an inactivity
+/// timeout outside (0, <see cref="TaskSettings.MaxInactivityTimeout"/>] or a maximum duration that is not above zero or is
+/// below the inactivity timeout — each naming the type. Every task, configured or not, carries its
+/// <see cref="TaskSettings"/>, its name derived from the schema of the source that holds it (<see cref="TaskNames"/>).
 /// </summary>
 public sealed class CommandConfigurationRegistry
 {
@@ -78,10 +80,22 @@ public sealed class CommandConfigurationRegistry
 
         ModuleConfigurationSource[] all = [.. sources];
 
+        // The schema a request's task name starts with: that of the first source holding the request or its configuration.
+        Dictionary<Type, string?> schemas = [];
+
+        foreach (ModuleConfigurationSource source in all)
+        {
+            foreach (Type request in source.RequestTypes.Concat(source.ConfigurationTypes.SelectMany(RequestsConfiguredBy)))
+            {
+                schemas.TryAdd(request, source.Schema);
+            }
+        }
+
         return Build(
             all.SelectMany(source => source.ConfigurationTypes).Distinct(),
             all.SelectMany(source => source.RequestTypes).Distinct(),
-            AggregateFeatureRegistry.FromConfigurationTypes(all.SelectMany(source => source.AggregateConfigurationTypes).Distinct()));
+            AggregateFeatureRegistry.FromConfigurationTypes(all.SelectMany(source => source.AggregateConfigurationTypes).Distinct()),
+            request => schemas.GetValueOrDefault(request));
     }
 
     /// <summary>Command and aggregate feature configuration types, in any mix.</summary>
@@ -93,7 +107,7 @@ public sealed class CommandConfigurationRegistry
     }
 
     private static CommandConfigurationRegistry Build(
-        IEnumerable<Type> configurationTypes, IEnumerable<Type> requestTypes, AggregateFeatureRegistry aggregates)
+        IEnumerable<Type> configurationTypes, IEnumerable<Type> requestTypes, AggregateFeatureRegistry aggregates, Func<Type, string?> schemaOf)
     {
         List<(Type RequestType, Type ConfigurationType, CommandSettings Settings, Texts Texts)> declared = [];
 
@@ -103,7 +117,7 @@ public sealed class CommandConfigurationRegistry
             {
                 Type requestType = closedInterface.GetGenericArguments()[0];
                 (CommandSettings requestSettings, Texts requestTexts) =
-                    Run(configurationType, closedInterface, requestType, aggregates);
+                    Run(configurationType, closedInterface, requestType, aggregates, schemaOf(requestType));
                 declared.Add((requestType, configurationType, requestSettings, requestTexts));
             }
         }
@@ -126,8 +140,8 @@ public sealed class CommandConfigurationRegistry
         var allSettings = declared.ToDictionary(item => item.RequestType, item => item.Settings);
         var allTexts = declared.ToDictionary(item => item.RequestType, item => item.Texts);
 
-        // A typed record with no configuration: its root and version rule from its type, no permissions, and the
-        // root's text category.
+        // A typed record with no configuration: its root and version rule from its type, no permissions, the root's text
+        // category, and for a task every default.
         foreach (Type requestType in requestTypes.Where(type => !allSettings.ContainsKey(type)))
         {
             CommandTarget? target = CommandTypes.TargetOf(requestType);
@@ -140,7 +154,11 @@ public sealed class CommandConfigurationRegistry
             AggregateFeatures features = aggregates.For(target.Root);
 
             allSettings[requestType] = new CommandSettings(
-                [], RequiresVersionByType(requestType, target, features), ScopeOf(target.Root, features), target.Root);
+                [],
+                RequiresVersionByType(requestType, target, features),
+                ScopeOf(target.Root, features),
+                target.Root,
+                CommandTypes.IsTask(requestType) ? DefaultTask(requestType, target.Root, schemaOf(requestType)) : null);
             allTexts[requestType] = new Texts(aggregates.TextsOf(target.Root), noProperties);
         }
 
@@ -155,7 +173,8 @@ public sealed class CommandConfigurationRegistry
         Type configurationType,
         Type closedInterface,
         Type requestType,
-        AggregateFeatureRegistry aggregates)
+        AggregateFeatureRegistry aggregates,
+        string? schema)
     {
         if (requestType.IsAbstract || requestType.IsInterface)
         {
@@ -210,56 +229,53 @@ public sealed class CommandConfigurationRegistry
                 + "collection of a Versioned() root does, and never a task. Drop WithoutExpectedVersion().");
         }
 
-        EnsureBackground(configurationType, requestType, builder);
+        TaskSettings? task = aggregateRoot is not null && CommandTypes.IsTask(requestType)
+            ? TaskOf(configurationType, requestType, builder.TaskDeclaration, DefaultTask(requestType, aggregateRoot, schema))
+            : null;
 
         bool requiresVersion = requiredByType && !builder.ExpectedVersionWaived;
         PermissionScope scope = ScopeOf(aggregateRoot, features);
 
-        CommandSettings declared = builder.Permissions.Count == 0 && !requiresVersion && aggregateRoot is null && builder.ScheduleName is null && builder.BackgroundDeclaration is null
+        CommandSettings declared = builder.Permissions.Count == 0 && !requiresVersion && aggregateRoot is null
             ? CommandSettings.None
-            : new CommandSettings([.. builder.Permissions.Distinct()], requiresVersion, scope, aggregateRoot, builder.ScheduleName, builder.BackgroundDeclaration);
+            : new CommandSettings([.. builder.Permissions.Distinct()], requiresVersion, scope, aggregateRoot, task);
 
         TextCategory? category = builder.TextCategory ?? (aggregateRoot is null ? null : aggregates.TextsOf(aggregateRoot));
 
         return (declared, new Texts(category, builder.HiddenProperties.ToHashSet(StringComparer.Ordinal)));
     }
 
-    private static void EnsureBackground(Type configurationType, Type requestType, CommandConfigurationBuilder builder)
+    private static TaskSettings DefaultTask(Type requestType, Type root, string? schema) =>
+        new(TaskNames.Derive(schema, root, requestType), TaskSettings.DefaultInactivityTimeout, MaxDuration: null, Cancelable: true, Schedulable: false);
+
+    /// <summary>What <c>Task(...)</c> declared over <paramref name="defaults"/>, refused when a timeout is out of range.</summary>
+    private static TaskSettings TaskOf(Type configurationType, Type requestType, TaskBuilder declared, TaskSettings defaults)
     {
-        if (builder.BackgroundDeclaration is not { } background)
-        {
-            return;
-        }
+        string who = $"Command configuration {configurationType.FullName} declares Task(...) for {requestType.FullName} ";
+        TimeSpan inactivity = declared.DeclaredInactivityTimeout ?? defaults.InactivityTimeout;
 
-        string who = $"Command configuration {configurationType.FullName} calls Background() for {requestType.FullName}, ";
-
-        if (builder.ScheduleName is null)
-        {
-            throw new InvalidOperationException(who + "which is not Schedulable(name): a background command runs as a scheduled run item, so declare Schedulable(name) too.");
-        }
-
-        if (background.Timeout is { } timeout && timeout <= TimeSpan.Zero)
-        {
-            throw new InvalidOperationException(who + $"with a timeout of {timeout}, which must be greater than zero.");
-        }
-
-        if (background.Timeout > BackgroundSettings.MaxTimeout)
+        if (inactivity <= TimeSpan.Zero || inactivity > TaskSettings.MaxInactivityTimeout)
         {
             throw new InvalidOperationException(
-                who + $"with a timeout of {background.Timeout}, which is above the maximum of {Describe(BackgroundSettings.MaxTimeout)}.");
+                who + $"with an inactivity timeout of {Describe(inactivity)}, which must be above zero and at most "
+                + $"{Describe(TaskSettings.MaxInactivityTimeout)}.");
         }
 
-        // The generated views start a background command from a root's action, with no value to ask for and no confirm:
-        // the shape a root's ITransitionCommand, or an entity task, has. Any other effect would be sent there inline, and refused.
-        IReadOnlyList<Type> effects = CommandTypes.EffectsOf(requestType);
-
-        if (!effects.Contains(typeof(ITransitionCommand<,>)) && !effects.Contains(typeof(ITaskCommand<,>)))
+        if (declared.DeclaredMaxDuration is { } max && (max <= TimeSpan.Zero || max < inactivity))
         {
             throw new InvalidOperationException(
-                who + "which is not an ITransitionCommand or ITaskCommand on an aggregate root: only a root's transition or "
-                + "entity task is started in the background by the generated views. Declare the request as "
-                + "ITaskCommand<TRoot, TId> or drop Background().");
+                who + $"with a maximum duration of {Describe(max)}, which must be above zero and at least its inactivity "
+                + $"timeout of {Describe(inactivity)}.");
         }
+
+        return defaults with
+        {
+            Name = declared.DeclaredName ?? defaults.Name,
+            InactivityTimeout = inactivity,
+            MaxDuration = declared.DeclaredMaxDuration,
+            Cancelable = !declared.IsNotCancelable,
+            Schedulable = declared.IsSchedulable,
+        };
     }
 
     /// <summary>A whole number of hours or minutes in words ("1 hour", "90 minutes"); anything else as a TimeSpan.</summary>
@@ -326,6 +342,9 @@ public sealed class CommandConfigurationRegistry
 
     private static bool IsCommand(Type requestType) =>
         requestType.GetInterfaces().Any(type => type.IsGenericType && type.GetGenericTypeDefinition() == typeof(ICommand<>));
+
+    private static IEnumerable<Type> RequestsConfiguredBy(Type configurationType) =>
+        configurationType.GetInterfaces().Where(IsClosedConfigurationInterface).Select(type => type.GetGenericArguments()[0]);
 
     private static bool IsClosedConfigurationInterface(Type type) =>
         type.IsGenericType && type.GetGenericTypeDefinition() == typeof(ICommandConfiguration<>);

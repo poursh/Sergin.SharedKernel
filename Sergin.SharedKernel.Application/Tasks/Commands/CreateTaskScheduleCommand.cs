@@ -49,7 +49,7 @@ internal sealed class CreateTaskScheduleCommandHandler(
         ITaskEngine engine = engines.Engine;
 
         // The validator refused a template the catalogue does not hold.
-        TaskDescriptor command = catalog.For(request.Template.GetType())!;
+        TaskDescriptor command = catalog.ByRequest(request.Template.GetType())!;
 
         ErrorOr<Success> allowed = await authority.EnsureMayScheduleAsync(command.RequestType, cancellationToken);
 

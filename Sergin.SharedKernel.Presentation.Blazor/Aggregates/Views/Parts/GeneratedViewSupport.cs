@@ -128,14 +128,14 @@ internal static class GeneratedViewSupport
 
     /// <summary>
     /// Sends a command built from the record's id, at <paramref name="version"/> only when the command is version-guarded;
-    /// a background command is started as a run over the record instead, answering its
+    /// a task is started as a run over the record instead, answering its
     /// <see cref="TaskRunStartedResponse"/> with no version sent or read.
     /// </summary>
     public static Task<ViewSendResult> SendFromIdAsync(ISerginDispatcher dispatcher, CommandView command, Guid id, RowVersion? version, string? label = null)
     {
         ArgumentNullException.ThrowIfNull(command);
 
-        return command.Background is not null
+        return command.Task is not null
             ? StartManyAsync(dispatcher, command, [new TaskTarget(id, null, label)])
             : SendAsync(dispatcher, command, command.BuildFromId!(id), version);
     }

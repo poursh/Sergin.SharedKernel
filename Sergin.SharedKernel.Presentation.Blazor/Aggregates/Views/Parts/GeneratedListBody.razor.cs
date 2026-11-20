@@ -240,7 +240,7 @@ public sealed partial class GeneratedListBody<TItem> : IGeneratedListBody
     {
         List<SerginMenuItem> items = [];
 
-        if (command.ScheduleName is not null && command.BuildFromId is not null && canManageSchedules)
+        if (command.Task is { Schedulable: true } && command.BuildFromId is not null && canManageSchedules)
         {
             items.Add(new SerginMenuItem(
                 TaskUiTexts.ScheduleAction,
@@ -271,7 +271,7 @@ public sealed partial class GeneratedListBody<TItem> : IGeneratedListBody
         {
             ErrorPresenter.Notify(result.Errors);
         }
-        else if (command.Background is not null)
+        else if (command.Task is not null)
         {
             // Only started: nothing has changed yet, so the rows are not read again.
             ActivityPanel.NotifyStarted(Snackbar, Localizer, Localizer.Text(ShellTexts.CommandActions.BackgroundStarted));
@@ -323,7 +323,7 @@ public sealed partial class GeneratedListBody<TItem> : IGeneratedListBody
     {
         Guid id = IdOf(item);
 
-        if (command.Background is not null)
+        if (command.Task is not null)
         {
             ViewSendResult started = await GeneratedViewSupport.SendFromIdAsync(Dispatcher, command, id, version: null, LabelOf(item));
             return started.IsError ? ErrorsOf(started) : Result.Success;
@@ -373,7 +373,7 @@ public sealed partial class GeneratedListBody<TItem> : IGeneratedListBody
             }
             else if (command.Role == CommandRole.Transition)
             {
-                IReadOnlyList<SerginBulkMenuItem<TItem>> menu = command.ScheduleName is not null && canManageSchedules
+                IReadOnlyList<SerginBulkMenuItem<TItem>> menu = command.Task is { Schedulable: true } && canManageSchedules
                     ?
                     [
                         new SerginBulkMenuItem<TItem>(
@@ -399,7 +399,7 @@ public sealed partial class GeneratedListBody<TItem> : IGeneratedListBody
 
     private async Task RunSelectedAsync(CommandView command, IReadOnlyList<TItem> items)
     {
-        if (command.Background is not null)
+        if (command.Task is not null)
         {
             await StartSelectedAsync(command, items);
             return;

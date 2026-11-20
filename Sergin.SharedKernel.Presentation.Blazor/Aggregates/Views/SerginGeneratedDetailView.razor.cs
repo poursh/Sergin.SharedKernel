@@ -49,7 +49,7 @@ namespace Sergin.SharedKernel.Presentation.Blazor.Aggregates.Views;
 /// prefilled from the record; Inline, for a user who holds its permissions, the detail field itself as a select or switch
 /// (sent on change) or, for any other value, a <see cref="GeneratedInlineEditCard"/> below the fields. Each send goes
 /// through <see cref="GeneratedSetProperty"/>; every error is shown and the record is read again after any outcome.
-/// A <c>Background()</c> command's action carries a spinner while the activity indicator lists its run on this record as
+/// A task's action carries a spinner while the activity indicator lists its run on this record as
 /// unfinished, and stays clickable; the view re-renders when the indicator's rows change.
 /// </remarks>
 public sealed partial class SerginGeneratedDetailView<TRoot> : IDisposable
@@ -187,7 +187,7 @@ public sealed partial class SerginGeneratedDetailView<TRoot> : IDisposable
     // A background command's run on this record, as the indicator last read it: one-record runs only, since a run over
     // several records names none of them in the activity read.
     private bool IsBackgroundRunning(CommandView command) =>
-        command is { Background: not null, ScheduleName: { } name } && ActivityPanel.IsRunning(name, Id);
+        command is { Task: { } task } && ActivityPanel.IsRunning(task.Name, Id);
 
     protected override async Task OnInitializedAsync()
     {
@@ -201,7 +201,7 @@ public sealed partial class SerginGeneratedDetailView<TRoot> : IDisposable
 
         // Only a root with a background command has an action to mark busy. Subscribed before the first await, so a view
         // disposed while it initializes has already subscribed and unsubscribes.
-        if (Model.Commands.Any(command => command.Background is not null))
+        if (Model.Commands.Any(command => command.Task is not null))
         {
             ActivityPanel.RowsChanged += OnActivityChanged;
             watchingActivity = true;
@@ -354,7 +354,7 @@ public sealed partial class SerginGeneratedDetailView<TRoot> : IDisposable
 
         // A background command was only started: nothing has changed yet, so the record is not read again; the schedule
         // section is, so it lists the new run and polls it while it is Running.
-        if (command.Background is not null)
+        if (command.Task is not null)
         {
             ActivityPanel.NotifyStarted(Snackbar, Localizer, Localizer.Text(ShellTexts.CommandActions.BackgroundStarted));
 
@@ -637,7 +637,7 @@ public sealed partial class SerginGeneratedDetailView<TRoot> : IDisposable
         List<SerginMenuItem> items = [];
         PermissionDefinition? permission = command.Permissions.FirstOrDefault();
 
-        if (command.ScheduleName is { } name && canManageSchedules)
+        if (command.Task is { Schedulable: true, Name: var name } && canManageSchedules)
         {
             items.Add(new SerginMenuItem(
                 TaskUiTexts.ScheduleAction,

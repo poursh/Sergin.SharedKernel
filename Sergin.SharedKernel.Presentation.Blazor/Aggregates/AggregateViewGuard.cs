@@ -128,13 +128,13 @@ public static class AggregateViewGuard
     /// </summary>
     private static void EnsureSchedulableFromId(DeclaredView view, IReadOnlyCollection<CommandView> commands)
     {
-        CommandView? offender = commands.FirstOrDefault(command => command is { ScheduleName: not null, BuildFromId: null, Hidden: false });
+        CommandView? offender = commands.FirstOrDefault(command => command is { Task.Schedulable: true, BuildFromId: null, Hidden: false });
 
         if (offender is not null)
         {
             throw Refuse(
                 view,
-                $"{offender.Request.FullName} is Schedulable(\"{offender.ScheduleName}\"), and a generated detail view schedules it from the "
+                $"{offender.Request.FullName} is a Schedulable() task (\"{offender.Task!.Name}\"), and a generated detail view schedules it from the "
                 + "record's id alone, but its constructor takes more than the id. Give it a constructor of only the id, or "
                 + $"Command<{offender.Request.Name}>().Hidden() it.");
         }
@@ -192,8 +192,9 @@ public static class AggregateViewGuard
         AggregateViewBuilder builder = view.Builder;
 
         EnsureCommandsOfRoot(view, commands);
-        EnsureIdOnly(view, commands);
+        // Before the id-only rule: a task is a transition until its own role lands, and its schedule refusal says more.
         EnsureSchedulableFromId(view, commands);
+        EnsureIdOnly(view, commands);
         EnsureQueryShapes(view, getOne, overview, entityOverview, audit);
         EnsureRecord(view, builder.Root.Name, builder.DetailFields?.Record, getOneResponse, "Detail", "GetOne query's response");
         EnsureRecord(view, builder.Root.Name, builder.ListFields?.Record, listItem, "List", "list query's item");

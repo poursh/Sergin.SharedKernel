@@ -18,7 +18,10 @@ namespace Sergin.SharedKernel.Presentation.Blazor.Aggregates.Model;
 /// <param name="Permissions">The permissions its configuration requires.</param>
 /// <param name="AnyScope">Whether they are checked on any scope (an aggregate that is not <c>Scoped()</c>).</param>
 /// <param name="RequiresVersion">Whether it is sent at the record's version.</param>
-/// <param name="ScheduleName">The name its configuration gave with <c>Schedulable(name)</c>, or null.</param>
+/// <param name="Task">
+/// How it runs when it is a task (<c>ITaskCommand</c>), or null: a task is never sent inline, a view starts it as a run
+/// over the record (or the selected rows) and reads no version, and offers Schedule… for one that is <c>Schedulable()</c>.
+/// </param>
 /// <param name="Selectable">Whether it may run once per selected row (<c>ISelectable</c>).</param>
 /// <param name="SucceededText">The text shown after it succeeds, placeholders filled from the loaded record; null for none.</param>
 /// <param name="ConfirmTitle">The confirm's title (a delete's, or any command's from <c>Confirm(...)</c>), or null for the default.</param>
@@ -51,10 +54,6 @@ namespace Sergin.SharedKernel.Presentation.Blazor.Aggregates.Model;
 /// parent's id; null for any other command, and for a hidden one.
 /// </param>
 /// <param name="MoveParentField">The move command's <c>NewParentId</c> field text, which labels its dialog's parent picker; null with no <paramref name="BuildMove"/>.</param>
-/// <param name="Background">
-/// What its configuration declared with <c>Background(timeout)</c>, or null: such a command is never sent inline, a view
-/// starts it as a background run over the record (or the selected rows) and reads no version.
-/// </param>
 public sealed record CommandView(
     Type Request,
     CommandRole Role,
@@ -64,7 +63,7 @@ public sealed record CommandView(
     IReadOnlyCollection<PermissionDefinition> Permissions,
     bool AnyScope,
     bool RequiresVersion,
-    string? ScheduleName,
+    TaskSettings? Task,
     bool Selectable,
     TextDefinition? SucceededText,
     TextDefinition? ConfirmTitle,
@@ -85,8 +84,7 @@ public sealed record CommandView(
     Func<object, bool>? AppliesWhen = null,
     TextDefinition? ConfirmLabel = null,
     Func<Guid, Guid, object>? BuildMove = null,
-    FieldText? MoveParentField = null,
-    BackgroundSettings? Background = null)
+    FieldText? MoveParentField = null)
 {
     /// <summary>
     /// The values a delete's confirm asks for: its constructor's shown parameters beside the <c>Id</c>, built with

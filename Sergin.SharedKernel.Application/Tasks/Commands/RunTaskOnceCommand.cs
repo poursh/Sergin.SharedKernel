@@ -36,7 +36,7 @@ internal sealed class RunTaskOnceCommandHandler(
         ArgumentNullException.ThrowIfNull(request);
 
         // The validator refused a template the catalogue does not hold.
-        TaskDescriptor command = catalog.For(request.Template.GetType())!;
+        TaskDescriptor command = catalog.ByRequest(request.Template.GetType())!;
 
         ErrorOr<Success> allowed = await authority.EnsureMayScheduleAsync(command.RequestType, cancellationToken);
 

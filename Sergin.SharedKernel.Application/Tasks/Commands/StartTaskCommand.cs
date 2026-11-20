@@ -4,6 +4,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
 using Sergin.SharedKernel.Application.Commands;
 using Sergin.SharedKernel.Application.Commands.Configuration;
+using Sergin.SharedKernel.Application.Commands.Types;
 using Sergin.SharedKernel.Application.Localizations.Validation;
 using Sergin.SharedKernel.Application.Securities.Authorization;
 using Sergin.SharedKernel.Application.Securities.Users;
@@ -15,7 +16,7 @@ namespace Sergin.SharedKernel.Application.Tasks.Commands;
 public sealed record TaskTarget(Guid TargetId, Guid? RootId = null, string? Label = null);
 
 /// <summary>
-/// Starts a background command (one whose configuration calls <c>Background()</c>) over <paramref name="Targets"/>: one
+/// Starts a task (<see cref="ITaskCommand"/>) over <paramref name="Targets"/>: one
 /// run with no task and one item per target, acting for the caller in the caller's current scope, in the store of the
 /// module that owns the command. Unlike Run once it needs no Manage permission, only the command's own. Answers as soon
 /// as the items are enqueued.
@@ -39,15 +40,15 @@ internal sealed class StartTaskCommandValidator : AbstractValidator<StartTaskCom
 
         int maxTargets = options.Value.MaxTargets;
 
-        TaskDescriptor? CommandOf(IBaseCommand? template) => template is null ? null : catalog.For(template.GetType());
+        TaskDescriptor? CommandOf(IBaseCommand? template) => template is null ? null : catalog.ByRequest(template.GetType());
 
         // The schema is the catalogue's, never the caller's: the shared rules then only refuse an uncatalogued command.
         TaskScheduleRules.TemplateAndTargets(
-            this, catalog, request => CommandOf(request.Template)?.Schema ?? string.Empty, request => request.Template, request => ToTargets(request.Targets));
+            this, catalog, request => CommandOf(request.Template)?.Schema ?? string.Empty, request => request.Template, request => ToTargets(request.Targets), schedulableOnly: false);
 
         // Like the shared rules, these report under the scheduled-task error codes rather than a property name.
         RuleFor(request => request.Template)
-            .Must(template => CommandOf(template) is not { Background: null })
+            .Must(template => template is null || CommandTypes.IsTask(template.GetType()))
             .OverridePropertyName(TaskErrors.NotBackground.Code)
             .WithMessage(_ => ValidationTexts.Template(TaskTexts.NotBackground));
 
@@ -81,7 +82,7 @@ internal sealed class StartTaskCommandHandler(
         ArgumentNullException.ThrowIfNull(request);
 
         // The validator refused a template the catalogue does not hold, or holds with no schema.
-        TaskDescriptor command = catalog.For(request.Template.GetType())!;
+        TaskDescriptor command = catalog.ByRequest(request.Template.GetType())!;
         string schema = command.Schema!;
 
         string arguments = TaskCommandFactory.ToArguments(request.Template);
@@ -147,7 +148,7 @@ internal sealed class StartTaskCommandHandler(
 
         foreach (TaskTarget target in targets)
         {
-            ErrorOr<IBaseCommand> built = TaskCommandFactory.Build(command, arguments, target.TargetId, target.RootId);
+            ErrorOr<IBaseCommand> built = TaskCommandFactory.Build(command, arguments, target.TargetId);
 
             if (built.IsError)
             {
