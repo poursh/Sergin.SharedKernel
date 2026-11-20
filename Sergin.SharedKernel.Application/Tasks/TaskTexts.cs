@@ -22,6 +22,9 @@ public static class TaskTexts
     /// <summary>The same record picked twice: a schedule holds each record once.</summary>
     public static readonly TextDefinition DuplicateTargets = errors.Text("DuplicateTargets", "Each record can be picked only once.");
 
+    /// <summary>A target picked for a task that acts on one record, with no record id.</summary>
+    public static readonly TextDefinition TargetWithoutId = errors.Text("TargetWithoutId", "Each picked record must have an id.");
+
     /// <summary>A child-entity command's target that does not name its parent record.</summary>
     public static readonly TextDefinition TargetWithoutRoot = errors.Text("TargetWithoutRoot", "Each picked record must name the record it belongs to.");
 

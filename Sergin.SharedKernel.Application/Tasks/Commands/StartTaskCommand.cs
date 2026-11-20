@@ -50,7 +50,7 @@ internal sealed class StartTaskCommandValidator : AbstractValidator<StartTaskCom
 
         RuleFor(request => request.Targets)
             .Must(targets => targets.All(target => target.TargetId is not null))
-            .WithMessage(_ => ValidationTexts.Template(TaskTexts.NoTargets))
+            .WithMessage(_ => ValidationTexts.Template(TaskTexts.TargetWithoutId))
             .When(request => request.Targets is not null && CommandOf(request.Template) is { TargetKind: CommandTargetKind.Entity });
 
         // Like the shared rules, these report under the task error codes rather than a property name.
@@ -87,6 +87,13 @@ internal sealed class StartTaskCommandHandler(
         TaskDescriptor command = catalog.ByRequest(request.Template.GetType())!;
         string schema = command.Schema!;
 
+        // The validator refused a missing id for an entity task. Task 8: a collection task takes no target id; until it
+        // is built, a start that reaches here without one is refused rather than thrown on.
+        if (request.Targets.Any(target => target.TargetId is null))
+        {
+            return TaskErrors.TargetWithoutId;
+        }
+
         string arguments = TaskCommandFactory.ToArguments(request.Template);
 
         // The command's own permissions, checked as the pipeline checks them (no Manage: a start is not a schedule), and,
@@ -118,7 +125,7 @@ internal sealed class StartTaskCommandHandler(
             stores.For(schema),
             new TaskRunStart(
                 null, TaskRunTrigger.Manual, caller.Id, scopeId, scopePath, command.Name, arguments,
-                [.. request.Targets.Select(target => new TaskScheduleTarget(target.TargetId!.Value, null))],
+                [.. request.Targets.Select(target => new TaskScheduleTarget(target.TargetId.GetValueOrDefault(), null))],
                 LabelsOf(request.Targets)),
             cancellationToken);
 
@@ -153,7 +160,7 @@ internal sealed class StartTaskCommandHandler(
 
         foreach (TaskTarget target in targets)
         {
-            ErrorOr<IBaseCommand> built = TaskCommandFactory.Build(command, arguments, target.TargetId!.Value);
+            ErrorOr<IBaseCommand> built = TaskCommandFactory.Build(command, arguments, target.TargetId.GetValueOrDefault());
 
             if (built.IsError)
             {

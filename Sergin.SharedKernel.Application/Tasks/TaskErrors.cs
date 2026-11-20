@@ -53,6 +53,10 @@ public static class TaskErrors
     public static Error NotSchedulable { get; } =
         Error.Validation(NotSchedulableCode, TaskTexts.NotSchedulable.Default, ErrorText.Of(TaskTexts.NotSchedulable.Key.Value));
 
+    /// <summary>A start target with no record id for a task that acts on one record; reported under <c>Targets</c>.</summary>
+    public static Error TargetWithoutId { get; } =
+        Error.Validation("Targets", TaskTexts.TargetWithoutId.Default, ErrorText.Of(TaskTexts.TargetWithoutId.Key.Value));
+
     /// <summary>More targets than a command that runs once per selected row may take, or more than one for one that does not.</summary>
     public static Error TooManyTargets { get; } =
         Error.Validation("Tasks.TooManyTargets", "This command cannot be scheduled for that many records.");
