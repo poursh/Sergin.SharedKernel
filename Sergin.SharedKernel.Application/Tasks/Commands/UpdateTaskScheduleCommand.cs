@@ -40,6 +40,7 @@ internal sealed class UpdateTaskScheduleCommandHandler(
     ITaskStoreResolver stores,
     TaskCatalog catalog,
     TaskAuthority authority,
+    TaskArgumentCheck argumentCheck,
     TaskEngineAccessor engines,
     IUserContext caller,
     ILogger<UpdateTaskScheduleCommandHandler> logger) : ICommandHandler<UpdateTaskScheduleCommand, UpdateTaskScheduleCommandResponse>
@@ -74,12 +75,22 @@ internal sealed class UpdateTaskScheduleCommandHandler(
             return allowed.Errors;
         }
 
+        string arguments = TaskCommandFactory.ToArguments(request.Template);
+
+        // The task's own validator over what will be stored, before anything is: the dialog's fields are not the guarantee.
+        List<Error> refused = await argumentCheck.CheckScheduleAsync(command, arguments, request.Targets, cancellationToken);
+
+        if (refused.Count > 0)
+        {
+            return refused;
+        }
+
         var before = new TaskScheduleTrigger(request.Schema, task.Id, task.Cron, task.TimeZoneId);
         var after = new TaskScheduleTrigger(request.Schema, task.Id, request.Cron, request.TimeZoneId);
         Guid? existing = task.EngineTriggerId;
         Guid linked = existing ?? Guid.Empty;
 
-        task.Update(TaskCommandFactory.ToArguments(request.Template), request.Targets, request.Cron, request.TimeZoneId, caller.Id);
+        task.Update(arguments, request.Targets, request.Cron, request.TimeZoneId, caller.Id);
 
         // A task with no trigger yet (an engine that lost it is the rebuild's to heal) gets a new one.
         bool changed = await TaskScheduleTriggerCalls.TryAsync(

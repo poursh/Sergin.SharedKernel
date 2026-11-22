@@ -38,6 +38,7 @@ internal sealed class CreateTaskScheduleCommandHandler(
     ITaskStoreResolver stores,
     TaskCatalog catalog,
     TaskAuthority authority,
+    TaskArgumentCheck argumentCheck,
     TaskEngineAccessor engines,
     IUserContext caller,
     ILogger<CreateTaskScheduleCommandHandler> logger) : ICommandHandler<CreateTaskScheduleCommand, CreateTaskScheduleCommandResponse>
@@ -58,9 +59,19 @@ internal sealed class CreateTaskScheduleCommandHandler(
             return allowed.Errors;
         }
 
+        string arguments = TaskCommandFactory.ToArguments(request.Template);
+
+        // The task's own validator over what will be stored, before anything is: the dialog's fields are not the guarantee.
+        List<Error> refused = await argumentCheck.CheckScheduleAsync(command, arguments, request.Targets, cancellationToken);
+
+        if (refused.Count > 0)
+        {
+            return refused;
+        }
+
         ITaskStore store = stores.For(request.Schema);
         var task = TaskSchedule.Create(
-            command.Name, TaskCommandFactory.ToArguments(request.Template), request.Targets, request.Cron, request.TimeZoneId, caller.Id);
+            command.Name, arguments, request.Targets, request.Cron, request.TimeZoneId, caller.Id);
         var trigger = new TaskScheduleTrigger(request.Schema, task.Id, request.Cron, request.TimeZoneId);
         Guid triggerId = Guid.Empty;
 

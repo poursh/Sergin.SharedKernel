@@ -507,9 +507,7 @@ public sealed partial class SerginTaskSchedulesSection : IDisposable
 
         bool collection = command.TargetKind == CommandTargetKind.Collection;
         Guid? targetId = collection ? null : task.Targets.First().TargetId;
-
-        // The template's target id is ignored when it is saved; the first target's only lets the command be built.
-        ErrorOr<IBaseCommand> template = TaskCommandFactory.Build(command, task.Arguments, targetId);
+        ErrorOr<IBaseCommand> template = SerginScheduleArguments.Rebuild(command, task);
 
         if (template.IsError)
         {
@@ -525,7 +523,8 @@ public sealed partial class SerginTaskSchedulesSection : IDisposable
         if (ActivityRows.CommandViewOf(task.CommandName, Catalog, Views) is { Task: not null } view && view.TaskFields.Count > 0)
         {
             // The fields start from the stored arguments (the dialog reads them again with the version, and after a stale
-            // save), and the template is rebuilt from what the person leaves there.
+            // save), and the template is rebuilt from what the person leaves there. A NotShown argument has no field: the
+            // template gives it its declared default.
             GeneratedFormValues arguments = SerginScheduleArguments.Of(view, template.Value);
 
             return new SerginScheduleRequest(

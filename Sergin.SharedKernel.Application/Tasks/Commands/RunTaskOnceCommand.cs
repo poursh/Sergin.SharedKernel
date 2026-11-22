@@ -27,6 +27,7 @@ internal sealed class RunTaskOnceCommandHandler(
     ITaskStoreResolver stores,
     TaskCatalog catalog,
     TaskAuthority authority,
+    TaskArgumentCheck argumentCheck,
     TaskRunStarter starter,
     IUserContext caller,
     IAuthorizationScopeContext currentScope,
@@ -46,6 +47,16 @@ internal sealed class RunTaskOnceCommandHandler(
             return allowed.Errors;
         }
 
+        string arguments = TaskCommandFactory.ToArguments(request.Template);
+
+        // The task's own validator over what will be stored, before the run starts: the dialog's fields are not the guarantee.
+        List<Error> refused = await argumentCheck.CheckScheduleAsync(command, arguments, request.Targets, cancellationToken);
+
+        if (refused.Count > 0)
+        {
+            return refused;
+        }
+
         Guid scopeId = currentScope.ScopeId;
 
         if (await scopePaths.GetPathAsync(scopeId, cancellationToken) is not { } scopePath)
@@ -62,7 +73,7 @@ internal sealed class RunTaskOnceCommandHandler(
                 scopeId,
                 scopePath,
                 command.Name,
-                TaskCommandFactory.ToArguments(request.Template),
+                arguments,
                 request.Targets),
             cancellationToken);
 

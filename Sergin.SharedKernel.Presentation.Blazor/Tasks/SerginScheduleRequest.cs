@@ -1,6 +1,9 @@
 using Microsoft.AspNetCore.Components;
 using MudBlazor;
+using Sergin.SharedKernel.Application.Commands;
 using Sergin.SharedKernel.Application.Commands.Types;
+using Sergin.SharedKernel.Application.Tasks;
+using Sergin.SharedKernel.Application.Tasks.Queries;
 using Sergin.SharedKernel.Domain.Tasks;
 using Sergin.SharedKernel.Presentation.Blazor.Aggregates.Model;
 using Sergin.SharedKernel.Presentation.Blazor.Aggregates.Runtime;
@@ -92,6 +95,20 @@ public static class SerginScheduleArguments
         values.SetDefaults(task.TaskFields);
 
         return values;
+    }
+
+    /// <summary>
+    /// The command a saved schedule stores, rebuilt from its arguments; the first target's id only lets an entity task be
+    /// built (a schedule's template id is ignored when it is saved), and a task over the collection is built with none.
+    /// </summary>
+    public static ErrorOr<IBaseCommand> Rebuild(TaskDescriptor command, TaskScheduleResponse saved)
+    {
+        ArgumentNullException.ThrowIfNull(command);
+        ArgumentNullException.ThrowIfNull(saved);
+
+        Guid? targetId = command.TargetKind == CommandTargetKind.Collection ? null : saved.Targets.FirstOrDefault()?.TargetId;
+
+        return TaskCommandFactory.Build(command, saved.Arguments, targetId);
     }
 
     /// <summary>

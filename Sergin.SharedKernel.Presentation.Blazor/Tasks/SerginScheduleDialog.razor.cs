@@ -174,10 +174,10 @@ public sealed partial class SerginScheduleDialog
         model.Cron = saved.Cron;
         model.TimeZoneId = saved.TimeZoneId;
 
-        // The template's target id is ignored when it is saved; the first target's only lets the command be built.
+        // A NotShown argument has no field: the template gives it its declared default, the only value a form could set.
         if (ArgumentFields.Count > 0
             && Catalog.ByName(saved.CommandName) is { } command
-            && TaskCommandFactory.Build(command, saved.Arguments, saved.Targets.FirstOrDefault()?.TargetId) is { IsError: false } built)
+            && SerginScheduleArguments.Rebuild(command, saved) is { IsError: false } built)
         {
             foreach ((string name, object? value) in SerginScheduleArguments.Of(TaskView!, built.Value).Values)
             {
@@ -194,8 +194,17 @@ public sealed partial class SerginScheduleDialog
     private UpdateTaskScheduleCommand ToUpdate() =>
         new(Schema, EditingId!, BuildTemplate(), Targets, model.Cron, model.TimeZoneId);
 
-    private async Task RunNowAsync()
+    // Internal for the schedule dialog tests. The arguments are validated first, as Save validates them (the server checks
+    // them again); a cron the picker shows as invalid does not matter to a run now, but the form validates it with the rest.
+    internal async Task RunNowAsync()
     {
+        await form.ValidateAsync();
+
+        if (!form.IsValid)
+        {
+            return;
+        }
+
         busy = true;
 
         try

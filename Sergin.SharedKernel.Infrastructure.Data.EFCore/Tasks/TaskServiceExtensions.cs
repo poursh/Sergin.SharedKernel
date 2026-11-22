@@ -58,6 +58,7 @@ public static class TaskServiceExtensions
         // The management commands: their handlers and validators by hand, for the same reason; validators scoped, as
         // AddSerginCore registers a module's, so they live in the request scope the validation behavior runs in.
         services.AddScoped<TaskAuthority>();
+        services.AddScoped<TaskArgumentCheck>();
         services.AddScoped<TaskEngineAccessor>();
         services.AddTransient<IRequestHandler<CreateTaskScheduleCommand, ErrorOr<CreateTaskScheduleCommandResponse>>, CreateTaskScheduleCommandHandler>();
         services.AddTransient<IRequestHandler<UpdateTaskScheduleCommand, ErrorOr<UpdateTaskScheduleCommandResponse>>, UpdateTaskScheduleCommandHandler>();
