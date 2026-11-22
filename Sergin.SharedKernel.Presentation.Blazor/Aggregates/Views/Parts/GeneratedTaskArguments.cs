@@ -10,9 +10,22 @@ namespace Sergin.SharedKernel.Presentation.Blazor.Aggregates.Views.Parts;
 /// the start: one run over the targets, the template built from the values with the first target's id, or one run with
 /// no record for a task over the collection.
 /// </summary>
-internal sealed class GeneratedTaskArguments(CommandView command, ISerginFormValidator validator)
+internal sealed class GeneratedTaskArguments
 {
-    public CommandView Command { get; } = command;
+    private readonly ISerginFormValidator validator;
+
+    /// <param name="command">The task.</param>
+    /// <param name="validator">The pipeline's validators, field by field.</param>
+    public GeneratedTaskArguments(CommandView command, ISerginFormValidator validator)
+    {
+        Command = command;
+        this.validator = validator;
+
+        // An argument that declares a default starts from it, so the form shows what Start would send.
+        Values.SetDefaults(command.TaskFields);
+    }
+
+    public CommandView Command { get; }
 
     public GeneratedFormValues Values { get; } = new();
 

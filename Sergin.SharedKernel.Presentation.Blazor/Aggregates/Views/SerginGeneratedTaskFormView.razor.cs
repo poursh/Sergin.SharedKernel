@@ -21,8 +21,8 @@ namespace Sergin.SharedKernel.Presentation.Blazor.Aggregates.Views;
 /// The argument form of <typeparamref name="TTask"/>, a task of <typeparamref name="TRoot"/>, generated from the root's
 /// <see cref="AggregateViewModel"/>: an input per argument (<see cref="CommandView.TaskFields"/>), each checked field by
 /// field by the pipeline's own validator over the task built from the form, and Start, which starts the task with the
-/// values. A task over one record is started over <see cref="Id"/> (or each of <see cref="Ids"/>, with the same values); a
-/// task over the collection over the current scope, with no record.
+/// values. A task over one record is started over <see cref="Id"/>; a task over the collection over the current scope,
+/// with no record. (A start over several records is the list's bulk dialog, <see cref="TaskFormDialog"/>.)
 /// </summary>
 /// <remarks>
 /// In <see cref="SerginEditMode.Page"/> (the default: the shape a module's routable page hosts at the task's
@@ -48,10 +48,6 @@ public sealed partial class SerginGeneratedTaskFormView<TRoot, TTask> : IDisposa
     /// <summary>The record a task over one record is started over; ignored for a task over the collection.</summary>
     [Parameter]
     public Guid? Id { get; set; }
-
-    /// <summary>The records a task over one record is started over with the same values, when <see cref="Id"/> is not set.</summary>
-    [Parameter]
-    public IReadOnlyCollection<Guid>? Ids { get; set; }
 
     /// <summary>How the form is shown; <see cref="SerginEditMode.Page"/> by default.</summary>
     [Parameter]
@@ -111,7 +107,7 @@ public sealed partial class SerginGeneratedTaskFormView<TRoot, TTask> : IDisposa
                 return [];
             }
 
-            return Id is { } id ? [new TaskTarget(id, Display(id))] : [.. (Ids ?? []).Select(target => new TaskTarget(target))];
+            return Id is { } id ? [new TaskTarget(id, Display(id))] : [];
         }
     }
 
@@ -161,10 +157,10 @@ public sealed partial class SerginGeneratedTaskFormView<TRoot, TTask> : IDisposa
 
     protected override async Task OnParametersSetAsync()
     {
-        if (OverRecords && Id is null && Ids is not { Count: > 0 })
+        if (OverRecords && Id is null)
         {
             throw new InvalidOperationException(
-                $"{typeof(TTask).FullName} is a task over one record, so its form needs the record: set Id (or Ids).");
+                $"{typeof(TTask).FullName} is a task over one record, so its form needs the record: set Id.");
         }
 
         record = null;

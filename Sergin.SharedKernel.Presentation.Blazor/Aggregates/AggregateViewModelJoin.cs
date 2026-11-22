@@ -972,9 +972,16 @@ internal sealed class AggregateViewModelJoin(
                 parameter,
                 declared?.ChildPickers.GetValueOrDefault(parameter.Name!),
                 getOneResponse,
-                declared?.FieldOverrides.GetValueOrDefault(parameter.Name!))),
+                declared?.FieldOverrides.GetValueOrDefault(parameter.Name!)) with
+            {
+                Default = DeclaredDefaultOf(parameter),
+            }),
         ];
     }
+
+    // A parameter's declared default as the value its input starts from; null without one (or with a null default).
+    private static object? DeclaredDefaultOf(ParameterInfo parameter) =>
+        parameter.HasDefaultValue && parameter.DefaultValue is not (null or DBNull or Missing) ? parameter.DefaultValue : null;
 
     private FormFieldView FormFieldOf(
         Type command, ParameterInfo parameter, ChildPickerDeclaration? picker, Type? getOneResponse, FormFieldOverride? overridden)

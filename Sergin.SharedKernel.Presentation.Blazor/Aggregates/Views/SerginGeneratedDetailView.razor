@@ -46,7 +46,7 @@
             @foreach (CommandView command in inlineTasks)
             {
                 <GeneratedTaskSection @key="command.Request" Command="command" Targets="RecordTargets" OnStarted="InlineTaskStarted"
-                                      Busy="IsTaskRunning(command)" />
+                                      Busy="IsTaskRunning(command)" MenuItems="MenuItemsOf(command)" />
             }
         }
         @if (Model.Tree is not null && Model.Routes.Detail is not null && record is not null)

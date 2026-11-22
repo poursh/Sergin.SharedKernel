@@ -1,5 +1,13 @@
 @* A task declared Edit(SerginEditMode.Inline): its argument form as a section of the host view, titled with the task's
-   label. Nested in a view's body, SerginView renders it outlined and collapsible. *@
+   label, with the schedule entries a schedulable task's action would have carried as text buttons after Start. Nested
+   in a view's body, SerginView renders it outlined and collapsible. *@
 <SerginView TitleText="Command.Label">
-    <GeneratedTaskForm Command="Command" Targets="Targets" OnStarted="OnStarted" Busy="Busy" />
+    <GeneratedTaskForm Command="Command" Targets="Targets" OnStarted="OnStarted" Busy="Busy">
+        @foreach (SerginMenuItem item in MenuItems)
+        {
+            <MudButton @key="item.Label" Variant="Variant.Text" StartIcon="@item.Icon" OnClick="item.OnClick">
+                @(item.LabelArguments is null ? Localizer.Text(item.Label) : Localizer.Text(item.Label, item.LabelArguments))
+            </MudButton>
+        }
+    </GeneratedTaskForm>
 </SerginView>

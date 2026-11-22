@@ -7,7 +7,7 @@
     <ChildContent>
         @foreach (CommandView command in inlineTasks)
         {
-            <GeneratedTaskSection @key="command.Request" Command="command" Busy="IsCollectionTaskRunning(command)" />
+            <GeneratedTaskSection @key="command.Request" Command="command" Busy="IsCollectionTaskRunning(command)" MenuItems="MenuItemsOf(command)" />
         }
         @Body
     </ChildContent>

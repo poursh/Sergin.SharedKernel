@@ -42,6 +42,10 @@ public enum FormInputKind
 /// <param name="EnumValues">A select's values, in declaration order; null for any other input.</param>
 /// <param name="ValueTexts">What a select's items show for each value, from the enum's declared value texts; null when none is declared or for any other input.</param>
 /// <param name="Component">For a <see cref="FormInputKind.Component"/>, the component that edits the value; null for any other input.</param>
+/// <param name="Default">
+/// The value the parameter declares as its default (<c>int Times = 3</c>), which a new form starts from; null when it
+/// declares none. A field the person never touched is submitted with it.
+/// </param>
 public sealed record FormFieldView(
     string Name,
     FieldText Label,
@@ -57,7 +61,8 @@ public sealed record FormFieldView(
     TextDefinition? ParentFirst = null,
     IReadOnlyList<object>? EnumValues = null,
     IReadOnlyDictionary<object, TextDefinition>? ValueTexts = null,
-    Type? Component = null);
+    Type? Component = null,
+    object? Default = null);
 
 /// <summary>A child picker's parent select: its label, and its placeholder or null.</summary>
 public sealed record FormParentLabel(TextDefinition Label, TextDefinition? Placeholder);
