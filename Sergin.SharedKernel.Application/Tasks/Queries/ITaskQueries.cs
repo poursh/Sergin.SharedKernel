@@ -6,7 +6,7 @@ using Sergin.SharedKernel.Domain.Tasks;
 namespace Sergin.SharedKernel.Application.Tasks.Queries;
 
 /// <summary>
-/// The scheduled-task reads, raw SQL over the module's schema named on each call. Implemented where the connection
+/// The task reads, raw SQL over the module's schema named on each call. Implemented where the connection
 /// factory is (the EF Core project); every method refuses a schema no module opted into, and every read of a task is
 /// narrowed to the live rows inside the caller's reach for the request's permission.
 /// </summary>

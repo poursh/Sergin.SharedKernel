@@ -59,11 +59,11 @@ public static class ShellTexts
         public static TextDefinition BulkDone { get; } =
             category.Text("BulkDone", "Done for {Count} records.", "Reported after a bulk action; {Count} is the number of records it ran on.");
 
-        /// <summary>What a generated view reports after starting a background command on one record.</summary>
+        /// <summary>What a generated view reports after starting a task on one record.</summary>
         public static TextDefinition BackgroundStarted { get; } =
             category.Text("BackgroundStarted", "Started. It keeps running in the background.");
 
-        /// <summary>What a generated list reports after starting a background command on its selected rows; <c>{Count}</c> is their number.</summary>
+        /// <summary>What a generated list reports after starting a task on its selected rows; <c>{Count}</c> is their number.</summary>
         public static TextDefinition BackgroundStartedMany { get; } =
             category.Text("BackgroundStartedMany", "Started for {Count} records. It keeps running in the background.");
     }

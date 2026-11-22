@@ -6,7 +6,7 @@ using Sergin.SharedKernel.Application.Tasks.Queries;
 namespace Sergin.SharedKernel.Application.Tasks;
 
 /// <summary>
-/// Every configuration scheduled tasks bring to a host that opts in: the aggregate's features and, as they arrive,
+/// Every configuration tasks bring to a host that opts in: the aggregate's features and, as they arrive,
 /// the management requests' command configurations. <c>AddModuleDbContext</c> registers them as one configuration
 /// source, once per host however many contexts opt in. Append new configuration types here.
 /// </summary>

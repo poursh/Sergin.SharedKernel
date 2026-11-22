@@ -4,7 +4,7 @@ using Sergin.SharedKernel.Domain.Localizations;
 
 namespace Sergin.SharedKernel.Application.Tasks;
 
-/// <summary>The errors a scheduled task or one of its run items can end with.</summary>
+/// <summary>The errors a task schedule, a task run or one of its items can end with.</summary>
 public static class TaskErrors
 {
     /// <summary>The run item's code once every attempt threw.</summary>

@@ -3,7 +3,7 @@ using Sergin.SharedKernel.Application.Tasks;
 namespace Sergin.SharedKernel.Presentation.Blazor.Tasks;
 
 /// <summary>
-/// The words of the scheduled-task parts — the schedule action and dialog, the cron picker, the section and the runs
+/// The words of the task parts — the schedule action and dialog, the cron picker, the section and the runs
 /// dialog — under <c>common.tasks.*</c>, beside the Application-side <see cref="TaskTexts"/> (same
 /// category, so one key space). Only these parts show them, so they are declared here, not in Application.
 /// </summary>

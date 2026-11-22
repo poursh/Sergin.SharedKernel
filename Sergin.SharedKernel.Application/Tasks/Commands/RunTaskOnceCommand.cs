@@ -8,7 +8,7 @@ using Sergin.SharedKernel.Domain.Tasks;
 namespace Sergin.SharedKernel.Application.Tasks.Commands;
 
 /// <summary>
-/// Sends a schedulable command to <paramref name="Targets"/> once, now, with no schedule saved: a one-off run, acting
+/// Sends a schedulable task to <paramref name="Targets"/> once, now, with no schedule saved: a one-off run, acting
 /// for the caller in the caller's current scope, stored only in run history. No overlap rule (it has no task); the
 /// per-item retry applies.
 /// </summary>

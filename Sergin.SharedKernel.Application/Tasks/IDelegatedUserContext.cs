@@ -3,7 +3,7 @@ using Sergin.SharedKernel.Application.Securities.Users;
 namespace Sergin.SharedKernel.Application.Tasks;
 
 /// <summary>
-/// The identity a scheduled run item sends as: the user the run acts for, marked as a scheduled run. Deliberately
+/// The identity a task run item sends as: the user the run acts for, marked as a task run. Deliberately
 /// not an <see cref="ISystemUserContext"/>, so every permission check looks up that user's stored grants exactly as
 /// for a signed-in request: a run is never more powerful than the person it acts for, and a revoked grant or a
 /// deactivated user fails the next run with Forbidden.

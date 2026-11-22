@@ -12,7 +12,7 @@ namespace Sergin.SharedKernel.Hosts.Tasks;
 
 /// <summary>
 /// Sergin's rows are the definition and the engine's store only their copy, so at host start the triggers are put back
-/// in step, for every module that opted into scheduled tasks:
+/// in step, for every module that opted into tasks:
 /// <list type="bullet">
 /// <item>a live task whose trigger the engine does not hold (none linked, or an id the engine lost) gets a new one, and
 /// the row links it;</item>

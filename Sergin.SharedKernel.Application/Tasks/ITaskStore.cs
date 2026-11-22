@@ -3,7 +3,7 @@ using Sergin.SharedKernel.Domain.Tasks;
 namespace Sergin.SharedKernel.Application.Tasks;
 
 /// <summary>
-/// One opted-in module's scheduled-task tables. Scoped, one per schema, over that module's own context; reach it
+/// One opted-in module's task tables. Scoped, one per schema, over that module's own context; reach it
 /// through <see cref="ITaskStoreResolver"/>. Changes are tracked until <see cref="SaveAsync"/>.
 /// </summary>
 public interface ITaskStore

@@ -27,7 +27,7 @@ public static class SerginBlazorKitExtensions
         // FromTypes reads only the types it is given, so the nested parts (Layout, Navigation, …) are passed too.
         services.AddSingleton(TextSource.FromTypes("common", TextOrigin.Ui, [typeof(ShellTexts), .. typeof(ShellTexts).GetNestedTypes()]));
 
-        // The scheduled-task parts' words, in the same key space as the Application-side TaskTexts.
+        // The task parts' words, in the same key space as the Application-side TaskTexts.
         services.AddSingleton(TextSource.FromTypes("common", TextOrigin.Ui, [typeof(TaskUiTexts), .. typeof(TaskUiTexts).GetNestedTypes()]));
 
         services.AddSingleton<TaskScheduleNextRuns>();

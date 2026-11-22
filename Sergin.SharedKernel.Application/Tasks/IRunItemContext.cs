@@ -1,8 +1,8 @@
 namespace Sergin.SharedKernel.Application.Tasks;
 
 /// <summary>
-/// Tells a request whether it is being sent as one scheduled run item. Set only by the run-item executor in the scope it
-/// opens for the send; null everywhere else, so a background command sent any other way can be refused.
+/// Tells a request whether it is being sent as one task run item. Set only by the run-item executor in the scope it
+/// opens for the send; null everywhere else, so a task sent any other way can be refused.
 /// </summary>
 public interface IRunItemContext
 {

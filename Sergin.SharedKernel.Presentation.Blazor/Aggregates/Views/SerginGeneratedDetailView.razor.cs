@@ -25,10 +25,10 @@ namespace Sergin.SharedKernel.Presentation.Blazor.Aggregates.Views;
 /// The detail view of <typeparamref name="TRoot"/>, generated from its <see cref="AggregateViewModel"/>: the record
 /// loaded through its GetOne query (at its version when the root is <c>Versioned()</c>), the header's reload, copy-link and (with an audit query) information
 /// buttons, a field per visible response property, an action per offered command, and, when a command is schedulable,
-/// the record's scheduled tasks. A configuration's <see cref="SerginViewSlot.DetailFields"/> component replaces the
+/// the record's schedules. A configuration's <see cref="SerginViewSlot.DetailFields"/> component replaces the
 /// fields, and its <see cref="SerginViewSlot.DetailEntities"/> component renders above the child sections (<see cref="SerginGeneratedChildSection"/>,
 /// one per child entity with a list query, given the record's version, or a child's own <c>Section&lt;T&gt;()</c> component,
-/// given <c>Context</c>) and the scheduled tasks; the
+/// given <c>Context</c>) and the schedules section; the
 /// <see cref="SerginViewSlot.DetailOverview"/> and <see cref="SerginViewSlot.DetailOverviewSummary"/> components fill the
 /// overview (the entity overview query read once per load, in <c>Context.Overview</c>); all get
 /// <c>Context</c>, an <see cref="AggregateViewContext"/>.
@@ -125,7 +125,7 @@ public sealed partial class SerginGeneratedDetailView<TRoot> : IDisposable
     private IEnumerable<FieldView> VisibleFields => Model.DetailFields.Where(candidate => !candidate.Hidden);
 
     // A child entity with a list query, or drawn by its own component, is a section of the detail, after the entities slot
-    // and before the scheduled tasks.
+    // and before the schedules section.
     private IEnumerable<ChildViewModel> Sections => Model.Children.Where(child => child.List is not null || child.Section is not null);
 
     // Each section is kept by its child type, so a reload asks each to load its rows again without remounting it; a child's

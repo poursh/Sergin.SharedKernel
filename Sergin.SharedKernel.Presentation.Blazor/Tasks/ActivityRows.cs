@@ -128,20 +128,20 @@ internal static class ActivityRows
     }
 
     /// <summary>
-    /// The view label a scheduled command is shown by (the label of the view command whose request it is, on the root or
+    /// The view label a task is shown by (the label of the view command whose request it is, on the root or
     /// one of its children); null when the catalogue does not know the name or no view names the command.
     /// </summary>
     public static TextDefinition? CommandLabel(string commandName, TaskCatalog catalog, AggregateViewRegistry views) =>
         CommandViewOf(commandName, catalog, views)?.Label;
 
     /// <summary>
-    /// The icon of the view command a scheduled command is shown by; null when the catalogue does not know the name, no view
+    /// The icon of the view command a task is shown by; null when the catalogue does not know the name, no view
     /// names the command, or the view declares no icon for it.
     /// </summary>
     public static string? CommandIcon(string commandName, TaskCatalog catalog, AggregateViewRegistry views) =>
         CommandViewOf(commandName, catalog, views)?.Icon;
 
-    /// <summary>The view command a scheduled command is shown by; null when the catalogue does not know the name or no view names it.</summary>
+    /// <summary>The view command a task is shown by; null when the catalogue does not know the name or no view names it.</summary>
     public static CommandView? CommandViewOf(string commandName, TaskCatalog catalog, AggregateViewRegistry views)
     {
         ArgumentNullException.ThrowIfNull(catalog);

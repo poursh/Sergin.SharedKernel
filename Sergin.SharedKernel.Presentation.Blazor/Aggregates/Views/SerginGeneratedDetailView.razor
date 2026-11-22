@@ -63,7 +63,7 @@
         }
         @if (Model.HasSchedulableCommand)
         {
-            <SerginTaskSchedulesSection @ref="section" Schema="@Model.Schema" TargetId="Id" @bind-CommandName="commandName" CommandLabel="commandLabel"
+            <SerginTaskSchedulesSection @ref="section" Schema="@Model.Schema" TargetId="Id" TargetLabel="@DisplayText" @bind-CommandName="commandName" CommandLabel="commandLabel"
                                          Loaded="OnSectionLoaded" />
         }
     </Entities>

@@ -68,6 +68,13 @@ public sealed partial class SerginTaskSchedulesSection : IDisposable
     [EditorRequired]
     public Guid? TargetId { get; set; }
 
+    /// <summary>
+    /// <see cref="TargetId"/>'s record as a person knows it (the detail view's title). A schedule stores its targets' ids
+    /// only, so Edit names this record by it and any other target by its id.
+    /// </summary>
+    [Parameter]
+    public string? TargetLabel { get; set; }
+
     /// <summary>With no <see cref="TargetId"/>, the collection task whose schedules and one-off runs are listed.</summary>
     [Parameter]
     public string? TaskName { get; set; }
@@ -154,7 +161,7 @@ public sealed partial class SerginTaskSchedulesSection : IDisposable
     [Inject]
     private ITaskEngine Engine { get; set; } = default!;
 
-    /// <summary>The scheduled tasks (not one-off runs) of a command in the last load; 0 before the first.</summary>
+    /// <summary>The schedules (not one-off runs) of a command in the last load; 0 before the first.</summary>
     public int CountOf(string commandName) => tasks.Count(task => task.CommandName == commandName);
 
     private IReadOnlyCollection<TaskScheduleListItem> shownTasks =>
@@ -451,10 +458,13 @@ public sealed partial class SerginTaskSchedulesSection : IDisposable
         await ReloadAsync();
     }
 
-    private async Task DeleteAsync(TaskScheduleListItem task)
+    /// <summary>Asks, then deletes the schedule. The confirm names the task as the section's rows do. Internal for the tests.</summary>
+    internal async Task DeleteAsync(TaskScheduleListItem task)
     {
+        ArgumentNullException.ThrowIfNull(task);
+
         if (!await Dialogs.ConfirmDeleteAsync(
-                Localizer, TaskUiTexts.DeleteTitle, TaskUiTexts.DeleteConfirm, new { Command = task.CommandName }))
+                Localizer, TaskUiTexts.DeleteTitle, TaskUiTexts.DeleteConfirm, new { Command = CommandText(task.CommandName) }))
         {
             return;
         }
@@ -517,7 +527,7 @@ public sealed partial class SerginTaskSchedulesSection : IDisposable
 
         IReadOnlyList<string> labels = collection && ScopeId is { } scope
             ? [TaskUiFormat.ScopeName(Scopes, scope)]
-            : [.. task.Targets.Select(target => target.TargetId.ToString())];
+            : [.. task.Targets.Select(target => target.TargetId == TargetId && TargetLabel is { } label ? label : target.TargetId.ToString())];
         TextDefinition? caption = collection ? TaskUiTexts.Dialog.Scope : null;
 
         if (ActivityRows.CommandViewOf(task.CommandName, Catalog, Views) is { Task: not null } view && view.TaskFields.Count > 0)

@@ -10,7 +10,7 @@ namespace Sergin.SharedKernel.Application.Securities.Authorization;
 /// to where the caller holds every one of them, until the returned handle is disposed.
 /// <para>
 /// <c>PermissionCheckPipelineBehavior</c> enters it for every request; code that runs a request's own validator outside
-/// the pipeline (starting a background command) enters it with that request's settings, so the validator reads what it
+/// the pipeline (starting a task) enters it with that request's settings, so the validator reads what it
 /// would read in the pipeline.
 /// </para>
 /// </summary>

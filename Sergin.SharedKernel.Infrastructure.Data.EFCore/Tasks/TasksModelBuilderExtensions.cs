@@ -5,7 +5,7 @@ using Sergin.SharedKernel.Domain.Users;
 namespace Sergin.SharedKernel.Infrastructure.Data.EFCore.Tasks;
 
 /// <summary>
-/// Maps the scheduled-task tables into the model's default schema. A module calls it by hand from its own
+/// Maps the task tables into the model's default schema. A module calls it by hand from its own
 /// <c>OnModelCreating</c>, like <c>ApplyOutbox</c>; see <see cref="ITasksDbContext"/> for the rest of the opt-in.
 /// The task's audit, soft-delete, version and scope columns come from its aggregate feature configuration; runs and
 /// run items are mapped here in full and take no features. Enums are stored as their names.

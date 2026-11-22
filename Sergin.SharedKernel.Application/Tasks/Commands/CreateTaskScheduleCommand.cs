@@ -8,7 +8,7 @@ using Sergin.SharedKernel.Domain.Tasks;
 namespace Sergin.SharedKernel.Application.Tasks.Commands;
 
 /// <summary>
-/// Saves a schedule in <paramref name="Schema"/>'s module: <paramref name="Template"/> (a schedulable command, its
+/// Saves a schedule in <paramref name="Schema"/>'s module: <paramref name="Template"/> (a schedulable task, its
 /// target ids ignored) sent to <paramref name="Targets"/> on <paramref name="Cron"/> in <paramref name="TimeZoneId"/>.
 /// The task lands in the caller's current scope and its scheduled runs act for the caller, its delegating user.
 /// </summary>

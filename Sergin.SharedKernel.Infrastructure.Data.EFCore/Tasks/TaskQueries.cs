@@ -17,7 +17,7 @@ using Sergin.SharedKernel.Infrastructure.Data.EFCore.Aggregates;
 namespace Sergin.SharedKernel.Infrastructure.Data.EFCore.Tasks;
 
 /// <summary>
-/// The scheduled-task reads, raw SQL through <see cref="IDbConnectionFactory"/>, one connection per call, in the schema
+/// The task reads, raw SQL through <see cref="IDbConnectionFactory"/>, one connection per call, in the schema
 /// of the module the request names. The schema is a SQL identifier, so it is composed into the text only after it
 /// matches a <see cref="TasksRegistration"/>: an unknown one is a validation error and nothing is sent.
 /// <para>

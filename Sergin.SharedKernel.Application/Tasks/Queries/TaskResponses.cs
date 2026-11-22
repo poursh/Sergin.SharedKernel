@@ -25,7 +25,7 @@ public sealed record TaskScheduleResponse(
     IReadOnlyCollection<TaskScheduleTarget> Targets);
 
 /// <summary>
-/// One run; <see cref="CommandName"/> is the scheduled command's stable name, as stored. <see cref="ScopeId"/> is the
+/// One run; <see cref="CommandName"/> is the task's stable name, as stored. <see cref="ScopeId"/> is the
 /// run's scope for a collection task's run, whose one item has no target to name it by; null otherwise.
 /// </summary>
 public sealed record TaskRunListItem(

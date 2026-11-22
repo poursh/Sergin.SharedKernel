@@ -2,7 +2,7 @@ using Sergin.SharedKernel.Application.Localizations;
 
 namespace Sergin.SharedKernel.Application.Tasks;
 
-/// <summary>The scheduled-task texts, under <c>common.tasks.*</c>; collected by <c>TextSource.Common</c>.</summary>
+/// <summary>The task texts, under <c>common.tasks.*</c>; collected by <c>TextSource.Common</c>.</summary>
 public static class TaskTexts
 {
     public static readonly TextCategory Category = TextCategory.Create("Common", "Tasks");

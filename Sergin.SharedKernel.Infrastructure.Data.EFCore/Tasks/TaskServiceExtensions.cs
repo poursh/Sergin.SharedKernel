@@ -11,7 +11,7 @@ using Sergin.SharedKernel.Application.Tasks;
 namespace Sergin.SharedKernel.Infrastructure.Data.EFCore.Tasks;
 
 /// <summary>
-/// The scheduled-task services a host needs once any module opts in: the run-item executor and the store resolver.
+/// The task services a host needs once any module opts in: the run-item executor and the store resolver.
 /// <c>AddModuleDbContext</c> calls it from its opt-in branch, beside the context's own keyed store; a marker makes the
 /// second opted-in context's call a no-op. The engine (<see cref="ITaskEngine"/>) is the adapter's to
 /// register, and <see cref="TaskOptions"/> is bound and validated by <c>AddSerginCore</c> in every host.

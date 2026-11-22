@@ -81,7 +81,7 @@ public static class ModuleDbContextExtensions
 
         if (typeof(ITasksDbContext).IsAssignableFrom(typeof(TContext)))
         {
-            // The scheduled-task configurations are one source per host, however many contexts opt in: the command
+            // The task configurations are one source per host, however many contexts opt in: the command
             // registry derives the management requests' rules from it and the permission catalogue picks up Manage.
             // No schema, as the configurations are SharedKernel's, not this module's.
             if (!services.Any(descriptor => descriptor.ServiceType == typeof(TasksRegistration)))

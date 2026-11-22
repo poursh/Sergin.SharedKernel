@@ -4,7 +4,7 @@ using Sergin.SharedKernel.Application.Securities.Authorization;
 namespace Sergin.SharedKernel.Application.Tasks.Commands;
 
 /// <summary>
-/// The early refusal for scheduling a command: the caller must hold the scheduled command's own required permissions
+/// The early refusal for scheduling a command: the caller must hold the task's own required permissions
 /// as well as <see cref="TaskPermissions.Manage"/> (which the pipeline checks). Each is checked where the
 /// pipeline would check it for the command itself: on the current scope for <see cref="PermissionScope.Current"/>, on
 /// any scope for <see cref="PermissionScope.Any"/>. Every run checks them again, item by item, as the real guarantee.

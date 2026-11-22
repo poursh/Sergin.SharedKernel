@@ -102,7 +102,7 @@ public sealed class AggregateFeatureRegistry
 
     /// <summary>
     /// This registry's configurations plus <paramref name="moreConfigurationTypes"/>, built and checked afresh: a
-    /// SharedKernel feature a module opts into (scheduled tasks) adds its own aggregate's configuration this way.
+    /// SharedKernel feature a module opts into (tasks) adds its own aggregate's configuration this way.
     /// </summary>
     public AggregateFeatureRegistry Including(IEnumerable<Type> moreConfigurationTypes)
     {

@@ -4,7 +4,7 @@ using Sergin.SharedKernel.Domain.Tasks;
 namespace Sergin.SharedKernel.Application.Tasks;
 
 /// <summary>
-/// The scheduled task's features. Public, unlike a module's configurations, because it is SharedKernel's: an opting-in
+/// The task schedule's features. Public, unlike a module's configurations, because it is SharedKernel's: an opting-in
 /// module's context applies it in its <c>AggregateFeatures</c> (see <c>ITasksDbContext</c>), and
 /// <c>AddModuleDbContext</c> hands it to the host through <see cref="TaskConfigurationTypes"/>.
 /// </summary>

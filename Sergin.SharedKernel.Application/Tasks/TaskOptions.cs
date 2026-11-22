@@ -1,7 +1,7 @@
 namespace Sergin.SharedKernel.Application.Tasks;
 
 /// <summary>
-/// The scheduled tasks' tuning, bound from <c>Sergin:Tasks</c>: how often a run item that threw is tried,
+/// The tasks' tuning, bound from <c>Sergin:Tasks</c>: how often a run item that threw is tried,
 /// how long the engine waits between tries, and how long finished runs are kept.
 /// </summary>
 public sealed class TaskOptions
@@ -43,10 +43,10 @@ public sealed class TaskOptions
     /// <summary>How often the recovery looks for stale run items.</summary>
     public TimeSpan RecoveryInterval { get; set; } = TimeSpan.FromMinutes(1);
 
-    /// <summary>The most records one start of a background command may pick; each is a run item.</summary>
+    /// <summary>The most records one start of a task may pick; each is a run item.</summary>
     public int MaxTargets { get; set; } = 1000;
 
-    /// <summary>Names the first key scheduled tasks could not run with, the way <c>OutboxOptions.Validate</c> does.</summary>
+    /// <summary>Names the first key tasks could not run with, the way <c>OutboxOptions.Validate</c> does.</summary>
     public bool Validate(out string failure)
     {
         if (MaxAttempts < 1)

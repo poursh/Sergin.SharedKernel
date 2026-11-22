@@ -3,7 +3,7 @@ using Sergin.SharedKernel.Domain.Users;
 namespace Sergin.SharedKernel.Domain.Tasks;
 
 /// <summary>
-/// A saved schedule: one schedulable command, by its stable name, with its non-target arguments as JSON, sent to a
+/// A saved schedule: one schedulable task, by its stable name, with its non-target arguments as JSON, sent to a
 /// fixed set of picked records on a cron in a time zone. Scheduled runs act on behalf of <see cref="DelegatingUserId"/>,
 /// the user who last saved it. Owned by the module whose command it sends, and stored in that module's schema; see
 /// <c>ITasksDbContext</c>.

@@ -3,7 +3,7 @@ using Sergin.SharedKernel.Domain.Tasks;
 namespace Sergin.SharedKernel.Application.Tasks;
 
 /// <summary>
-/// What scheduled tasks need from a job engine, and nothing of the engine itself: a cron trigger per active task, and
+/// What tasks need from a job engine, and nothing of the engine itself: a cron trigger per active task, and
 /// one job per run item so retries and parallelism are the engine's. The implementation lives in its own adapter
 /// assembly; no engine type ever appears here. The trigger's payload is only the schema and task id,
 /// and a run item's only the schema and item id, so the engine's store can always be rebuilt from Sergin's rows.
@@ -31,7 +31,7 @@ public interface ITaskEngine
     Task<bool?> GetEnabledAsync(Guid engineTriggerId, CancellationToken ct);
 
     /// <summary>
-    /// Every trigger the engine holds for scheduled tasks, whichever module's: what the start-up rebuild compares with
+    /// Every trigger the engine holds for task schedules, whichever module's: what the start-up rebuild compares with
     /// the rows to remove the triggers no live task links.
     /// </summary>
     Task<IReadOnlyCollection<TaskEngineTrigger>> ListTriggersAsync(CancellationToken ct);

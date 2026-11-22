@@ -16,7 +16,7 @@ namespace Sergin.SharedKernel.Infrastructure.Data.EFCore.Aggregates;
 /// data anyone edited.
 /// <para>
 /// Registered for every module context by <c>AddModuleDbContext</c>; a context with no scoped aggregate does nothing.
-/// A context opted into scheduled tasks also has its <c>task_runs</c> re-pathed: a run's scope path is a
+/// A context opted into tasks also has its <c>task_runs</c> re-pathed: a run's scope path is a
 /// plain column the run reads are gated on, so it would otherwise keep the old path.
 /// </para>
 /// </summary>
