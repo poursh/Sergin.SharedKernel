@@ -1,5 +1,6 @@
 using Sergin.SharedKernel.Application.Tasks.Queries;
 using Sergin.SharedKernel.Domain.Tasks;
+using Sergin.SharedKernel.Presentation.Blazor.Scopes;
 using Sergin.SharedKernel.Presentation.Localizations;
 
 namespace Sergin.SharedKernel.Presentation.Blazor.Tasks;
@@ -24,6 +25,13 @@ internal static class TaskUiFormat
 
     public static string NameOf(IReadOnlyDictionary<Guid, string> names, Guid userId) =>
         names.GetValueOrDefault(userId) ?? userId.ToString("N")[..8];
+
+    /// <summary>
+    /// What names the scope a collection task runs in, which has no record to name it by: its name among the scopes the
+    /// circuit lists (user data, as stored), else its short id.
+    /// </summary>
+    public static string ScopeName(SerginScopeSession scopes, Guid scopeId) =>
+        scopes.Options.FirstOrDefault(option => option.Id == scopeId)?.Name ?? scopeId.ToString("N")[..8];
 
     public static TextDefinition StatusText(TaskRunStatus status) =>
         status switch

@@ -63,6 +63,10 @@ public sealed partial class SerginScheduleDialog
     [Parameter]
     public IReadOnlyList<string> TargetLabels { get; set; } = [];
 
+    /// <summary>The caption above <see cref="TargetLabels"/>; null for "Records" (a collection task names its scope under "Scope").</summary>
+    [Parameter]
+    public TextDefinition? TargetsCaption { get; set; }
+
     /// <summary>The saved schedule being changed; null to add a new one.</summary>
     [Parameter]
     public TaskScheduleId? EditingId { get; set; }

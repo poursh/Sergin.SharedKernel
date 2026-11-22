@@ -1,4 +1,4 @@
-@* A record's schedules, embedded: the shared entity-list section frame (title, count, outline), then the table. It renders
+@* A record's schedules (or a collection task's in one scope), embedded: the shared entity-list section frame (title, count, outline), then the table. It renders
    its rows on the first pass, not after it, because the list is short and unpaged, so the prerender already shows it.
    The row commands sit in a span that stops the click, so using one does not also open the runs. *@
 @if (visible)
@@ -58,7 +58,7 @@
                 </MudTd>
             </RowTemplate>
             <NoRecordsContent>
-                <MudText Typo="Typo.body2">@Localizer.Text(TaskUiTexts.Empty)</MudText>
+                <MudText Typo="Typo.body2">@Localizer.Text(EmptyText)</MudText>
             </NoRecordsContent>
         </MudTable>
 

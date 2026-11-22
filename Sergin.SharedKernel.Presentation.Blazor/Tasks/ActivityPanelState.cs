@@ -18,8 +18,16 @@ internal sealed class ActivityPanelState
     public event Func<Task>? OpenRequested;
 
     /// <summary>Whether a run of <paramref name="commandName"/> on the one record <paramref name="targetId"/> is unfinished.</summary>
-    public bool IsRunning(string commandName, Guid targetId) =>
-        Rows.Any(row => row.IsRunning && row.TargetId == targetId && string.Equals(row.CommandName, commandName, StringComparison.Ordinal));
+    public bool IsRunning(string commandName, Guid targetId) => IsRunning(commandName, targetId, scopeId: null);
+
+    /// <summary>
+    /// Whether a run of <paramref name="commandName"/> is unfinished: on the one record <paramref name="targetId"/>, or, with
+    /// no record, a collection task's run in the scope <paramref name="scopeId"/>.
+    /// </summary>
+    public bool IsRunning(string commandName, Guid? targetId, Guid? scopeId) =>
+        Rows.Any(row => row.IsRunning
+            && string.Equals(row.CommandName, commandName, StringComparison.Ordinal)
+            && (targetId is { } target ? row.TargetId == target : row.TargetId is null && scopeId is not null && row.ScopeId == scopeId));
 
     /// <summary>The indicator's hand-over after a load: the rows, then <see cref="RowsChanged"/>.</summary>
     public void SetRows(IReadOnlyList<ActivityRow> rows)

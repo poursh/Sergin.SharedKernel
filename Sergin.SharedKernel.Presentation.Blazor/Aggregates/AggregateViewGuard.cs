@@ -88,19 +88,19 @@ public static class AggregateViewGuard
             + $", give the delete a constructor of only the id, or Command<{request.Name}>().Hidden() it.");
 
     /// <summary>
-    /// <c>Confirm(...)</c> is asked before a root's transition or delete and a child's removal; on any other command (an
+    /// <c>Confirm(...)</c> is asked before a root's transition, task over one record or delete and a child's removal; on any other command (an
     /// update links to its form, a set-property opens its own editor) no view would ask it.
     /// </summary>
     internal static void EnsureConfirmAsked(DeclaredView view, Type request, CommandRole role, bool child)
     {
-        bool asked = child ? role == CommandRole.RemoveChild : role is CommandRole.Transition or CommandRole.Delete;
+        bool asked = child ? role == CommandRole.RemoveChild : role is CommandRole.Transition or CommandRole.Task or CommandRole.Delete;
 
         if (!asked)
         {
             throw Refuse(
                 view,
                 $"Command<{request.Name}>().Confirm(...) declares a confirm on {request.FullName}, a {(child ? "child " : string.Empty)}{role} "
-                + "command, which no generated view asks before sending: only a root's transition or delete and a child's removal ask. "
+                + "command, which no generated view asks before sending: only a root's transition, task over one record or delete and a child's removal ask. "
                 + "Remove the Confirm(...).");
         }
     }
@@ -123,20 +123,29 @@ public static class AggregateViewGuard
     }
 
     /// <summary>
-    /// A schedulable command's Schedule… and View schedules entries build the command from the record's id, so a shown one
-    /// must be id-only (a list's bulk schedule already skips one that is not).
+    /// A view starts a shown task (and schedules a <c>Schedulable()</c> one) from what it holds: a task over one record from
+    /// the record's id alone, a task over the collection from nothing. A hidden task is never started, so it is not held to this.
     /// </summary>
-    private static void EnsureSchedulableFromId(DeclaredView view, IReadOnlyCollection<CommandView> commands)
+    private static void EnsureTaskShapes(DeclaredView view, IReadOnlyCollection<CommandView> commands)
     {
-        CommandView? offender = commands.FirstOrDefault(command => command is { Task.Schedulable: true, BuildFromId: null, Hidden: false });
-
-        if (offender is not null)
+        if (commands.FirstOrDefault(command => command is { Role: CommandRole.Task, BuildFromId: null, Hidden: false }) is { } entity)
         {
             throw Refuse(
                 view,
-                $"{offender.Request.FullName} is a Schedulable() task (\"{offender.Task!.Name}\"), and a generated detail view schedules it from the "
-                + "record's id alone, but its constructor takes more than the id. Give it a constructor of only the id, or "
-                + $"Command<{offender.Request.Name}>().Hidden() it.");
+                $"{entity.Request.FullName} is a {(entity.Task!.Schedulable ? "Schedulable() " : string.Empty)}task (\"{entity.Task.Name}\") "
+                + "over one record, which a generated view starts"
+                + (entity.Task.Schedulable ? " and schedules" : string.Empty)
+                + " from the record's id alone, but its constructor takes more than the id. Give it a constructor of only the id, or "
+                + $"Command<{entity.Request.Name}>().Hidden() it.");
+        }
+
+        if (commands.FirstOrDefault(command => command is { Role: CommandRole.CollectionTask, BuildWithoutTarget: null, Hidden: false }) is { } collection)
+        {
+            throw Refuse(
+                view,
+                $"{collection.Request.FullName} is a task (\"{collection.Task!.Name}\") over the whole collection, which a generated list "
+                + "view starts with no record, but its constructor takes arguments. Give it a constructor that takes none, or "
+                + $"Command<{collection.Request.Name}>().Hidden() it.");
         }
     }
 
@@ -192,8 +201,7 @@ public static class AggregateViewGuard
         AggregateViewBuilder builder = view.Builder;
 
         EnsureCommandsOfRoot(view, commands);
-        // Before the id-only rule: a task is a transition until its own role lands, and its schedule refusal says more.
-        EnsureSchedulableFromId(view, commands);
+        EnsureTaskShapes(view, commands);
         EnsureIdOnly(view, commands);
         EnsureQueryShapes(view, getOne, overview, entityOverview, audit);
         EnsureRecord(view, builder.Root.Name, builder.DetailFields?.Record, getOneResponse, "Detail", "GetOne query's response");

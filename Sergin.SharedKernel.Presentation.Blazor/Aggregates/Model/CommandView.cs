@@ -54,6 +54,9 @@ namespace Sergin.SharedKernel.Presentation.Blazor.Aggregates.Model;
 /// parent's id; null for any other command, and for a hidden one.
 /// </param>
 /// <param name="MoveParentField">The move command's <c>NewParentId</c> field text, which labels its dialog's parent picker; null with no <paramref name="BuildMove"/>.</param>
+/// <param name="BuildWithoutTarget">
+/// Builds a collection task (<see cref="CommandRole.CollectionTask"/>) whose constructor takes nothing; null for any other command.
+/// </param>
 public sealed record CommandView(
     Type Request,
     CommandRole Role,
@@ -84,7 +87,8 @@ public sealed record CommandView(
     Func<object, bool>? AppliesWhen = null,
     TextDefinition? ConfirmLabel = null,
     Func<Guid, Guid, object>? BuildMove = null,
-    FieldText? MoveParentField = null)
+    FieldText? MoveParentField = null,
+    Func<object>? BuildWithoutTarget = null)
 {
     /// <summary>
     /// The values a delete's confirm asks for: its constructor's shown parameters beside the <c>Id</c>, built with

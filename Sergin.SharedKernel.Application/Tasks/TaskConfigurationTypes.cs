@@ -20,6 +20,8 @@ public static class TaskConfigurationTypes
         typeof(GetTaskScheduleRunsQueryConfiguration),
         typeof(GetTaskRunItemsQueryConfiguration),
         typeof(GetOneOffRunsForTargetQueryConfiguration),
+        typeof(GetTaskSchedulesForCollectionQueryConfiguration),
+        typeof(GetOneOffRunsForCollectionQueryConfiguration),
         typeof(CreateTaskScheduleCommandConfiguration),
         typeof(UpdateTaskScheduleCommandConfiguration),
         typeof(PauseTaskScheduleCommandConfiguration),

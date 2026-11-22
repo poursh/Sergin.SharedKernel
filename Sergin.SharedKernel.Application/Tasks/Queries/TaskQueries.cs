@@ -7,6 +7,9 @@ namespace Sergin.SharedKernel.Application.Tasks.Queries;
 /// <summary>The schedules that target one record, in the module's schema.</summary>
 public sealed record GetTaskSchedulesForTargetQuery(string Schema, Guid TargetId) : IQuery<IReadOnlyCollection<TaskScheduleListItem>>;
 
+/// <summary>The schedules of one collection task (<c>ITaskCommand&lt;TRoot&gt;</c>), by its name, saved in one scope.</summary>
+public sealed record GetTaskSchedulesForCollectionQuery(string Schema, string TaskName, Guid ScopeId) : IQuery<IReadOnlyCollection<TaskScheduleListItem>>;
+
 /// <summary>One schedule with its targets; its row version travels in <c>ConcurrencyContext.Current</c>.</summary>
 public sealed record GetTaskScheduleByIdQuery(string Schema, TaskScheduleId Id) : IQuery<TaskScheduleResponse>;
 
@@ -18,11 +21,21 @@ public sealed record GetTaskRunItemsQuery(string Schema, Guid RunId) : IQuery<IR
 /// <summary>The latest one-off runs (no schedule) over one record.</summary>
 public sealed record GetOneOffRunsForTargetQuery(string Schema, Guid TargetId, int Take) : IQuery<IReadOnlyCollection<TaskRunListItem>>;
 
+/// <summary>The latest one-off runs (no schedule) of one collection task, by its name, in one scope.</summary>
+public sealed record GetOneOffRunsForCollectionQuery(string Schema, string TaskName, Guid ScopeId, int Take) : IQuery<IReadOnlyCollection<TaskRunListItem>>;
+
 internal sealed class GetTaskSchedulesForTargetQueryHandler(ITaskQueries queries)
     : IQueryHandler<GetTaskSchedulesForTargetQuery, IReadOnlyCollection<TaskScheduleListItem>>
 {
     public Task<ErrorOr<IReadOnlyCollection<TaskScheduleListItem>>> Handle(GetTaskSchedulesForTargetQuery request, CancellationToken cancellationToken) =>
         queries.ForTargetAsync(request.Schema, request.TargetId, cancellationToken);
+}
+
+internal sealed class GetTaskSchedulesForCollectionQueryHandler(ITaskQueries queries)
+    : IQueryHandler<GetTaskSchedulesForCollectionQuery, IReadOnlyCollection<TaskScheduleListItem>>
+{
+    public Task<ErrorOr<IReadOnlyCollection<TaskScheduleListItem>>> Handle(GetTaskSchedulesForCollectionQuery request, CancellationToken cancellationToken) =>
+        queries.ForCollectionAsync(request.Schema, request.TaskName, request.ScopeId, cancellationToken);
 }
 
 internal sealed class GetTaskScheduleByIdQueryHandler(ITaskQueries queries, ConcurrencyContext concurrency)
@@ -51,4 +64,11 @@ internal sealed class GetOneOffRunsForTargetQueryHandler(ITaskQueries queries)
 {
     public Task<ErrorOr<IReadOnlyCollection<TaskRunListItem>>> Handle(GetOneOffRunsForTargetQuery request, CancellationToken cancellationToken) =>
         queries.OneOffRunsForTargetAsync(request.Schema, request.TargetId, request.Take, cancellationToken);
+}
+
+internal sealed class GetOneOffRunsForCollectionQueryHandler(ITaskQueries queries)
+    : IQueryHandler<GetOneOffRunsForCollectionQuery, IReadOnlyCollection<TaskRunListItem>>
+{
+    public Task<ErrorOr<IReadOnlyCollection<TaskRunListItem>>> Handle(GetOneOffRunsForCollectionQuery request, CancellationToken cancellationToken) =>
+        queries.OneOffRunsForCollectionAsync(request.Schema, request.TaskName, request.ScopeId, request.Take, cancellationToken);
 }

@@ -1,0 +1,12 @@
+@* A collection task's schedules in one scope: the schedules section with no record, in a dialog over the list. *@
+<MudDialog>
+    <TitleContent>
+        <MudText Typo="Typo.h6">@Heading</MudText>
+    </TitleContent>
+    <DialogContent>
+        <SerginTaskSchedulesSection Schema="@Schema" TargetId="null" TaskName="@TaskName" ScopeId="ScopeId" />
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="Close">@Localizer.Text(CommonTexts.Close)</MudButton>
+    </DialogActions>
+</MudDialog>

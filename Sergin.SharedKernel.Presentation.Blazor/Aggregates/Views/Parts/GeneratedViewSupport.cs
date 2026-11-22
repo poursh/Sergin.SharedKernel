@@ -141,8 +141,8 @@ internal static class GeneratedViewSupport
     }
 
     /// <summary>
-    /// Starts a task as one run over <paramref name="targets"/>. The template is built from the first target
-    /// (from its id); the run takes each item's ids from its target.
+    /// Starts a task over one record as one run over <paramref name="targets"/>. The template is built from the first
+    /// target (from its id); the run takes each item's ids from its target.
     /// </summary>
     internal static async Task<ViewSendResult> StartManyAsync(
         ISerginDispatcher dispatcher, CommandView command, IReadOnlyCollection<TaskTarget> targets)
@@ -152,16 +152,41 @@ internal static class GeneratedViewSupport
         ArgumentNullException.ThrowIfNull(targets);
 
         TaskTarget first = targets.FirstOrDefault()
-            ?? throw new ArgumentException("A background command is started over at least one record.", nameof(targets));
-        ErrorOr<TaskRunStartedResponse> started = await dispatcher.StartTaskAsync(TemplateOf(command, first), targets);
+            ?? throw new ArgumentException("A task over one record is started over at least one record.", nameof(targets));
 
-        return started.IsError
-            ? new ViewSendResult(null, null, started.Errors)
-            : new ViewSendResult(started.Value, null, []);
+        return ResultOf(await dispatcher.StartTaskAsync(EntityTemplateOf(command, first), targets));
     }
 
-    // A task is an entity or a collection task (child tasks are refused at host start), so a view builds it from its id.
-    private static ITaskCommand TemplateOf(CommandView command, TaskTarget target)
+    /// <summary>
+    /// Starts a task over the collection (<see cref="CommandRole.CollectionTask"/>) as one run with no record, in the caller's
+    /// current scope; a second start while that run is going is refused (<c>Tasks.AlreadyRunning</c>).
+    /// </summary>
+    internal static async Task<ViewSendResult> StartCollectionAsync(ISerginDispatcher dispatcher, CommandView command)
+    {
+        ArgumentNullException.ThrowIfNull(dispatcher);
+        ArgumentNullException.ThrowIfNull(command);
+
+        return ResultOf(await dispatcher.StartTaskAsync(CollectionTemplateOf(command), []));
+    }
+
+    /// <summary>Builds a collection task's template, as its schedule saves it; refuses any other command.</summary>
+    internal static ITaskCommand CollectionTemplateOf(CommandView command)
+    {
+        ArgumentNullException.ThrowIfNull(command);
+
+        return command is { Role: CommandRole.CollectionTask, BuildWithoutTarget: { } build } && build() is ITaskCommand task
+            ? task
+            : throw new InvalidOperationException(
+                $"{command.Request.FullName} cannot be started from a list view: it is not a task over the collection built with no arguments.");
+    }
+
+    private static ViewSendResult ResultOf(ErrorOr<TaskRunStartedResponse> started) =>
+        started.IsError
+            ? new ViewSendResult(null, null, started.Errors)
+            : new ViewSendResult(started.Value, null, []);
+
+    // A task over one record is built from the record's id (child tasks are refused at host start).
+    private static ITaskCommand EntityTemplateOf(CommandView command, TaskTarget target)
     {
         if (command.BuildFromId is { } fromId && target.TargetId is { } id && fromId(id) is ITaskCommand task)
         {

@@ -14,6 +14,9 @@ public interface ITaskQueries
 {
     Task<ErrorOr<IReadOnlyCollection<TaskScheduleListItem>>> ForTargetAsync(string schema, Guid targetId, CancellationToken ct);
 
+    /// <summary>The schedules of the collection task <paramref name="taskName"/> saved in the scope <paramref name="scopeId"/>.</summary>
+    Task<ErrorOr<IReadOnlyCollection<TaskScheduleListItem>>> ForCollectionAsync(string schema, string taskName, Guid scopeId, CancellationToken ct);
+
     Task<ErrorOr<Versioned<TaskScheduleResponse>>> GetByIdAsync(string schema, TaskScheduleId id, CancellationToken ct);
 
     Task<ErrorOr<ListQueryResponse<TaskRunListItem>>> RunsAsync(string schema, TaskScheduleId scheduleId, Paggination paggination, CancellationToken ct);
@@ -21,6 +24,9 @@ public interface ITaskQueries
     Task<ErrorOr<IReadOnlyCollection<TaskRunItemListItem>>> RunItemsAsync(string schema, Guid runId, CancellationToken ct);
 
     Task<ErrorOr<IReadOnlyCollection<TaskRunListItem>>> OneOffRunsForTargetAsync(string schema, Guid targetId, int take, CancellationToken ct);
+
+    /// <summary>The latest one-off runs of the collection task <paramref name="taskName"/> in the scope <paramref name="scopeId"/>.</summary>
+    Task<ErrorOr<IReadOnlyCollection<TaskRunListItem>>> OneOffRunsForCollectionAsync(string schema, string taskName, Guid scopeId, int take, CancellationToken ct);
 
     /// <summary>
     /// The runs <paramref name="userId"/> started (Background, Run now, Run once; never a schedule's), running or

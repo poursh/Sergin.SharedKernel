@@ -24,7 +24,10 @@ public sealed record TaskScheduleResponse(
     Guid DelegatingUserId,
     IReadOnlyCollection<TaskScheduleTarget> Targets);
 
-/// <summary>One run; <see cref="CommandName"/> is the scheduled command's stable name, as stored.</summary>
+/// <summary>
+/// One run; <see cref="CommandName"/> is the scheduled command's stable name, as stored. <see cref="ScopeId"/> is the
+/// run's scope for a collection task's run, whose one item has no target to name it by; null otherwise.
+/// </summary>
 public sealed record TaskRunListItem(
     Guid Id,
     string CommandName,
@@ -37,7 +40,8 @@ public sealed record TaskRunListItem(
     int Succeeded,
     int Failed,
     int Cancelled,
-    bool Cancelable = true);
+    bool Cancelable = true,
+    Guid? ScopeId = null);
 
 /// <summary>One item of a run; <see cref="Progress"/> is its command's last reported percent, null until it reports.</summary>
 public sealed record TaskRunItemListItem(

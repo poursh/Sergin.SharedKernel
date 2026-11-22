@@ -23,7 +23,8 @@ internal enum ActivityState
 /// <paramref name="CommandName"/> shows instead), the target's stored label or a record count, the target's detail link
 /// for a one-record root target, where the run stands, a one-record run's first error as stored, its target id and
 /// progress (0–100, null until its command reports), the caption of the module the run belongs to (null when no UI
-/// module has its schema), its count of cancelled items (zero until it completes) and whether a person may cancel it. <paramref name="Done"/> is the
+/// module has its schema), its count of cancelled items (zero until it completes), whether a person may cancel it and, for a
+/// collection task's run, its scope. <paramref name="Done"/> is the
 /// items no longer waiting while the run is running (a run's counts are written only when it completes, so a cancelled
 /// item counts as done for the bar), and its succeeded and failed items once it finished.
 /// </summary>
@@ -44,7 +45,8 @@ internal sealed record ActivityRow(
     int? Progress,
     TextDefinition? ModuleCaption,
     int Cancelled,
-    bool Cancelable = true)
+    bool Cancelable = true,
+    Guid? ScopeId = null)
 {
     public bool IsRunning => State == ActivityState.Running;
 }
@@ -177,7 +179,8 @@ internal static class ActivityRows
             item.Total == 1 ? item.Progress : null,
             moduleCaption(item.Ref.Schema),
             item.Cancelled,
-            item.Cancelable);
+            item.Cancelable,
+            item.ScopeId);
     }
 
     // A record's stored label; else, for a collection task's run, the scope it runs in (a name is user data, as stored);

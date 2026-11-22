@@ -56,7 +56,7 @@
                         @foreach (TaskRunItemListItem item in items)
                         {
                             <tr>
-                                <td>@item.TargetId</td>
+                                <td>@TargetText(item)</td>
                                 <td>@ItemStatusText(item)</td>
                                 <td>@Formatter.Number(item.Attempts)</td>
                                 <td>@item.ErrorDescription</td>

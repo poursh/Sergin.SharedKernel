@@ -6,6 +6,7 @@ using Sergin.SharedKernel.Application.Securities.Users;
 using Sergin.SharedKernel.Domain.Tasks;
 using Sergin.SharedKernel.Presentation.Blazor.Dispatching;
 using Sergin.SharedKernel.Presentation.Blazor.Errors;
+using Sergin.SharedKernel.Presentation.Blazor.Scopes;
 using Sergin.SharedKernel.Presentation.Localizations;
 using Sergin.SharedKernel.Presentation.Blazor.TimeZones;
 
@@ -13,7 +14,8 @@ namespace Sergin.SharedKernel.Presentation.Blazor.Tasks;
 
 /// <summary>
 /// A schedule's recent runs, newest first, and — for the run the user opens — its items with their errors: which record
-/// succeeded, which failed, how many attempts it took and what the last one said.
+/// succeeded, which failed, how many attempts it took and what the last one said. A collection task's item has no record:
+/// its target cell names the run's scope instead, as the activity row does.
 /// </summary>
 public sealed partial class SerginTaskRunsDialog
 {
@@ -24,6 +26,7 @@ public sealed partial class SerginTaskRunsDialog
     private IReadOnlyDictionary<Guid, string> names = new Dictionary<Guid, string>();
     private TimeZoneInfo timeZone = TimeZoneInfo.Utc;
     private Guid? openRun;
+    private Guid? openRunScope;
     private bool loading = true;
 
     [CascadingParameter]
@@ -58,6 +61,9 @@ public sealed partial class SerginTaskRunsDialog
     [Inject]
     private IStringLocalizer Localizer { get; set; } = default!;
 
+    [Inject]
+    private SerginScopeSession Scopes { get; set; } = default!;
+
     protected override async Task OnInitializedAsync()
     {
         timeZone = await TimeZones.GetTimeZoneAsync();
@@ -91,12 +97,17 @@ public sealed partial class SerginTaskRunsDialog
 
         items = result.Value;
         openRun = runId;
+        openRunScope = runs.FirstOrDefault(run => run.Id == runId)?.ScopeId;
 
         // Not only a click handler calls it (a test does), so it re-renders on its own.
         StateHasChanged();
     }
 
     private string Time(DateTime utc) => TaskUiFormat.Time(Formatter, timeZone, utc);
+
+    // A record's id, as stored; a collection task's item, which has none, names the run's scope.
+    internal string TargetText(TaskRunItemListItem item) =>
+        item.TargetId?.ToString() ?? (openRunScope is { } scope ? TaskUiFormat.ScopeName(Scopes, scope) : string.Empty);
 
     private string NameOf(Guid userId) => TaskUiFormat.NameOf(names, userId);
 

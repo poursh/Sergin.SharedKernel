@@ -14,6 +14,7 @@ using Sergin.SharedKernel.Application.Times;
 using Sergin.SharedKernel.Domain.Tasks;
 using Sergin.SharedKernel.Presentation.Blazor.Dispatching;
 using Sergin.SharedKernel.Presentation.Blazor.Errors;
+using Sergin.SharedKernel.Presentation.Blazor.Scopes;
 using Sergin.SharedKernel.Presentation.Errors;
 using Sergin.SharedKernel.Presentation.Localizations;
 using Sergin.SharedKernel.Presentation.Blazor.TimeZones;
@@ -22,9 +23,10 @@ using Sergin.SharedKernel.Presentation.Blazor.Dialogs;
 namespace Sergin.SharedKernel.Presentation.Blazor.Tasks;
 
 /// <summary>
-/// The schedules that target one record, as an embedded, outlined section of the record's detail view: command,
+/// The schedules that target one record, as an embedded, outlined section of the record's detail view (or, with no
+/// <see cref="TargetId"/>, the schedules of one collection task in one scope, as <see cref="SerginTaskSchedulesDialog"/> shows them): command,
 /// schedule, next run, last outcome and state, with Run now, Pause or Resume, Edit and Delete on each row, a click on a
-/// row opening its runs, and below the table the latest one-off runs over the record a Running one with Cancel. It shows nothing at all to a user
+/// row opening its runs, and below the table the latest one-off runs over the record (or of the collection task in the scope), a Running one with Cancel. It shows nothing at all to a user
 /// who may not manage scheduled tasks.
 /// </summary>
 /// <remarks>
@@ -49,17 +51,28 @@ public sealed partial class SerginTaskSchedulesSection : IDisposable
     private Timer? poller;
     private int polling;
     private volatile bool disposed;
-    private (string Schema, Guid TargetId)? loadedFor;
+    private (string Schema, Guid? TargetId, string? TaskName, Guid? ScopeId)? loadedFor;
 
     /// <summary>The owning module's schema.</summary>
     [Parameter]
     [EditorRequired]
     public string Schema { get; set; } = string.Empty;
 
-    /// <summary>The record whose schedules are listed.</summary>
+    /// <summary>
+    /// The record whose schedules are listed; null to list a collection task's, named by <see cref="TaskName"/> and
+    /// <see cref="ScopeId"/>.
+    /// </summary>
     [Parameter]
     [EditorRequired]
-    public Guid TargetId { get; set; }
+    public Guid? TargetId { get; set; }
+
+    /// <summary>With no <see cref="TargetId"/>, the collection task whose schedules and one-off runs are listed.</summary>
+    [Parameter]
+    public string? TaskName { get; set; }
+
+    /// <summary>With no <see cref="TargetId"/>, the scope the collection task's schedules and runs are listed in.</summary>
+    [Parameter]
+    public Guid? ScopeId { get; set; }
 
     /// <summary>When set, only the schedules of that command show; the count of each command still reads the full load.</summary>
     [Parameter]
@@ -132,6 +145,9 @@ public sealed partial class SerginTaskSchedulesSection : IDisposable
     [Inject]
     private AggregateViewRegistry Views { get; set; } = default!;
 
+    [Inject]
+    private SerginScopeSession Scopes { get; set; } = default!;
+
     // Read for its FiresTriggers only: a schedule saved with an engine that fires nothing must not look as if it will run.
     [Inject]
     private ITaskEngine Engine { get; set; } = default!;
@@ -143,6 +159,8 @@ public sealed partial class SerginTaskSchedulesSection : IDisposable
         CommandName is null ? tasks : [.. tasks.Where(task => task.CommandName == CommandName)];
 
     private string? FilteredCommandText => CommandLabel is { } label ? Localizer.Text(label) : CommandName;
+
+    private TextDefinition EmptyText => TargetId is null ? TaskUiTexts.EmptyInScope : TaskUiTexts.Empty;
 
     private Task ClearFilterAsync() => CommandNameChanged.InvokeAsync(null);
 
@@ -170,8 +188,9 @@ public sealed partial class SerginTaskSchedulesSection : IDisposable
             return true;
         }
 
-        ErrorOr<IReadOnlyCollection<TaskScheduleListItem>> loaded =
-            await Dispatcher.SendAsync(new GetTaskSchedulesForTargetQuery(Schema, TargetId));
+        ErrorOr<IReadOnlyCollection<TaskScheduleListItem>> loaded = TargetId is { } targetId
+            ? await Dispatcher.SendAsync(new GetTaskSchedulesForTargetQuery(Schema, targetId))
+            : await Dispatcher.SendAsync(new GetTaskSchedulesForCollectionQuery(Schema, CollectionTaskName, CollectionScopeId));
 
         if (loaded.IsError)
         {
@@ -182,8 +201,9 @@ public sealed partial class SerginTaskSchedulesSection : IDisposable
         problem = null;
         tasks = loaded.Value;
 
-        ErrorOr<IReadOnlyCollection<TaskRunListItem>> oneOff =
-            await Dispatcher.SendAsync(new GetOneOffRunsForTargetQuery(Schema, TargetId, OneOffTake));
+        ErrorOr<IReadOnlyCollection<TaskRunListItem>> oneOff = TargetId is { } target
+            ? await Dispatcher.SendAsync(new GetOneOffRunsForTargetQuery(Schema, target, OneOffTake))
+            : await Dispatcher.SendAsync(new GetOneOffRunsForCollectionQuery(Schema, CollectionTaskName, CollectionScopeId, OneOffTake));
 
         if (oneOff.IsError)
         {
@@ -196,6 +216,12 @@ public sealed partial class SerginTaskSchedulesSection : IDisposable
 
         return true;
     }
+
+    private string CollectionTaskName => TaskName ?? throw new InvalidOperationException(
+        "A task schedules section with no TargetId lists a collection task's schedules: set TaskName and ScopeId.");
+
+    private Guid CollectionScopeId => ScopeId ?? throw new InvalidOperationException(
+        "A task schedules section with no TargetId lists a collection task's schedules: set TaskName and ScopeId.");
 
     protected override async Task OnInitializedAsync()
     {
@@ -212,13 +238,13 @@ public sealed partial class SerginTaskSchedulesSection : IDisposable
 
     protected override async Task OnParametersSetAsync()
     {
-        if (!visible || loadedFor == (Schema, TargetId))
+        if (!visible || loadedFor == (Schema, TargetId, TaskName, ScopeId))
         {
             return;
         }
 
         // A new record (or the first one): the previous record's lists and timer go, and this record's are read.
-        loadedFor = (Schema, TargetId);
+        loadedFor = (Schema, TargetId, TaskName, ScopeId);
         StopPolling();
         tasks = [];
         oneOffRuns = [];
@@ -291,7 +317,7 @@ public sealed partial class SerginTaskSchedulesSection : IDisposable
         catch (Exception exception) when (exception is not OperationCanceledException)
         {
             // A tick has no caller to observe its failure: it is logged, and the timer stops rather than fail again every tick.
-            LogPollFailed(Logger, exception, Schema, TargetId);
+            LogPollFailed(Logger, exception, Schema, TargetId, TaskName);
             StopPolling();
         }
         finally
@@ -300,8 +326,8 @@ public sealed partial class SerginTaskSchedulesSection : IDisposable
         }
     }
 
-    [LoggerMessage(Level = LogLevel.Error, Message = "The scheduled tasks section of {Schema} record {TargetId} failed to read its runs; it stopped polling.")]
-    private static partial void LogPollFailed(ILogger logger, Exception exception, string schema, Guid targetId);
+    [LoggerMessage(Level = LogLevel.Error, Message = "The scheduled tasks section of {Schema} record {TargetId} (task {TaskName}) failed to read its runs; it stopped polling.")]
+    private static partial void LogPollFailed(ILogger logger, Exception exception, string schema, Guid? targetId, string? taskName);
 
     [LoggerMessage(Level = LogLevel.Error, Message = "Cancelling scheduled run {RunId} of {Schema} failed.")]
     private static partial void LogCancelFailed(ILogger logger, Exception exception, string schema, Guid runId);
@@ -454,14 +480,18 @@ public sealed partial class SerginTaskSchedulesSection : IDisposable
 
         TaskScheduleResponse task = loaded.Value.Value;
 
-        if (Catalog.ByName(task.CommandName) is not { } command || task.Targets.FirstOrDefault() is not { } first)
+        // A collection task's schedule has no targets; any other names at least one.
+        if (Catalog.ByName(task.CommandName) is not { } command
+            || command.TargetKind != CommandTargetKind.Collection && task.Targets.Count == 0)
         {
             ErrorPresenter.Notify(TaskErrors.UnknownCommand);
             return;
         }
 
+        bool collection = command.TargetKind == CommandTargetKind.Collection;
+
         // Only the schedule changes here, so the saved arguments are rebuilt as they are; the template's target id is ignored.
-        ErrorOr<IBaseCommand> template = TaskCommandFactory.Build(command, task.Arguments, first.TargetId);
+        ErrorOr<IBaseCommand> template = TaskCommandFactory.Build(command, task.Arguments, collection ? null : task.Targets.First().TargetId);
 
         if (template.IsError)
         {
@@ -478,8 +508,11 @@ public sealed partial class SerginTaskSchedulesSection : IDisposable
             TaskUiTexts.EditTitle,
             () => saved,
             task.Targets,
-            [.. task.Targets.Select(target => target.TargetId.ToString())],
-            EditingId: id));
+            collection && ScopeId is { } scope
+                ? [TaskUiFormat.ScopeName(Scopes, scope)]
+                : [.. task.Targets.Select(target => target.TargetId.ToString())],
+            EditingId: id,
+            TargetsCaption: collection ? TaskUiTexts.Dialog.Scope : null));
 
         await ReloadAsync();
     }

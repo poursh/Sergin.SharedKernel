@@ -1,10 +1,16 @@
 using Microsoft.AspNetCore.Components;
+using MudBlazor;
+using Sergin.SharedKernel.Application.Securities.Authorization;
+using Sergin.SharedKernel.Application.Tasks;
 using Sergin.SharedKernel.Domain;
 using Sergin.SharedKernel.Presentation.Blazor.Aggregates.Views.Parts;
 using Sergin.SharedKernel.Presentation.Blazor.Dispatching;
 using Sergin.SharedKernel.Presentation.Blazor.Actions;
+using Sergin.SharedKernel.Presentation.Blazor.Errors;
 using Sergin.SharedKernel.Presentation.Blazor.Modules;
 using Sergin.SharedKernel.Presentation.Blazor.Navigation;
+using Sergin.SharedKernel.Presentation.Blazor.Scopes;
+using Sergin.SharedKernel.Presentation.Blazor.Tasks;
 
 namespace Sergin.SharedKernel.Presentation.Blazor.Aggregates.Views;
 
@@ -21,8 +27,16 @@ namespace Sergin.SharedKernel.Presentation.Blazor.Aggregates.Views;
 /// root listed under a parent (<c>ListUnder&lt;TParent&gt;</c>) takes the parent's id as <see cref="ParentId"/>: the view
 /// loads the parent through the parent's model for the trail (the parent's list step, the parent, this list) and hands
 /// both to the slots, and every list query it sends carries the id.
+/// <para>
+/// A task over the collection (<c>ITaskCommand&lt;TRoot&gt;</c>) is a header action after the create command: a click starts
+/// it as one run with no record in the current scope (a second start while that run is going is refused, and the refusal,
+/// which names the task and the scope, is shown as it comes). Its action carries a spinner while the activity indicator
+/// lists its run in the current scope as unfinished, and stays clickable. A <c>Schedulable()</c> one is a split button
+/// holding Schedule… and Schedules (its schedules in this scope, in <see cref="SerginTaskSchedulesDialog"/>) for a user who
+/// may manage scheduled tasks.
+/// </para>
 /// </remarks>
-public sealed partial class SerginGeneratedListView<TRoot>
+public sealed partial class SerginGeneratedListView<TRoot> : IDisposable
     where TRoot : class, IAggregateRoot
 {
     private IGeneratedListBody? body;
@@ -33,6 +47,10 @@ public sealed partial class SerginGeneratedListView<TRoot>
     private FieldView? parentTitleField;
     private object? parent;
     private Guid? loadedParentId;
+    private bool canManageSchedules;
+    private bool watchingActivity;
+    private volatile bool disposed;
+    private readonly HashSet<Type> starting = [];
 
     /// <summary>The parent's id of a root listed under a parent; required for one, ignored for any other.</summary>
     [Parameter]
@@ -47,6 +65,30 @@ public sealed partial class SerginGeneratedListView<TRoot>
     [Inject]
     private SerginUiModuleCatalog Catalog { get; set; } = default!;
 
+    [Inject]
+    private IUiErrorPresenter ErrorPresenter { get; set; } = default!;
+
+    [Inject]
+    private IDialogService DialogService { get; set; } = default!;
+
+    [Inject]
+    private IStringLocalizer Localizer { get; set; } = default!;
+
+    [Inject]
+    private ISnackbar Snackbar { get; set; } = default!;
+
+    [Inject]
+    private ActivityPanelState ActivityPanel { get; set; } = default!;
+
+    [Inject]
+    private IScopeAuthorization ScopeAuthorization { get; set; } = default!;
+
+    [Inject]
+    private IAuthorizationScopeContext CurrentScope { get; set; } = default!;
+
+    [Inject]
+    private SerginScopeSession Scopes { get; set; } = default!;
+
     private AggregateViewModel Model { get; set; } = default!;
 
     // Re-read on every render, so the parent's step shows its record once loaded and its singular until then.
@@ -54,7 +96,12 @@ public sealed partial class SerginGeneratedListView<TRoot>
         ? [GeneratedViewSupport.ListStep(Model, Catalog) ?? new SerginBreadcrumb(Model.Title)]
         : [.. ParentSteps(), new SerginBreadcrumb(Model.Title)];
 
-    private IReadOnlyList<SerginPageAction> Actions { get; set; } = [];
+    // Re-read on every render, so a collection task's spinner follows the activity indicator's rows. Internal, not private:
+    // the task placement tests read the actions the bar is given.
+    internal IReadOnlyList<SerginPageAction> Actions => [.. CreateAction(), .. CollectionTaskActions()];
+
+    private IEnumerable<CommandView> CollectionTasks =>
+        Model.Commands.Where(command => command is { Role: CommandRole.CollectionTask, Hidden: false, BuildWithoutTarget: not null });
 
     private RenderFragment? Overview => SlotOf(SerginViewSlot.ListOverview, keyed: true);
 
@@ -102,8 +149,49 @@ public sealed partial class SerginGeneratedListView<TRoot>
             parentTitleField = GeneratedViewSupport.TitleFieldOf(parentModel.DetailFields, parentModel.DetailTitleField);
         }
 
-        Actions = [.. CreateAction()];
+        // Only a list with a collection task has an action to mark busy. Subscribed before the first await, so a view
+        // disposed while it initializes has already subscribed and unsubscribes.
+        if (CollectionTasks.Any())
+        {
+            ActivityPanel.RowsChanged += OnActivityChanged;
+            watchingActivity = true;
+        }
+
+        canManageSchedules = Model.HasSchedulableCollectionTask && await ScopeAuthorization.CurrentUserHasAsync(TaskPermissions.Manage);
         await LoadOverviewAsync();
+    }
+
+    /// <inheritdoc />
+    public void Dispose()
+    {
+        disposed = true;
+
+        if (watchingActivity)
+        {
+            ActivityPanel.RowsChanged -= OnActivityChanged;
+            watchingActivity = false;
+        }
+    }
+
+    // Raised by the indicator, which must not be broken by a subscriber: a re-render is queued, never thrown into it.
+    private void OnActivityChanged()
+    {
+        if (!disposed)
+        {
+            _ = RerenderAsync();
+        }
+    }
+
+    private async Task RerenderAsync()
+    {
+        try
+        {
+            await InvokeAsync(StateHasChanged);
+        }
+        catch (Exception exception) when (exception is ObjectDisposedException or InvalidOperationException)
+        {
+            // The renderer went away between the check and the call: nothing is left to draw.
+        }
     }
 
     // The parent is read again whenever the route names another one; the list then reloads under it (see GeneratedListBody).
@@ -184,6 +272,98 @@ public sealed partial class SerginGeneratedListView<TRoot>
             Href: create,
             Permission: command.Permissions.FirstOrDefault(),
             AnyScope: command.AnyScope);
+    }
+
+    // Each shown collection task, starting it on click, busy while its run in the current scope is going.
+    private IEnumerable<SerginPageAction> CollectionTaskActions()
+    {
+        foreach (CommandView command in CollectionTasks)
+        {
+            List<SerginMenuItem> items = MenuItemsOf(command);
+
+            yield return new SerginPageAction(
+                command.Label,
+                command.Icon,
+                command.Kind,
+                OnClick: EventCallback.Factory.Create(this, () => StartAsync(command)),
+                Permission: command.Permissions.FirstOrDefault(),
+                AnyScope: command.AnyScope,
+                Disabled: starting.Contains(command.Request),
+                MenuItems: items.Count > 0 ? items : null,
+                Busy: command.Task is { } task && ActivityPanel.IsRunning(task.Name, targetId: null, CurrentScope.ScopeId));
+        }
+    }
+
+    // Schedule… and Schedules for a schedulable collection task, to a user who may manage scheduled tasks.
+    private List<SerginMenuItem> MenuItemsOf(CommandView command)
+    {
+        List<SerginMenuItem> items = [];
+
+        if (command.Task is { Schedulable: true, Name: var name } && canManageSchedules)
+        {
+            items.Add(new SerginMenuItem(
+                TaskUiTexts.ScheduleAction,
+                Icons.Material.Outlined.Schedule,
+                EventCallback.Factory.Create(this, () => DialogService.ShowScheduleAsync(ScheduleRequestFor(command))),
+                command.Permissions.FirstOrDefault(),
+                command.AnyScope));
+            items.Add(new SerginMenuItem(
+                TaskUiTexts.Schedules,
+                Icons.Material.Outlined.EventNote,
+                EventCallback.Factory.Create(this, () => ShowSchedulesAsync(name)),
+                command.Permissions.FirstOrDefault(),
+                command.AnyScope));
+        }
+
+        return items;
+    }
+
+    /// <summary>The Schedule dialog's request for a collection task: no targets, the current scope named instead.</summary>
+    internal SerginScheduleRequest ScheduleRequestFor(CommandView command) =>
+        new(
+            Model.Schema,
+            command.Label,
+            () => GeneratedViewSupport.CollectionTemplateOf(command),
+            [],
+            [TaskUiFormat.ScopeName(Scopes, CurrentScope.ScopeId)],
+            TargetsCaption: TaskUiTexts.Dialog.Scope);
+
+    /// <summary>Opens the collection task's schedules in the current scope. Internal for the task placement tests.</summary>
+    internal Task<IDialogReference> ShowSchedulesAsync(string taskName) =>
+        DialogService.ShowTaskSchedulesAsync(Model.Schema, taskName, CurrentScope.ScopeId);
+
+    /// <summary>
+    /// Starts a collection task in the current scope, its button disabled meanwhile: a refusal (another run of it going here)
+    /// is shown as it comes; a start says so, and nothing is read again, since nothing has changed yet. Internal for the
+    /// task placement tests.
+    /// </summary>
+    internal async Task StartAsync(CommandView command)
+    {
+        ArgumentNullException.ThrowIfNull(command);
+
+        if (!starting.Add(command.Request))
+        {
+            return;
+        }
+
+        ViewSendResult result;
+
+        try
+        {
+            result = await GeneratedViewSupport.StartCollectionAsync(Dispatcher, command);
+        }
+        finally
+        {
+            starting.Remove(command.Request);
+        }
+
+        if (result.IsError)
+        {
+            ErrorPresenter.Notify(result.Errors);
+            return;
+        }
+
+        ActivityPanel.NotifyStarted(Snackbar, Localizer, Localizer.Text(ShellTexts.CommandActions.BackgroundStarted));
     }
 
     private RenderFragment? SlotOf(SerginViewSlot slot, bool keyed)

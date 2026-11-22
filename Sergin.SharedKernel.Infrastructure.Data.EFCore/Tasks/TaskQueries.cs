@@ -41,7 +41,23 @@ internal sealed class TaskQueries(
     private static readonly Error UnknownSchema = Error.Validation(
         "Tasks.UnknownSchema", "No module opted into scheduled tasks under that schema.");
 
-    public async Task<ErrorOr<IReadOnlyCollection<TaskScheduleListItem>>> ForTargetAsync(string schema, Guid targetId, CancellationToken ct)
+    public Task<ErrorOr<IReadOnlyCollection<TaskScheduleListItem>>> ForTargetAsync(string schema, Guid targetId, CancellationToken ct) =>
+        SchedulesAsync(
+            schema,
+            quoted => $"EXISTS (SELECT 1 FROM {quoted}.task_schedule_targets y WHERE y.schedule_id = t.id AND y.target_id = @TargetId)",
+            new DynamicParameters(new { TargetId = targetId }),
+            ct);
+
+    // A collection task's schedules have no targets: they are the task's, saved in the scope.
+    public Task<ErrorOr<IReadOnlyCollection<TaskScheduleListItem>>> ForCollectionAsync(string schema, string taskName, Guid scopeId, CancellationToken ct) =>
+        SchedulesAsync(
+            schema,
+            _ => "t.command_name = @TaskName AND t.scope_id = @ScopeId",
+            new DynamicParameters(new { TaskName = taskName, ScopeId = scopeId }),
+            ct);
+
+    private async Task<ErrorOr<IReadOnlyCollection<TaskScheduleListItem>>> SchedulesAsync(
+        string schema, Func<string, string> filterOf, DynamicParameters parameters, CancellationToken ct)
     {
         if (!TryQuote(schema, out string quoted))
         {
@@ -64,13 +80,13 @@ internal sealed class TaskQueries(
                 ORDER BY r.started_at_utc DESC, r.id DESC
                 LIMIT 1) lr ON true
             WHERE t.deleted_at_utc IS NULL AND {{ScopeColumns.ReachSql}}
-              AND EXISTS (SELECT 1 FROM {{quoted}}.task_schedule_targets y WHERE y.schedule_id = t.id AND y.target_id = @TargetId)
+              AND {{filterOf(quoted)}}
             ORDER BY t.id;
             """;
 
-        DynamicParameters parameters = ScopeColumns.AddParameters(new DynamicParameters(new { TargetId = targetId }), scopeFilter);
+        ScopeColumns.AddParameters(parameters, scopeFilter);
 
-        // The schema was matched against the registered ones; every value is a parameter.
+        // The schema was matched against the registered ones, the filter is one of the two above; every value is a parameter.
 #pragma warning disable S2077
         IEnumerable<TaskRow> rows = await connection.QueryAsync<TaskRow>(new CommandDefinition(sql, parameters, cancellationToken: ct));
 #pragma warning restore S2077
@@ -242,8 +258,24 @@ internal sealed class TaskQueries(
         return items.ToErrorOr();
     }
 
-    public async Task<ErrorOr<IReadOnlyCollection<TaskRunListItem>>> OneOffRunsForTargetAsync(
-        string schema, Guid targetId, int take, CancellationToken ct)
+    public Task<ErrorOr<IReadOnlyCollection<TaskRunListItem>>> OneOffRunsForTargetAsync(
+        string schema, Guid targetId, int take, CancellationToken ct) =>
+        OneOffRunsAsync(
+            schema,
+            quoted => $"EXISTS (SELECT 1 FROM {quoted}.task_run_items i WHERE i.run_id = r.id AND i.target_id = @TargetId)",
+            new DynamicParameters(new { TargetId = targetId, Take = Math.Clamp(take, 1, MaxOneOffTake) }),
+            ct);
+
+    public Task<ErrorOr<IReadOnlyCollection<TaskRunListItem>>> OneOffRunsForCollectionAsync(
+        string schema, string taskName, Guid scopeId, int take, CancellationToken ct) =>
+        OneOffRunsAsync(
+            schema,
+            _ => "r.target_kind = 'Collection' AND r.command_name = @TaskName AND r.scope_id = @ScopeId",
+            new DynamicParameters(new { TaskName = taskName, ScopeId = scopeId, Take = Math.Clamp(take, 1, MaxOneOffTake) }),
+            ct);
+
+    private async Task<ErrorOr<IReadOnlyCollection<TaskRunListItem>>> OneOffRunsAsync(
+        string schema, Func<string, string> filterOf, DynamicParameters parameters, CancellationToken ct)
     {
         if (!TryQuote(schema, out string quoted))
         {
@@ -258,13 +290,12 @@ internal sealed class TaskQueries(
             SELECT {{RunColumns}}
             FROM {{quoted}}.task_runs r
             WHERE r.schedule_id IS NULL AND r."trigger" IN ('Once', 'Manual') AND {{ScopeColumns.ReachSql}}
-              AND EXISTS (SELECT 1 FROM {{quoted}}.task_run_items i WHERE i.run_id = r.id AND i.target_id = @TargetId)
+              AND {{filterOf(quoted)}}
             ORDER BY r.started_at_utc DESC, r.id DESC
             LIMIT @Take;
             """;
 
-        DynamicParameters parameters = ScopeColumns.AddParameters(
-            new DynamicParameters(new { TargetId = targetId, Take = Math.Clamp(take, 1, MaxOneOffTake) }), scopeFilter);
+        ScopeColumns.AddParameters(parameters, scopeFilter);
 
 #pragma warning disable S2077
         IEnumerable<RunRow> rows = await connection.QueryAsync<RunRow>(new CommandDefinition(sql, parameters, cancellationToken: ct));
@@ -356,7 +387,8 @@ internal sealed class TaskQueries(
     private const string RunColumns =
         "r.id AS Id, r.command_name AS CommandName, r.\"trigger\" AS Trigger, r.acting_user_id AS ActingUserId, r.status AS Status, "
         + "r.started_at_utc AS StartedAtUtc, r.completed_at_utc AS CompletedAtUtc, r.total AS Total, "
-        + "r.succeeded AS Succeeded, r.failed AS Failed, r.cancelled AS Cancelled";
+        + "r.succeeded AS Succeeded, r.failed AS Failed, r.cancelled AS Cancelled, "
+        + "CASE WHEN r.target_kind = 'Collection' THEN r.scope_id END AS ScopeId";
 
     // A name the catalogue no longer knows is cancelable: the cancel handler decides by the same rule.
     private bool CancelableOf(string commandName) => catalog.ByName(commandName)?.Settings.Cancelable ?? true;
@@ -374,7 +406,8 @@ internal sealed class TaskQueries(
             row.Succeeded,
             row.Failed,
             row.Cancelled,
-            CancelableOf(row.CommandName));
+            CancelableOf(row.CommandName),
+            row.ScopeId);
 
     // Only a schema a module registered reaches the SQL text; the quoting is belt and braces over that match.
     private bool TryQuote(string schema, out string quoted)
@@ -455,6 +488,8 @@ internal sealed class TaskQueries(
         public int Failed { get; set; }
 
         public int Cancelled { get; set; }
+
+        public Guid? ScopeId { get; set; }
     }
 
     private sealed class ItemRow

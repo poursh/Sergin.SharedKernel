@@ -15,6 +15,12 @@ public static class TaskUiTexts
 
     public static TextDefinition ViewSchedules { get; } = category.Text("ViewSchedules", "View schedules ({Count})");
 
+    /// <summary>A collection task's list-header entry that opens its schedules in a dialog.</summary>
+    public static TextDefinition Schedules { get; } = category.Text("Schedules", "Schedules");
+
+    /// <summary>The schedules dialog's title: the collection task and the scope its schedules are listed in.</summary>
+    public static TextDefinition SchedulesIn { get; } = category.Text("SchedulesIn", "{Task} · {Scope}");
+
     public static TextDefinition FilteredTo { get; } = category.Text("FilteredTo", "Showing {Command}");
 
     public static TextDefinition ScheduleAction { get; } = category.Text("ScheduleAction", "Schedule…");
@@ -45,6 +51,8 @@ public static class TaskUiTexts
 
     public static TextDefinition Empty { get; } = category.Text("Empty", "Nothing is scheduled for this record.");
 
+    public static TextDefinition EmptyInScope { get; } = category.Text("EmptyInScope", "Nothing is scheduled in this scope.");
+
     public static TextDefinition OneOffRuns { get; } = category.Text("OneOffRuns", "Recent one-off runs");
 
     public static TextDefinition OneOffEmpty { get; } = category.Text("OneOffEmpty", "Nothing has been run once here yet.");
@@ -68,6 +76,9 @@ public static class TaskUiTexts
         private static readonly TextCategory dialog = category.Child("Dialog");
 
         public static TextDefinition Targets { get; } = dialog.Text("Targets", "Records");
+
+        /// <summary>The caption above a collection task's scope, which it runs in instead of on records.</summary>
+        public static TextDefinition Scope { get; } = dialog.Text("Scope", "Scope");
 
         public static TextDefinition Trigger { get; } = dialog.Text("Trigger", "Schedule");
     }

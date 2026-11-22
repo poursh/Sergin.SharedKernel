@@ -179,15 +179,16 @@ public sealed partial class SerginGeneratedDetailView<TRoot> : IDisposable
         record is null ? new(Model.Singular) : SerginBreadcrumb.Data(DisplayText),
     ];
 
-    private IReadOnlyList<SerginPageAction> Actions =>
+    // Internal, not private: the task placement tests read the actions the bar is given.
+    internal IReadOnlyList<SerginPageAction> Actions =>
         record is null
             ? []
-            : commands.For(Model, Id, MenuItemsOf, record: record, links: ViewLinkPlacement.AfterCommands, childCreate: true, busy: IsBackgroundRunning);
+            : commands.For(Model, Id, MenuItemsOf, record: record, links: ViewLinkPlacement.AfterCommands, childCreate: true, busy: IsTaskRunning);
 
-    // A background command's run on this record, as the indicator last read it: one-record runs only, since a run over
-    // several records names none of them in the activity read.
-    private bool IsBackgroundRunning(CommandView command) =>
-        command is { Task: { } task } && ActivityPanel.IsRunning(task.Name, Id);
+    // A task's run on this record, as the indicator last read it: one-record runs only, since a run over
+    // several records names none of them in the activity read. No other command is ever busy.
+    private bool IsTaskRunning(CommandView command) =>
+        command is { Role: CommandRole.Task, Task: { } task } && ActivityPanel.IsRunning(task.Name, Id, scopeId: null);
 
     protected override async Task OnInitializedAsync()
     {
@@ -199,9 +200,9 @@ public sealed partial class SerginGeneratedDetailView<TRoot> : IDisposable
                 $"{typeof(TRoot).FullName} has no GetOne query, so its detail view has nothing to load. Add an IGetOneQuery<{typeof(TRoot).Name}, …>.");
         }
 
-        // Only a root with a background command has an action to mark busy. Subscribed before the first await, so a view
+        // Only a root with a task has an action to mark busy. Subscribed before the first await, so a view
         // disposed while it initializes has already subscribed and unsubscribes.
-        if (Model.Commands.Any(command => command.Task is not null))
+        if (Model.Commands.Any(command => command.Role == CommandRole.Task))
         {
             ActivityPanel.RowsChanged += OnActivityChanged;
             watchingActivity = true;
@@ -352,7 +353,7 @@ public sealed partial class SerginGeneratedDetailView<TRoot> : IDisposable
             return;
         }
 
-        // A background command was only started: nothing has changed yet, so the record is not read again; the schedule
+        // A task was only started: nothing has changed yet, so the record is not read again; the schedule
         // section is, so it lists the new run and polls it while it is Running.
         if (command.Task is not null)
         {
@@ -630,14 +631,14 @@ public sealed partial class SerginGeneratedDetailView<TRoot> : IDisposable
     private Dictionary<string, object?> PlaceholderArguments() =>
         GeneratedViewSupport.ArgumentsOf(Model.DetailArguments, record, DisplayText);
 
-    // Schedule… and View schedules for a schedulable command (to a user who may manage scheduled tasks), then the
+    // Schedule… and View schedules for a schedulable task (to a user who may manage scheduled tasks), then the
     // configuration's own entries.
     private IReadOnlyList<SerginMenuItem> MenuItemsOf(CommandView command)
     {
         List<SerginMenuItem> items = [];
         PermissionDefinition? permission = command.Permissions.FirstOrDefault();
 
-        if (command.Task is { Schedulable: true, Name: var name } && canManageSchedules)
+        if (command is { Role: CommandRole.Task, Task: { Schedulable: true, Name: var name } } && canManageSchedules)
         {
             items.Add(new SerginMenuItem(
                 TaskUiTexts.ScheduleAction,

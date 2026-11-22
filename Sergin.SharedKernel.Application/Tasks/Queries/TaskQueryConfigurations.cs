@@ -33,3 +33,16 @@ internal sealed class GetOneOffRunsForTargetQueryConfiguration : ICommandConfigu
     public void Configure(CommandConfigurationBuilder<GetOneOffRunsForTargetQuery> builder) =>
         builder.RequirePermissions(TaskPermissions.Manage).NotShown(x => x.Schema).NotShown(x => x.TargetId).NotShown(x => x.Take);
 }
+
+internal sealed class GetTaskSchedulesForCollectionQueryConfiguration : ICommandConfiguration<GetTaskSchedulesForCollectionQuery>
+{
+    public void Configure(CommandConfigurationBuilder<GetTaskSchedulesForCollectionQuery> builder) =>
+        builder.RequirePermissions(TaskPermissions.Manage).NotShown(x => x.Schema).NotShown(x => x.TaskName).NotShown(x => x.ScopeId);
+}
+
+internal sealed class GetOneOffRunsForCollectionQueryConfiguration : ICommandConfiguration<GetOneOffRunsForCollectionQuery>
+{
+    public void Configure(CommandConfigurationBuilder<GetOneOffRunsForCollectionQuery> builder) =>
+        builder.RequirePermissions(TaskPermissions.Manage)
+            .NotShown(x => x.Schema).NotShown(x => x.TaskName).NotShown(x => x.ScopeId).NotShown(x => x.Take);
+}

@@ -16,7 +16,7 @@
                     }
 
                     <div class="sergin-schedule-targets">
-                        <MudText Typo="Typo.subtitle2">@Localizer.Text(TaskUiTexts.Dialog.Targets)</MudText>
+                        <MudText Typo="Typo.subtitle2">@Localizer.Text(TargetsCaption ?? TaskUiTexts.Dialog.Targets)</MudText>
                         @if (TargetLabels.Count > 0)
                         {
                             <MudChipSet T="string" ReadOnly="true">

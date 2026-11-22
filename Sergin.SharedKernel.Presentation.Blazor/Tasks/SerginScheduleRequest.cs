@@ -13,6 +13,10 @@ namespace Sergin.SharedKernel.Presentation.Blazor.Tasks;
 /// <param name="TargetLabels">What shows for each target — data as stored, one per target.</param>
 /// <param name="ArgumentsForm">The module's fields for the command's own arguments.</param>
 /// <param name="EditingId">A saved schedule to change instead of adding one.</param>
+/// <param name="TargetsCaption">
+/// The caption above <paramref name="TargetLabels"/>; null for "Records". A collection task, which has no targets, names
+/// the scope it runs in under "Scope".
+/// </param>
 public sealed record SerginScheduleRequest(
     string Schema,
     TextDefinition CommandTitle,
@@ -20,7 +24,8 @@ public sealed record SerginScheduleRequest(
     IReadOnlyCollection<TaskScheduleTarget> Targets,
     IReadOnlyList<string> TargetLabels,
     RenderFragment? ArgumentsForm = null,
-    TaskScheduleId? EditingId = null);
+    TaskScheduleId? EditingId = null,
+    TextDefinition? TargetsCaption = null);
 
 public static class SerginScheduleDialogExtensions
 {
@@ -39,6 +44,7 @@ public static class SerginScheduleDialogExtensions
             { dialog => dialog.TargetLabels, request.TargetLabels },
             { dialog => dialog.ArgumentsForm, request.ArgumentsForm },
             { dialog => dialog.EditingId, request.EditingId },
+            { dialog => dialog.TargetsCaption, request.TargetsCaption },
         };
 
         IDialogReference reference = await dialogs.ShowAsync<SerginScheduleDialog>(
