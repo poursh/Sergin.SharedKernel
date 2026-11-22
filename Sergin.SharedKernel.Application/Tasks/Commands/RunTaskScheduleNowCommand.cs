@@ -70,16 +70,16 @@ internal sealed class RunTaskScheduleNowCommandHandler(
                 return new TaskScheduleRunStartedResponse(started.Value);
             }
 
-            if (started.FirstError.Code is not (TaskErrors.OverlapCode or TaskErrors.AlreadyRunningCode))
+            switch (started.FirstError.Code)
             {
-                return started.Errors;
-            }
-
-            // A collection task already Running in the schedule's scope: recorded like an overlap, answered as itself.
-            if (started.FirstError.Code == TaskErrors.AlreadyRunningCode)
-            {
-                await AddSkippedAsync(store, start, command, cancellationToken);
-                return started.Errors;
+                // A collection task already Running in the schedule's scope: recorded like an overlap, answered as itself.
+                case TaskErrors.AlreadyRunningCode:
+                    await AddSkippedAsync(store, start, command, cancellationToken);
+                    return started.Errors;
+                case TaskErrors.OverlapCode:
+                    break;
+                default:
+                    return started.Errors;
             }
         }
 

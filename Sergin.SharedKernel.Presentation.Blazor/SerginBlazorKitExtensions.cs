@@ -1,5 +1,6 @@
 using MudBlazor;
 using MudBlazor.Services;
+using Sergin.SharedKernel.Application.Tasks;
 using Sergin.SharedKernel.Presentation.Blazor.Dispatching;
 using Sergin.SharedKernel.Presentation.Blazor.Errors;
 using Sergin.SharedKernel.Presentation.Blazor.Localizations;
@@ -30,6 +31,9 @@ public static class SerginBlazorKitExtensions
         services.AddSingleton(TextSource.FromTypes("common", TextOrigin.Ui, [typeof(TaskUiTexts), .. typeof(TaskUiTexts).GetNestedTypes()]));
 
         services.AddSingleton<TaskScheduleNextRuns>();
+
+        // Per scope: it reads the request's culture. Names a task by its view label in a refusal the starter raises.
+        services.AddScoped<ITaskLabels, ViewTaskLabels>();
 
         // Per circuit: a started snackbar's "Show" opens this circuit's activity popover.
         services.AddScoped<ActivityPanelState>();

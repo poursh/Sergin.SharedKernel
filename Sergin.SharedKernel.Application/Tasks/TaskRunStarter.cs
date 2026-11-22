@@ -1,6 +1,7 @@
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Sergin.SharedKernel.Application.Commands.Types;
+using Sergin.SharedKernel.Application.Securities.Authorization;
 using Sergin.SharedKernel.Application.Tasks.Activity;
 using Sergin.SharedKernel.Application.Tasks.Commands;
 using Sergin.SharedKernel.Application.Times;
@@ -46,13 +47,14 @@ internal sealed partial class TaskRunStarter(
         ArgumentNullException.ThrowIfNull(store);
         ArgumentNullException.ThrowIfNull(start);
 
-        TaskRunTargetKind kind = KindOf(catalog.ByName(start.CommandName));
+        TaskDescriptor? command = catalog.ByName(start.CommandName);
+        TaskRunTargetKind kind = KindOf(command);
         bool collection = kind == TaskRunTargetKind.Collection;
 
         // Advisory: two starts may both pass it, and the unique index below then refuses the second insert.
         if (collection && await store.HasRunningCollectionRunAsync(start.CommandName, start.ScopeId, ct))
         {
-            return AlreadyRunning(start);
+            return await AlreadyRunningAsync(start, command!, ct);
         }
 
         var definition = new TaskRunDefinition(
@@ -82,7 +84,7 @@ internal sealed partial class TaskRunStarter(
 
             if (saved == StartedRunSave.CollectionRunning)
             {
-                return AlreadyRunning(start);
+                return await AlreadyRunningAsync(start, command!, ct);
             }
         }
         else
@@ -126,8 +128,37 @@ internal sealed partial class TaskRunStarter(
         return run.Id;
     }
 
-    // The starter holds no person-facing task label or scope name: the task's name and the scope's path stand in.
-    private static Error AlreadyRunning(TaskRunStart start) => TaskErrors.AlreadyRunning(start.CommandName, start.ScopePath);
+    /// <summary>
+    /// The refusal, naming the task by its view label (a presentation's <see cref="ITaskLabels"/>; else its task name) and
+    /// the scope by its name among the scopes the caller can work in (else its path: a cron fire has no caller to ask for).
+    /// </summary>
+    private async Task<Error> AlreadyRunningAsync(TaskRunStart start, TaskDescriptor command, CancellationToken ct)
+    {
+        string task = services.GetService<ITaskLabels>()?.LabelOf(command) ?? start.CommandName;
+
+        return TaskErrors.AlreadyRunning(task, await ScopeNameAsync(start, ct));
+    }
+
+    private async Task<string> ScopeNameAsync(TaskRunStart start, CancellationToken ct)
+    {
+        if (services.GetService<IScopeDirectory>() is not { } directory)
+        {
+            return start.ScopePath;
+        }
+
+        try
+        {
+            IReadOnlyList<ScopeOption> scopes = await directory.GetReachableAsync(ct);
+
+            return scopes.FirstOrDefault(scope => scope.Id == start.ScopeId)?.Name ?? start.ScopePath;
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException)
+        {
+            // Naming the scope is only for the message: the refusal stands, named by the path.
+            LogScopeNameFailed(exception, start.ScopeId);
+            return start.ScopePath;
+        }
+    }
 
     // A label is user data kept as stored, only trimmed and cut; a blank one is none.
     private static string? LabelOf(TaskRunStart start, Guid? target)
@@ -152,6 +183,9 @@ internal sealed partial class TaskRunStarter(
 
         return char.IsHighSurrogate(label[max - 1]) ? label[..(max - 1)] : label[..max];
     }
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "The scope {ScopeId} could not be named for a task's already-running refusal; its path names it.")]
+    private partial void LogScopeNameFailed(Exception exception, Guid scopeId);
 
     [LoggerMessage(Level = LogLevel.Error, Message = "The job engine failed while enqueueing the items of scheduled run {RunId} ({CommandName}); its unqueued items were failed.")]
     private partial void LogEngineFailed(Exception exception, Guid runId, string commandName);
