@@ -84,6 +84,15 @@ public static class TaskUiTexts
         public static TextDefinition Scope { get; } = dialog.Text("Scope", "Scope");
 
         public static TextDefinition Trigger { get; } = dialog.Text("Trigger", "Schedule");
+
+        /// <summary>The dialog's title over one record: the command, then the record count.</summary>
+        public static TextDefinition TitleOneRecord { get; } = dialog.Text("TitleOneRecord", "{Command} · 1 record");
+
+        /// <summary>The dialog's title over several records: the command, then how many.</summary>
+        public static TextDefinition TitleRecords { get; } = dialog.Text("TitleRecords", "{Command} · {Count} records");
+
+        /// <summary>A collection task's dialog title: the command, then the scope it runs in.</summary>
+        public static TextDefinition TitleInScope { get; } = dialog.Text("TitleInScope", "{Command} · {Scope}");
     }
 
     /// <summary>The table's column headings.</summary>

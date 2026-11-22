@@ -1,16 +1,26 @@
-@* The Schedule dialog. The form is a MudForm validated by the pipeline's own validator; its Save button sits in the
+@* The Schedule dialog. A generated task's arguments come first, as its start's form renders them, each validated by the
+   task's own validator. The form is a MudForm validated by the pipeline's own validator; its Save button sits in the
    dialog's actions, outside the form, so it validates and sends itself (SaveAsync), and SuppressImplicitSubmission stays
    on so Enter in a field never submits the bare <form> and reloads the page. *@
 <MudDialog>
     <TitleContent>
-        <MudText Typo="Typo.h6">@Localizer.Text(CommandTitle)</MudText>
+        <MudText Typo="Typo.h6">@TitleShown</MudText>
     </TitleContent>
     <DialogContent>
         @if (EditingId is null || Version is not null)
         {
             <MudForm @ref="form" Model="model" Validation="@validation" @bind-IsValid="isValid">
                 <MudStack Spacing="3">
-                    @if (ArgumentsForm is not null)
+                    @if (ArgumentFields.Count > 0)
+                    {
+                        <div class="sergin-schedule-arguments">
+                            @foreach (FormFieldView field in ArgumentFields)
+                            {
+                                <GeneratedInput @key="field.Name" Field="field" Values="ArgumentValues!" Validate="ValidateArgumentAsync" />
+                            }
+                        </div>
+                    }
+                    else if (ArgumentsForm is not null)
                     {
                         <div class="sergin-schedule-arguments">@ArgumentsForm</div>
                     }

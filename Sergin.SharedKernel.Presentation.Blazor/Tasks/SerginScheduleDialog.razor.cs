@@ -7,22 +7,28 @@ using Sergin.SharedKernel.Application.Tasks.Commands;
 using Sergin.SharedKernel.Application.Tasks.Queries;
 using Sergin.SharedKernel.Domain;
 using Sergin.SharedKernel.Domain.Tasks;
+using Sergin.SharedKernel.Presentation.Blazor.Aggregates.Model;
+using Sergin.SharedKernel.Presentation.Blazor.Aggregates.Views.Parts;
 using Sergin.SharedKernel.Presentation.Blazor.Dispatching;
 using Sergin.SharedKernel.Presentation.Blazor.Errors;
 using Sergin.SharedKernel.Presentation.Blazor.Validation;
+using Sergin.SharedKernel.Presentation.Localizations;
 
 namespace Sergin.SharedKernel.Presentation.Blazor.Tasks;
 
 /// <summary>
-/// The Schedule dialog: the command's title, the module's own form for its non-target arguments
-/// (<see cref="ArgumentsForm"/>), the records it will run on, a <see cref="SerginCronPicker"/>, and two buttons —
+/// The Schedule dialog: the command's title with the record count (or, for a collection task, the scope), the task's
+/// arguments (a generated task's <see cref="CommandView.TaskFields"/>, or a module page's own
+/// <see cref="ArgumentsForm"/>), the records it will run on, a <see cref="SerginCronPicker"/>, and two buttons —
 /// <b>Run now</b> sends the command once, saving nothing, and <b>Save</b> stores the schedule (or, with
 /// <see cref="EditingId"/>, replaces the saved one at the version the dialog read when it opened).
 /// </summary>
 /// <remarks>
 /// The form is validated the way every form is: field by field through <c>FormValidator.RulesFor(ToCommand)</c>, the
 /// pipeline's own validator for <see cref="CreateTaskScheduleCommand"/> (or <see cref="UpdateTaskScheduleCommand"/>),
-/// whose cron and zone rules the picker's custom field shows. A rule on a property with no field here (the template, the
+/// whose cron and zone rules the picker's custom field shows; a generated task's argument fields are checked by the task's
+/// own validator over <see cref="BuildTemplate"/>, as its start's form checks them, so Save stays disabled while one is
+/// invalid and the schedule stores what was entered. A rule on a property with no field here (the template, the
 /// targets) is the pipeline's, shown as snackbars on submit. The dialog closes with <c>true</c> when a schedule was saved.
 /// </remarks>
 public sealed partial class SerginScheduleDialog
@@ -67,6 +73,14 @@ public sealed partial class SerginScheduleDialog
     [Parameter]
     public TextDefinition? TargetsCaption { get; set; }
 
+    /// <summary>A generated view's task, whose shown arguments render above the trigger; null for a module page's own form.</summary>
+    [Parameter]
+    public CommandView? TaskView { get; set; }
+
+    /// <summary>With <see cref="TaskView"/>, the values its argument fields edit and <see cref="BuildTemplate"/> reads.</summary>
+    [Parameter]
+    public GeneratedFormValues? ArgumentValues { get; set; }
+
     /// <summary>The saved schedule being changed; null to add a new one.</summary>
     [Parameter]
     public TaskScheduleId? EditingId { get; set; }
@@ -86,9 +100,45 @@ public sealed partial class SerginScheduleDialog
     [Inject]
     private IStringLocalizer Localizer { get; set; } = default!;
 
+    [Inject]
+    private ICultureFormatter Formatter { get; set; } = default!;
+
+    [Inject]
+    private TaskCatalog Catalog { get; set; } = default!;
+
     // The off-state line above Save: saving still works, but nothing will fire until the real engine is configured.
     [Inject]
     private ITaskEngine Engine { get; set; } = default!;
+
+    private IReadOnlyList<FormFieldView> ArgumentFields => TaskView is not null && ArgumentValues is not null ? TaskView.TaskFields : [];
+
+    // "Read profile · 3 records" over records; "Refresh · North Region" for a collection task, which names its scope.
+    private string TitleShown
+    {
+        get
+        {
+            string command = Localizer.Text(CommandTitle);
+
+            return (Targets.Count, TargetLabels) switch
+            {
+                (1, _) => Localizer.Text(TaskUiTexts.Dialog.TitleOneRecord, new { Command = command }),
+                ( > 1, _) => Localizer.Text(TaskUiTexts.Dialog.TitleRecords, new { Command = command, Count = Formatter.Number(Targets.Count) }),
+                (0, [var scope]) => Localizer.Text(TaskUiTexts.Dialog.TitleInScope, new { Command = command, Scope = scope }),
+                _ => command,
+            };
+        }
+    }
+
+    // An argument field's rule: the task's own validator over the task built from the values, as the start's form runs it.
+    private async Task<IEnumerable<string>> ValidateArgumentAsync(string propertyName) =>
+        await TaskView!.Invoker.ValidateAsync(FormValidator, BuildTemplate(), propertyName);
+
+    // Internal for the schedule dialog tests: sets an argument as its input would, and re-renders so the input holds it.
+    internal void SetArgument(string name, object? value)
+    {
+        ArgumentValues!.Set(name, value);
+        StateHasChanged();
+    }
 
     protected override async Task OnInitializedAsync()
     {
@@ -105,7 +155,10 @@ public sealed partial class SerginScheduleDialog
     /// <summary>The row version the dialog will send an edit at; null for a new schedule or before the saved one is read.</summary>
     internal RowVersion? Version { get; private set; }
 
-    /// <summary>Reads the saved schedule again: its version, cron and zone become the form's. False when it could not be read.</summary>
+    /// <summary>
+    /// Reads the saved schedule again: its version, cron and zone become the form's, and so do its stored arguments for a
+    /// generated task's fields. False when it could not be read.
+    /// </summary>
     internal async Task<bool> ReloadAsync()
     {
         ErrorOr<Versioned<TaskScheduleResponse>> loaded = await Dispatcher.SendVersionedAsync(new GetTaskScheduleByIdQuery(Schema, EditingId!));
@@ -116,9 +169,21 @@ public sealed partial class SerginScheduleDialog
             return false;
         }
 
+        TaskScheduleResponse saved = loaded.Value.Value;
         Version = loaded.Value.Version;
-        model.Cron = loaded.Value.Value.Cron;
-        model.TimeZoneId = loaded.Value.Value.TimeZoneId;
+        model.Cron = saved.Cron;
+        model.TimeZoneId = saved.TimeZoneId;
+
+        // The template's target id is ignored when it is saved; the first target's only lets the command be built.
+        if (ArgumentFields.Count > 0
+            && Catalog.ByName(saved.CommandName) is { } command
+            && TaskCommandFactory.Build(command, saved.Arguments, saved.Targets.FirstOrDefault()?.TargetId) is { IsError: false } built)
+        {
+            foreach ((string name, object? value) in SerginScheduleArguments.Of(TaskView!, built.Value).Values)
+            {
+                ArgumentValues!.Set(name, value);
+            }
+        }
 
         return true;
     }

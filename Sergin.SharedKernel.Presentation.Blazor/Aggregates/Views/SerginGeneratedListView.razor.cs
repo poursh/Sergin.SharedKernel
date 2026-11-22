@@ -356,15 +356,26 @@ public sealed partial class SerginGeneratedListView<TRoot> : IDisposable
         return items;
     }
 
-    /// <summary>The Schedule dialog's request for a collection task: no targets, the current scope named instead.</summary>
-    internal SerginScheduleRequest ScheduleRequestFor(CommandView command) =>
-        new(
+    /// <summary>
+    /// The Schedule dialog's request for a collection task: no targets, the current scope named instead, and the task's
+    /// arguments at their declared defaults.
+    /// </summary>
+    internal SerginScheduleRequest ScheduleRequestFor(CommandView command)
+    {
+        ArgumentNullException.ThrowIfNull(command);
+
+        GeneratedFormValues arguments = SerginScheduleArguments.Defaults(command);
+
+        return new(
             Model.Schema,
             command.Label,
-            () => GeneratedViewSupport.CollectionTemplateOf(command),
+            () => GeneratedViewSupport.CollectionTemplateOf(command, arguments.Values),
             [],
             [TaskUiFormat.ScopeName(Scopes, CurrentScope.ScopeId)],
-            TargetsCaption: TaskUiTexts.Dialog.Scope);
+            TargetsCaption: TaskUiTexts.Dialog.Scope,
+            TaskView: command,
+            ArgumentValues: arguments);
+    }
 
     /// <summary>Opens the collection task's schedules in the current scope. Internal for the task placement tests.</summary>
     internal Task<IDialogReference> ShowSchedulesAsync(string taskName) =>

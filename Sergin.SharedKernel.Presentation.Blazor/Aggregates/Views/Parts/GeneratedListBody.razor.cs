@@ -127,7 +127,8 @@ public sealed partial class GeneratedListBody<TItem> : IGeneratedListBody
 
     /// <summary>
     /// The Schedule dialog's request for running <paramref name="command"/> on <paramref name="items"/>: one target per
-    /// row, shown by its display field; the template's own id is ignored.
+    /// row, shown by its display field, and the task's arguments at their declared defaults; the template's own id is ignored
+    /// when it is saved.
     /// </summary>
     internal static SerginScheduleRequest ScheduleRequestFor(AggregateViewModel model, CommandView command, IReadOnlyList<TItem> items)
     {
@@ -136,13 +137,18 @@ public sealed partial class GeneratedListBody<TItem> : IGeneratedListBody
         ArgumentNullException.ThrowIfNull(items);
 
         FieldView? title = GeneratedViewSupport.TitleFieldOf(model.ListFields, model.ListTitleField);
+        GeneratedFormValues arguments = SerginScheduleArguments.Defaults(command);
+        Guid first = items.Count > 0 ? IdOf(items[0]) : Guid.Empty;
 
+        // The template's id is the first row's, so a rule over the record (it must exist) checks a real one.
         return new SerginScheduleRequest(
             model.Schema,
             command.Label,
-            () => GeneratedViewSupport.TaskTemplateOf(command, Guid.Empty),
+            () => GeneratedViewSupport.TaskTemplateOf(command, first, arguments.Values),
             [.. items.Select(item => new TaskScheduleTarget(IdOf(item)))],
-            [.. items.Select(item => GeneratedViewSupport.DisplayOf(item, title, IdOf(item)))]);
+            [.. items.Select(item => GeneratedViewSupport.DisplayOf(item, title, IdOf(item)))],
+            TaskView: command,
+            ArgumentValues: arguments);
     }
 
     public Task ReloadAsync() => list.ReloadAsync();

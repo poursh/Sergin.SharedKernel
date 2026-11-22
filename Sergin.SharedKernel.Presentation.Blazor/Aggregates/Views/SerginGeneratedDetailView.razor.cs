@@ -716,14 +716,17 @@ public sealed partial class SerginGeneratedDetailView<TRoot> : IDisposable
     private async Task ScheduleAsync(CommandView command)
     {
         IReadOnlyCollection<TaskScheduleTarget> targets = [new TaskScheduleTarget(Id)];
+        GeneratedFormValues arguments = SerginScheduleArguments.Defaults(command);
 
         // Saved, run once or cancelled: the section reads its lists again either way (a one-off run starts Running).
         await DialogService.ShowScheduleAsync(new SerginScheduleRequest(
             Model.Schema,
             command.Label,
-            () => GeneratedViewSupport.TaskTemplateOf(command, Id),
+            () => GeneratedViewSupport.TaskTemplateOf(command, Id, arguments.Values),
             targets,
-            [DisplayText]));
+            [DisplayText],
+            TaskView: command,
+            ArgumentValues: arguments));
 
         if (section is not null)
         {

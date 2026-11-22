@@ -19,6 +19,7 @@ using Sergin.SharedKernel.Presentation.Errors;
 using Sergin.SharedKernel.Presentation.Localizations;
 using Sergin.SharedKernel.Presentation.Blazor.TimeZones;
 using Sergin.SharedKernel.Presentation.Blazor.Dialogs;
+using Sergin.SharedKernel.Presentation.Blazor.Aggregates.Views.Parts;
 
 namespace Sergin.SharedKernel.Presentation.Blazor.Tasks;
 
@@ -31,8 +32,9 @@ namespace Sergin.SharedKernel.Presentation.Blazor.Tasks;
 /// </summary>
 /// <remarks>
 /// It has no route and holds no module knowledge, only the module's <see cref="Schema"/> and the record's id. Edit
-/// changes a schedule's time and zone and keeps its arguments as saved: the section rebuilds the saved command from the
-/// catalogue, and the module's own arguments form is the module view's to offer through <see cref="SerginScheduleDialog"/>.
+/// reopens the Schedule dialog on the saved schedule: a command a generated view shows has its arguments there as saved,
+/// editable and validated as a start's are; a command no view names keeps its arguments as saved (the section rebuilds the
+/// command from the catalogue) and changes only its time and zone.
 /// A command is shown by its view label, the one the activity indicator uses, or by its stable name when no view names it.
 /// </remarks>
 public sealed partial class SerginTaskSchedulesSection : IDisposable
@@ -469,13 +471,28 @@ public sealed partial class SerginTaskSchedulesSection : IDisposable
 
     private async Task EditAsync(TaskScheduleListItem item)
     {
-        var id = new TaskScheduleId(item.Id);
+        // Whatever the dialog did (saved, ran once, cancelled), the lists are read again.
+        if (await EditRequestAsync(new TaskScheduleId(item.Id)) is { } request)
+        {
+            await Dialogs.ShowScheduleAsync(request);
+        }
+
+        await ReloadAsync();
+    }
+
+    /// <summary>
+    /// The Schedule dialog's request for changing a saved schedule, or null (with the error shown) when it cannot be read or
+    /// its command is no longer known. A command a generated view shows opens with its arguments as saved, editable; one no
+    /// view names keeps them as they are. Internal for the schedule dialog tests.
+    /// </summary>
+    internal async Task<SerginScheduleRequest?> EditRequestAsync(TaskScheduleId id)
+    {
         ErrorOr<Versioned<TaskScheduleResponse>> loaded = await Dispatcher.SendVersionedAsync(new GetTaskScheduleByIdQuery(Schema, id));
 
         if (loaded.IsError)
         {
             ErrorPresenter.Notify(loaded.Errors);
-            return;
+            return null;
         }
 
         TaskScheduleResponse task = loaded.Value.Value;
@@ -485,36 +502,48 @@ public sealed partial class SerginTaskSchedulesSection : IDisposable
             || command.TargetKind != CommandTargetKind.Collection && task.Targets.Count == 0)
         {
             ErrorPresenter.Notify(TaskErrors.UnknownCommand);
-            return;
+            return null;
         }
 
         bool collection = command.TargetKind == CommandTargetKind.Collection;
+        Guid? targetId = collection ? null : task.Targets.First().TargetId;
 
-        // Only the schedule changes here, so the saved arguments are rebuilt as they are; the template's target id is ignored.
-        ErrorOr<IBaseCommand> template = TaskCommandFactory.Build(command, task.Arguments, collection ? null : task.Targets.First().TargetId);
+        // The template's target id is ignored when it is saved; the first target's only lets the command be built.
+        ErrorOr<IBaseCommand> template = TaskCommandFactory.Build(command, task.Arguments, targetId);
 
         if (template.IsError)
         {
             ErrorPresenter.Notify(template.Errors);
-            return;
+            return null;
+        }
+
+        IReadOnlyList<string> labels = collection && ScopeId is { } scope
+            ? [TaskUiFormat.ScopeName(Scopes, scope)]
+            : [.. task.Targets.Select(target => target.TargetId.ToString())];
+        TextDefinition? caption = collection ? TaskUiTexts.Dialog.Scope : null;
+
+        if (ActivityRows.CommandViewOf(task.CommandName, Catalog, Views) is { Task: not null } view && view.TaskFields.Count > 0)
+        {
+            // The fields start from the stored arguments (the dialog reads them again with the version, and after a stale
+            // save), and the template is rebuilt from what the person leaves there.
+            GeneratedFormValues arguments = SerginScheduleArguments.Of(view, template.Value);
+
+            return new SerginScheduleRequest(
+                Schema,
+                TaskUiTexts.EditTitle,
+                () => GeneratedViewSupport.TaskTemplateOf(view, targetId, arguments.Values),
+                task.Targets,
+                labels,
+                EditingId: id,
+                TargetsCaption: caption,
+                TaskView: view,
+                ArgumentValues: arguments);
         }
 
         // The catalogue holds tasks only, so the command it rebuilt is one.
         var saved = (ITaskCommand)template.Value;
 
-        // Whatever the dialog did (saved, ran once, cancelled), the lists are read again.
-        await Dialogs.ShowScheduleAsync(new SerginScheduleRequest(
-            Schema,
-            TaskUiTexts.EditTitle,
-            () => saved,
-            task.Targets,
-            collection && ScopeId is { } scope
-                ? [TaskUiFormat.ScopeName(Scopes, scope)]
-                : [.. task.Targets.Select(target => target.TargetId.ToString())],
-            EditingId: id,
-            TargetsCaption: collection ? TaskUiTexts.Dialog.Scope : null));
-
-        await ReloadAsync();
+        return new SerginScheduleRequest(Schema, TaskUiTexts.EditTitle, () => saved, task.Targets, labels, EditingId: id, TargetsCaption: caption);
     }
 
     // The version is read just before the write, as a detail page's delete does; a stale answer shows as its own message.
