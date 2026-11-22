@@ -1,6 +1,5 @@
 using Microsoft.AspNetCore.Components;
 using MudBlazor;
-using Sergin.SharedKernel.Application.Commands.Types;
 using Sergin.SharedKernel.Application.Tasks;
 using Sergin.SharedKernel.Application.Tasks.Commands;
 using Sergin.SharedKernel.Application.Securities.Authorization;
@@ -26,12 +25,14 @@ internal static class GeneratedLists
     public static IReadOnlySet<CommandRole> Menu { get; } = new HashSet<CommandRole> { CommandRole.Transition, CommandRole.Task };
 
     /// <summary>
-    /// Whether a list offers <paramref name="command"/> in bulk: a shown, selectable command built from a row's id alone,
-    /// with no <c>AppliesWhen</c> a row could not answer. A delete that asks for values (<see cref="CommandView.ConfirmFields"/>)
-    /// has no id-only builder, so it is never one.
+    /// Whether a list offers <paramref name="command"/> in bulk: a shown, selectable command built from a row's id alone, or
+    /// a task (whose arguments, if any, one form asks for once for every selected row), with no <c>AppliesWhen</c> a row
+    /// could not answer. A delete that asks for values (<see cref="CommandView.ConfirmFields"/>) has no id-only builder, so
+    /// it is never one.
     /// </summary>
     public static bool IsBulkAction(CommandView command) =>
-        command is { Selectable: true, Hidden: false, BuildFromId: not null, AppliesWhen: null, ConfirmFields.Count: 0 };
+        command is { Selectable: true, Hidden: false, AppliesWhen: null, ConfirmFields.Count: 0 }
+        && (command.BuildFromId is not null || command.Role == CommandRole.Task);
 }
 
 /// <summary>What a generated list view asks of its body, whose item type it does not name.</summary>
@@ -134,14 +135,12 @@ public sealed partial class GeneratedListBody<TItem> : IGeneratedListBody
         ArgumentNullException.ThrowIfNull(command);
         ArgumentNullException.ThrowIfNull(items);
 
-        Func<Guid, object> build = command.BuildFromId
-            ?? throw new InvalidOperationException($"{command.Request.FullName} cannot be scheduled from a list: its constructor is not id-only.");
         FieldView? title = GeneratedViewSupport.TitleFieldOf(model.ListFields, model.ListTitleField);
 
         return new SerginScheduleRequest(
             model.Schema,
             command.Label,
-            () => (ITaskCommand)build(Guid.Empty),
+            () => GeneratedViewSupport.TaskTemplateOf(command, Guid.Empty),
             [.. items.Select(item => new TaskScheduleTarget(IdOf(item)))],
             [.. items.Select(item => GeneratedViewSupport.DisplayOf(item, title, IdOf(item)))]);
     }
@@ -241,7 +240,7 @@ public sealed partial class GeneratedListBody<TItem> : IGeneratedListBody
     {
         List<SerginMenuItem> items = [];
 
-        if (command.Task is { Schedulable: true } && command.BuildFromId is not null && canManageSchedules)
+        if (command.Task is { Schedulable: true } && canManageSchedules)
         {
             items.Add(new SerginMenuItem(
                 TaskUiTexts.ScheduleAction,
@@ -266,6 +265,13 @@ public sealed partial class GeneratedListBody<TItem> : IGeneratedListBody
 
     private async Task RunRowAsync(CommandView command, TItem item)
     {
+        // A task with arguments asks for them in its dialog, which starts it over the row.
+        if (command is { Task: not null, TaskFields.Count: > 0 })
+        {
+            await AskTaskArgumentsAsync(command, [item]);
+            return;
+        }
+
         ErrorOr<Success> result = await commands.WhileRunningAsync(command, () => SendAsync(command, item));
 
         if (result.IsError)
@@ -412,9 +418,29 @@ public sealed partial class GeneratedListBody<TItem> : IGeneratedListBody
         await ChangedAsync();
     }
 
-    // A task runs as one run over every selected row, not a send per row. The reload clears the selection.
+    /// <summary>
+    /// Opens a task's argument dialog over <paramref name="items"/>: one form whose values every row's run item takes;
+    /// answers its reference. Internal for the argument form tests.
+    /// </summary>
+    internal Task<IDialogReference> AskTaskArgumentsAsync(CommandView command, IReadOnlyList<TItem> items) =>
+        DialogService.ShowTaskFormAsync(command, [.. items.Select(item => new TaskTarget(IdOf(item), LabelOf(item)))]);
+
+    // A task runs as one run over every selected row, not a send per row; one with arguments asks for them once, in its
+    // dialog, for every row. The reload clears the selection.
     private async Task StartSelectedAsync(CommandView command, IReadOnlyList<TItem> items)
     {
+        if (command.TaskFields.Count > 0)
+        {
+            IDialogReference dialog = await AskTaskArgumentsAsync(command, items);
+
+            if (await dialog.Result is { Canceled: false })
+            {
+                await ChangedAsync();
+            }
+
+            return;
+        }
+
         ViewSendResult result = await GeneratedViewSupport.StartManyAsync(
             Dispatcher, command, [.. items.Select(item => new TaskTarget(IdOf(item), LabelOf(item)))]);
 

@@ -70,6 +70,25 @@ public static class TaskErrors
             ErrorText.Of(TaskTexts.AlreadyRunning.Key.Value, arguments));
     }
 
+    /// <summary>
+    /// <paramref name="error"/>, refused for one picked record only, named by <paramref name="targetLabel"/> as the person
+    /// saw it: same code and type, its text "{Target}: {Error}" with the original text as the error.
+    /// </summary>
+    public static Error TargetRefused(Error error, string targetLabel)
+    {
+        Dictionary<string, object?> arguments = new(StringComparer.Ordinal)
+        {
+            ["Target"] = targetLabel,
+            ["Error"] = error.Description,
+        };
+
+        return Error.Custom(
+            (int)error.Type,
+            error.Code,
+            TextPlaceholders.Format(TaskTexts.TargetRefused.Default, arguments, CultureInfo.InvariantCulture),
+            ErrorText.Of(TaskTexts.TargetRefused.Key.Value, arguments));
+    }
+
     /// <summary><see cref="NotSchedulable"/>'s code.</summary>
     public const string NotSchedulableCode = "Tasks.NotSchedulable";
 

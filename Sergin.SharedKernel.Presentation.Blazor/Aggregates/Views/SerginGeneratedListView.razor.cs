@@ -3,6 +3,7 @@ using MudBlazor;
 using Sergin.SharedKernel.Application.Securities.Authorization;
 using Sergin.SharedKernel.Application.Tasks;
 using Sergin.SharedKernel.Domain;
+using Sergin.SharedKernel.Domain.Securities;
 using Sergin.SharedKernel.Presentation.Blazor.Aggregates.Views.Parts;
 using Sergin.SharedKernel.Presentation.Blazor.Dispatching;
 using Sergin.SharedKernel.Presentation.Blazor.Actions;
@@ -33,7 +34,9 @@ namespace Sergin.SharedKernel.Presentation.Blazor.Aggregates.Views;
 /// which names the task and the scope, is shown as it comes). Its action carries a spinner while the activity indicator
 /// lists its run in the current scope as unfinished, and stays clickable. A <c>Schedulable()</c> one is a split button
 /// holding Schedule… and Schedules (its schedules in this scope, in <see cref="SerginTaskSchedulesDialog"/>) for a user who
-/// may manage scheduled tasks.
+/// may manage scheduled tasks. One with arguments asks for them in its edit mode: Dialog, the action opening
+/// <see cref="TaskFormDialog"/>; Page, the action linking to its form page; Inline, a <see cref="GeneratedTaskSection"/>
+/// above the table for a user who holds its permissions, and no action.
 /// </para>
 /// </remarks>
 public sealed partial class SerginGeneratedListView<TRoot> : IDisposable
@@ -101,7 +104,13 @@ public sealed partial class SerginGeneratedListView<TRoot> : IDisposable
     internal IReadOnlyList<SerginPageAction> Actions => [.. CreateAction(), .. CollectionTaskActions()];
 
     private IEnumerable<CommandView> CollectionTasks =>
-        Model.Commands.Where(command => command is { Role: CommandRole.CollectionTask, Hidden: false, BuildWithoutTarget: not null });
+        Model.Commands.Where(command => command is { Role: CommandRole.CollectionTask, Hidden: false });
+
+    // A collection task with arguments in the Inline mode is a section of the list, not a header action.
+    private static bool IsInlineSection(CommandView command) => command is { EditMode: SerginEditMode.Inline, TaskFields.Count: > 0 };
+
+    // The inline sections this user may start (presentation only: the pipeline still checks).
+    private IReadOnlyList<CommandView> inlineTasks = [];
 
     private RenderFragment? Overview => SlotOf(SerginViewSlot.ListOverview, keyed: true);
 
@@ -158,7 +167,32 @@ public sealed partial class SerginGeneratedListView<TRoot> : IDisposable
         }
 
         canManageSchedules = Model.HasSchedulableCollectionTask && await ScopeAuthorization.CurrentUserHasAsync(TaskPermissions.Manage);
+        inlineTasks = [.. await HeldAsync(CollectionTasks.Where(IsInlineSection))];
         await LoadOverviewAsync();
+    }
+
+    private async Task<List<CommandView>> HeldAsync(IEnumerable<CommandView> candidates)
+    {
+        List<CommandView> held = [];
+
+        foreach (CommandView command in candidates)
+        {
+            bool holds = true;
+
+            foreach (PermissionDefinition permission in command.Permissions)
+            {
+                holds &= command.AnyScope
+                    ? await ScopeAuthorization.CurrentUserHoldsAnywhereAsync(permission)
+                    : await ScopeAuthorization.CurrentUserHasAsync(permission);
+            }
+
+            if (holds)
+            {
+                held.Add(command);
+            }
+        }
+
+        return held;
     }
 
     /// <inheritdoc />
@@ -277,7 +311,7 @@ public sealed partial class SerginGeneratedListView<TRoot> : IDisposable
     // Each shown collection task, starting it on click, busy while its run in the current scope is going.
     private IEnumerable<SerginPageAction> CollectionTaskActions()
     {
-        foreach (CommandView command in CollectionTasks)
+        foreach (CommandView command in CollectionTasks.Where(command => !IsInlineSection(command)))
         {
             List<SerginMenuItem> items = MenuItemsOf(command);
 
@@ -285,14 +319,18 @@ public sealed partial class SerginGeneratedListView<TRoot> : IDisposable
                 command.Label,
                 command.Icon,
                 command.Kind,
-                OnClick: EventCallback.Factory.Create(this, () => StartAsync(command)),
+                Href: command.PageRoute?.Invoke(null),
+                OnClick: command.PageRoute is null ? EventCallback.Factory.Create(this, () => StartAsync(command)) : default,
                 Permission: command.Permissions.FirstOrDefault(),
                 AnyScope: command.AnyScope,
                 Disabled: starting.Contains(command.Request),
                 MenuItems: items.Count > 0 ? items : null,
-                Busy: command.Task is { } task && ActivityPanel.IsRunning(task.Name, targetId: null, CurrentScope.ScopeId));
+                Busy: IsCollectionTaskRunning(command));
         }
     }
+
+    private bool IsCollectionTaskRunning(CommandView command) =>
+        command.Task is { } task && ActivityPanel.IsRunning(task.Name, targetId: null, CurrentScope.ScopeId);
 
     // Schedule… and Schedules for a schedulable collection task, to a user who may manage scheduled tasks.
     private List<SerginMenuItem> MenuItemsOf(CommandView command)
@@ -341,6 +379,13 @@ public sealed partial class SerginGeneratedListView<TRoot> : IDisposable
     {
         ArgumentNullException.ThrowIfNull(command);
 
+        // One with arguments asks for them in its dialog, which starts it.
+        if (command.TaskFields.Count > 0)
+        {
+            await AskTaskArgumentsAsync(command);
+            return;
+        }
+
         if (!starting.Add(command.Request))
         {
             return;
@@ -365,6 +410,9 @@ public sealed partial class SerginGeneratedListView<TRoot> : IDisposable
 
         ActivityPanel.NotifyStarted(Snackbar, Localizer, Localizer.Text(ShellTexts.CommandActions.BackgroundStarted));
     }
+
+    /// <summary>Opens a collection task's argument dialog; answers its reference. Internal for the argument form tests.</summary>
+    internal Task<IDialogReference> AskTaskArgumentsAsync(CommandView command) => DialogService.ShowTaskFormAsync(command, []);
 
     private RenderFragment? SlotOf(SerginViewSlot slot, bool keyed)
     {

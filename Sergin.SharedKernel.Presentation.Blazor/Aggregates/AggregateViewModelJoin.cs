@@ -451,6 +451,9 @@ internal sealed class AggregateViewModelJoin(
             Func<object, bool>? appliesWhen = AppliesWhenOf(request, declared, declarations, candidates, hidden, child);
 
             CommandSettings settings = commands.For(request);
+            bool task = role is CommandRole.Task or CommandRole.CollectionTask;
+            AggregateViewGuard.EnsurePageRoute(view, request, task, mode, declared?.DeclaredPageRoute, hidden);
+            IReadOnlyList<FormFieldView> taskFields = task && !hidden ? TaskFieldsOf(request, settings, declarations, getOneResponse) : [];
             FormFieldView? valueField = role == CommandRole.SetProperty && !child && !hidden ? ValueFieldOf(request, declarations, getOneResponse) : null;
             IReadOnlyList<FormFieldView> confirmFields = role == CommandRole.Delete && !child && !hidden ? ConfirmFieldsOf(request, declarations, getOneResponse) : [];
             bool shownMove = role == CommandRole.Move && !child && !hidden;
@@ -498,11 +501,51 @@ internal sealed class AggregateViewModelJoin(
                 declared?.ConfirmLabel,
                 shownMove ? RequestFactory.ForMove(request) : null,
                 moveParentField,
-                role == CommandRole.CollectionTask && RequestFactory.IsParameterless(request) ? RequestFactory.ForNone(request) : null)
+                task ? TaskBuilderOf(request) : null)
             {
                 ConfirmFields = confirmFields,
+                TaskFields = taskFields,
+                PageRoute = task && mode == SerginEditMode.Page ? declared?.DeclaredPageRoute : null,
             };
         }
+    }
+
+    /// <summary>
+    /// A shown task's arguments as form fields: its constructor's parameters beyond its target and the ones its configuration
+    /// marks <c>NotShown</c>. A <c>NotShown</c> one no form could fill (neither a declared default nor nullable) is refused,
+    /// naming the task, since every start and every run item builds the task from what the form gave.
+    /// </summary>
+    private IReadOnlyList<FormFieldView> TaskFieldsOf(Type request, CommandSettings settings, ViewDeclarationBuilder declarations, Type? getOneResponse)
+    {
+        IReadOnlyList<FormFieldView> fields = FormFields(request, declarations, getOneResponse);
+        IReadOnlySet<string> declaredByType = CommandTypes.InterfaceMemberNames(request);
+        NullabilityInfoContext nullability = new();
+        string[] unbuildable =
+        [
+            .. ConstructorOf(request)
+                .GetParameters()
+                .Where(parameter => !declaredByType.Contains(parameter.Name!)
+                    && fields.All(field => field.Name != parameter.Name)
+                    && !parameter.HasDefaultValue
+                    && !IsNullable(parameter, nullability))
+                .Select(parameter => parameter.Name!),
+        ];
+
+        AggregateViewGuard.EnsureTaskArgumentsBuildable(view, request, settings.Task?.Name, unbuildable);
+
+        return fields;
+    }
+
+    private static bool IsNullable(ParameterInfo parameter, NullabilityInfoContext nullability) =>
+        Nullable.GetUnderlyingType(parameter.ParameterType) is not null
+        || !parameter.ParameterType.IsValueType && nullability.Create(parameter).WriteState == NullabilityState.Nullable;
+
+    /// <summary>A task built from the record's id (none for a task over the collection) and its arguments by name.</summary>
+    private static Func<Guid?, IReadOnlyDictionary<string, object?>, ITaskCommand> TaskBuilderOf(Type request)
+    {
+        Func<Guid, IReadOnlyDictionary<string, object?>, object> build = RequestFactory.ForForm(request);
+
+        return (id, values) => (ITaskCommand)build(id ?? Guid.Empty, values);
     }
 
     /// <summary>

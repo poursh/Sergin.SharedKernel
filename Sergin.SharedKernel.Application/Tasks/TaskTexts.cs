@@ -25,6 +25,9 @@ public static class TaskTexts
     /// <summary>A target picked for a task that acts on one record, with no record id.</summary>
     public static readonly TextDefinition TargetWithoutId = errors.Text("TargetWithoutId", "Each picked record must have an id.");
 
+    /// <summary>A start refused for one picked record and not the others: the record, as the person saw it, then why.</summary>
+    public static readonly TextDefinition TargetRefused = errors.Text("TargetRefused", "{Target}: {Error}");
+
     public static readonly TextDefinition InvalidCron = errors.Text("InvalidCron", "'{PropertyName}' is not a schedule the job engine can run.");
 
     public static readonly TextDefinition InvalidTimeZone = errors.Text("InvalidTimeZone", "'{PropertyName}' is not a known time zone.");

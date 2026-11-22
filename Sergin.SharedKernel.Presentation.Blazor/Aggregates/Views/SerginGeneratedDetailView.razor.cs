@@ -1,8 +1,8 @@
 using Microsoft.AspNetCore.Components;
 using MudBlazor;
 using Sergin.SharedKernel.Application.Aggregates;
-using Sergin.SharedKernel.Application.Commands.Types;
 using Sergin.SharedKernel.Application.Tasks;
+using Sergin.SharedKernel.Application.Tasks.Commands;
 using Sergin.SharedKernel.Application.Securities.Authorization;
 using Sergin.SharedKernel.Domain;
 using Sergin.SharedKernel.Domain.Tasks;
@@ -50,7 +50,9 @@ namespace Sergin.SharedKernel.Presentation.Blazor.Aggregates.Views;
 /// (sent on change) or, for any other value, a <see cref="GeneratedInlineEditCard"/> below the fields. Each send goes
 /// through <see cref="GeneratedSetProperty"/>; every error is shown and the record is read again after any outcome.
 /// A task's action carries a spinner while the activity indicator lists its run on this record as
-/// unfinished, and stays clickable; the view re-renders when the indicator's rows change.
+/// unfinished, and stays clickable; the view re-renders when the indicator's rows change. A task with arguments asks for
+/// them in its edit mode: Dialog, its action opening <see cref="TaskFormDialog"/>; Page, its action linking to its form
+/// page; Inline, for a user who holds its permissions, a <see cref="GeneratedTaskSection"/> below the fields and no action.
 /// </remarks>
 public sealed partial class SerginGeneratedDetailView<TRoot> : IDisposable
     where TRoot : class, IAggregateRoot
@@ -70,6 +72,7 @@ public sealed partial class SerginGeneratedDetailView<TRoot> : IDisposable
     private readonly Dictionary<string, CommandView> inlineChoices = new(StringComparer.Ordinal);
     private GeneratedSetProperty setProperty = default!;
     private IReadOnlyList<CommandView> inlineCards = [];
+    private IReadOnlyList<CommandView> inlineTasks = [];
     private IReadOnlyDictionary<string, object?> recordValues = new Dictionary<string, object?>(StringComparer.Ordinal);
     private bool watchingActivity;
     private volatile bool disposed;
@@ -343,9 +346,22 @@ public sealed partial class SerginGeneratedDetailView<TRoot> : IDisposable
     private Task<ViewSendResult> SendAsync(CommandView command) =>
         GeneratedViewSupport.SendFromIdAsync(Dispatcher, command, Id, version, DisplayText);
 
-    // Sends a transition (its confirm, if any, was asked by the action). Internal for the host-changed test.
+    // Sends a transition (its confirm, if any, was asked by the action), or starts a task: one with arguments asks for them
+    // in its dialog, which starts it. Internal for the host-changed test.
     internal async Task RunAsync(CommandView command)
     {
+        if (command is { Task: not null, TaskFields.Count: > 0 })
+        {
+            IDialogReference dialog = await AskTaskArgumentsAsync(command);
+
+            if (await dialog.Result is { Canceled: false })
+            {
+                await TaskStartedAsync();
+            }
+
+            return;
+        }
+
         ViewSendResult result = await commands.WhileRunningAsync(command, () => SendAsync(command));
 
         if (await GeneratedViewSupport.FailedAsync(result, ErrorPresenter, LoadAsync))
@@ -358,11 +374,7 @@ public sealed partial class SerginGeneratedDetailView<TRoot> : IDisposable
         if (command.Task is not null)
         {
             ActivityPanel.NotifyStarted(Snackbar, Localizer, Localizer.Text(ShellTexts.CommandActions.BackgroundStarted));
-
-            if (section is not null)
-            {
-                await section.ReloadAsync();
-            }
+            await TaskStartedAsync();
 
             return;
         }
@@ -374,6 +386,25 @@ public sealed partial class SerginGeneratedDetailView<TRoot> : IDisposable
 
         await ChangedAsync();
     }
+
+    // A task was only started: nothing has changed yet, so the record is not read again; the schedule section is, so it
+    // lists the new run and polls it while it is Running.
+    private async Task TaskStartedAsync()
+    {
+        if (section is not null)
+        {
+            await section.ReloadAsync();
+        }
+    }
+
+    // Opens a task's argument dialog over this record; answers its reference, which the argument form tests read.
+    internal Task<IDialogReference> AskTaskArgumentsAsync(CommandView command) =>
+        DialogService.ShowTaskFormAsync(command, RecordTargets);
+
+    // The record a task over it is started over, named by its title as the person sees it.
+    private IReadOnlyCollection<TaskTarget> RecordTargets => [new TaskTarget(Id, DisplayText)];
+
+    private EventCallback InlineTaskStarted => EventCallback.Factory.Create(this, TaskStartedAsync);
 
     // A command declared with Confirm(...): its texts filled from the record, the button its confirm label or its own.
     private Task<bool> ConfirmAsync(CommandView command, object? shown) =>
@@ -549,6 +580,20 @@ public sealed partial class SerginGeneratedDetailView<TRoot> : IDisposable
         }
 
         inlineCards = cards;
+
+        // A task with arguments in the Inline mode is a section of the detail, for a user who holds its permissions.
+        List<CommandView> tasks = [];
+
+        foreach (CommandView command in Model.Commands.Where(command => command is
+                     { Role: CommandRole.Task, Hidden: false, EditMode: SerginEditMode.Inline, TaskFields.Count: > 0 }))
+        {
+            if (await HoldsAsync(command))
+            {
+                tasks.Add(command);
+            }
+        }
+
+        inlineTasks = tasks;
     }
 
     private async Task<bool> HoldsAsync(CommandView command)
@@ -676,7 +721,7 @@ public sealed partial class SerginGeneratedDetailView<TRoot> : IDisposable
         await DialogService.ShowScheduleAsync(new SerginScheduleRequest(
             Model.Schema,
             command.Label,
-            () => (ITaskCommand)command.BuildFromId!(Id),
+            () => GeneratedViewSupport.TaskTemplateOf(command, Id),
             targets,
             [DisplayText]));
 

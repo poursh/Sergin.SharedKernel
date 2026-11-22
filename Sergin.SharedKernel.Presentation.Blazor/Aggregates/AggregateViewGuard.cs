@@ -9,7 +9,7 @@ namespace Sergin.SharedKernel.Presentation.Blazor.Aggregates;
 /// The view configuration mistakes that refuse host start, each naming the configuration and the offending type,
 /// property or route. <see cref="AggregateViewRegistry.Build"/> runs every check its requests can answer (two
 /// configurations for one root; a command, detail, list or form naming a request not the root's; routes promising a
-/// page with no query or command behind it; a schedulable command a detail view cannot build from the id; a field
+/// page with no query or command behind it; a task argument no form can build, a Page-mode task without its route; a field
 /// override on an unknown property); <see cref="Ensure"/> checks the configured
 /// routes against the routable components, once the UI assemblies are known.
 /// </summary>
@@ -44,6 +44,11 @@ public static class AggregateViewGuard
                 .Select(link => link.Href(Guid.Empty))
                 .Where(route => !templates.Contains(Normalize(route)))
                 .Select(route => $"  {model.Configuration.FullName} ({model.Root.Name}, link): \"{route}\"")),
+            .. views.All.SelectMany(model => model.Commands
+                .Where(command => command.PageRoute is not null)
+                .Select(command => (command, route: command.PageRoute!(command.Role == CommandRole.CollectionTask ? null : Guid.Empty)))
+                .Where(page => !templates.Contains(Normalize(page.route)))
+                .Select(page => $"  {model.Configuration.FullName} ({model.Root.Name}, {page.command.Request.Name}'s form page): \"{page.route}\"")),
         ];
 
         if (missing.Length > 0)
@@ -123,29 +128,47 @@ public static class AggregateViewGuard
     }
 
     /// <summary>
-    /// A view starts a shown task (and schedules a <c>Schedulable()</c> one) from what it holds: a task over one record from
-    /// the record's id alone, a task over the collection from nothing. A hidden task is never started, so it is not held to this.
+    /// A view builds a shown task from its form: every argument the form does not show (marked <c>NotShown</c>) must be
+    /// buildable without it, by a declared default or as null. A hidden task is never started, so it is not held to this.
     /// </summary>
-    private static void EnsureTaskShapes(DeclaredView view, IReadOnlyCollection<CommandView> commands)
+    internal static void EnsureTaskArgumentsBuildable(DeclaredView view, Type request, string? taskName, IReadOnlyCollection<string> unbuildable)
     {
-        if (commands.FirstOrDefault(command => command is { Role: CommandRole.Task, BuildFromId: null, Hidden: false }) is { } entity)
+        if (unbuildable.Count == 0)
         {
-            throw Refuse(
-                view,
-                $"{entity.Request.FullName} is a {(entity.Task!.Schedulable ? "Schedulable() " : string.Empty)}task (\"{entity.Task.Name}\") "
-                + "over one record, which a generated view starts"
-                + (entity.Task.Schedulable ? " and schedules" : string.Empty)
-                + " from the record's id alone, but its constructor takes more than the id. Give it a constructor of only the id, or "
-                + $"Command<{entity.Request.Name}>().Hidden() it.");
+            return;
         }
 
-        if (commands.FirstOrDefault(command => command is { Role: CommandRole.CollectionTask, BuildWithoutTarget: null, Hidden: false }) is { } collection)
+        string them = unbuildable.Count == 1 ? "it" : "them";
+
+        throw Refuse(
+            view,
+            $"{request.FullName} is a task (\"{taskName}\") whose argument{(unbuildable.Count == 1 ? string.Empty : "s")} "
+            + $"{string.Join(", ", unbuildable)} no form can build: its configuration marks {them} NotShown, and {them} "
+            + $"{(unbuildable.Count == 1 ? "has" : "have")} no default and cannot be null. Show {them}, give {them} a default, or "
+            + $"Command<{request.Name}>().Hidden() the task.");
+    }
+
+    /// <summary>
+    /// <c>PageRoute(...)</c> names a task's form page, so a shown task in <see cref="SerginEditMode.Page"/> needs one, and
+    /// it is refused anywhere else, where no view would link to it.
+    /// </summary>
+    internal static void EnsurePageRoute(DeclaredView view, Type request, bool task, SerginEditMode mode, Func<Guid?, string>? route, bool hidden)
+    {
+        if (route is not null && (!task || mode != SerginEditMode.Page))
         {
             throw Refuse(
                 view,
-                $"{collection.Request.FullName} is a task (\"{collection.Task!.Name}\") over the whole collection, which a generated list "
-                + "view starts with no record, but its constructor takes arguments. Give it a constructor that takes none, or "
-                + $"Command<{collection.Request.Name}>().Hidden() it.");
+                $"Command<{request.Name}>().PageRoute(...) names a form page for {request.FullName}, but only a task declared "
+                + $"Edit(SerginEditMode.Page) is offered on one. Declare Edit(SerginEditMode.Page), or remove the PageRoute(...).");
+        }
+
+        if (task && !hidden && mode == SerginEditMode.Page && route is null)
+        {
+            throw Refuse(
+                view,
+                $"{request.FullName} is a task declared Edit(SerginEditMode.Page), so its action links to a form page, but no "
+                + $"route names it. Declare Command<{request.Name}>().PageRoute(...) with the route of the page hosting "
+                + "SerginGeneratedTaskFormView.");
         }
     }
 
@@ -201,7 +224,6 @@ public static class AggregateViewGuard
         AggregateViewBuilder builder = view.Builder;
 
         EnsureCommandsOfRoot(view, commands);
-        EnsureTaskShapes(view, commands);
         EnsureIdOnly(view, commands);
         EnsureQueryShapes(view, getOne, overview, entityOverview, audit);
         EnsureRecord(view, builder.Root.Name, builder.DetailFields?.Record, getOneResponse, "Detail", "GetOne query's response");

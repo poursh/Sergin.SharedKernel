@@ -1,4 +1,5 @@
 using Sergin.SharedKernel.Application.Commands.Configuration;
+using Sergin.SharedKernel.Application.Commands.Types;
 using Sergin.SharedKernel.Domain.Securities;
 using Sergin.SharedKernel.Presentation.Blazor.Actions;
 
@@ -54,8 +55,10 @@ namespace Sergin.SharedKernel.Presentation.Blazor.Aggregates.Model;
 /// parent's id; null for any other command, and for a hidden one.
 /// </param>
 /// <param name="MoveParentField">The move command's <c>NewParentId</c> field text, which labels its dialog's parent picker; null with no <paramref name="BuildMove"/>.</param>
-/// <param name="BuildWithoutTarget">
-/// Builds a collection task (<see cref="CommandRole.CollectionTask"/>) whose constructor takes nothing; null for any other command.
+/// <param name="BuildTask">
+/// Builds a task (<see cref="CommandRole.Task"/> or <see cref="CommandRole.CollectionTask"/>) from the record's id (null for
+/// a task over the collection) and its arguments by name, as its form edits them; an argument not given takes its declared
+/// default, else its primitive's. Null for any other command.
 /// </param>
 public sealed record CommandView(
     Type Request,
@@ -88,7 +91,7 @@ public sealed record CommandView(
     TextDefinition? ConfirmLabel = null,
     Func<Guid, Guid, object>? BuildMove = null,
     FieldText? MoveParentField = null,
-    Func<object>? BuildWithoutTarget = null)
+    Func<Guid?, IReadOnlyDictionary<string, object?>, ITaskCommand>? BuildTask = null)
 {
     /// <summary>
     /// The values a delete's confirm asks for: its constructor's shown parameters beside the <c>Id</c>, built with
@@ -96,6 +99,16 @@ public sealed record CommandView(
     /// delete. A list offers such a delete neither as a row action nor in bulk, having no dialog to ask with.
     /// </summary>
     public IReadOnlyList<FormFieldView> ConfirmFields { get; init; } = [];
+
+    /// <summary>
+    /// A shown task's arguments as its form renders them: its constructor's parameters beyond what its type declares (the
+    /// <c>Id</c>) and what its configuration marks <c>NotShown</c>. Empty for a task that takes none, which starts on
+    /// click, and for any other command.
+    /// </summary>
+    public IReadOnlyList<FormFieldView> TaskFields { get; init; } = [];
+
+    /// <summary>A task's form page, from <c>PageRoute(...)</c> with <c>Edit(SerginEditMode.Page)</c>; null otherwise.</summary>
+    public Func<Guid?, string>? PageRoute { get; init; }
 }
 
 /// <summary>An entry a configuration put behind a command's drop-down with <c>MenuItem(...)</c>.</summary>

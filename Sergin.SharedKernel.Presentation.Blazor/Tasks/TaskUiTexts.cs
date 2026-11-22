@@ -27,6 +27,9 @@ public static class TaskUiTexts
 
     public static TextDefinition RunNow { get; } = category.Text("RunNow", "Run now");
 
+    /// <summary>A task's argument form's submit: starts the task with the values entered.</summary>
+    public static TextDefinition Start { get; } = category.Text("Start", "Start");
+
     public static TextDefinition Save { get; } = category.Text("Save", "Save");
 
     public static TextDefinition RunOnceStarted { get; } = category.Text("RunOnceStarted", "The run has started.");

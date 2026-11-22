@@ -105,11 +105,11 @@ internal sealed class StartTaskCommandHandler(
                 return Error.Forbidden();
             }
 
-            // A collection task is built and checked once, with no target id.
-            IReadOnlyCollection<Guid?> targetIds = command.TargetKind == CommandTargetKind.Collection
-                ? [null]
-                : [.. request.Targets.Select(target => target.TargetId)];
-            List<Error> refused = await ValidateEachAsync(command, arguments, targetIds, cancellationToken);
+            // A collection task is built and checked once, with no target.
+            IReadOnlyCollection<TaskTarget> targets = command.TargetKind == CommandTargetKind.Collection
+                ? [new TaskTarget(null)]
+                : request.Targets;
+            List<Error> refused = await ValidateEachAsync(command, arguments, targets, cancellationToken);
 
             if (refused.Count > 0)
             {
@@ -155,38 +155,65 @@ internal sealed class StartTaskCommandHandler(
     /// than as a failed run. The validator is called directly, never through the pipeline: the task guard refuses
     /// a task sent outside a run item. Each run item still runs the whole pipeline.
     /// </summary>
+    /// <remarks>
+    /// The arguments are shared by every target, so a refusal every target gets (a bad argument) is reported once, as it
+    /// is; one only some targets get (a record out of the caller's reach) is reported per target, named by the target's
+    /// label when it has one, so the person sees which picked record was refused.
+    /// </remarks>
     private async Task<List<Error>> ValidateEachAsync(
-        TaskDescriptor command, string arguments, IReadOnlyCollection<Guid?> targetIds, CancellationToken ct)
+        TaskDescriptor command, string arguments, IReadOnlyCollection<TaskTarget> targets, CancellationToken ct)
     {
         var validator = (IValidator?)services.GetService(typeof(IValidator<>).MakeGenericType(command.RequestType));
-        List<Error> refused = [];
+        List<(TaskTarget Target, List<Error> Errors)> checkedTargets = [];
 
-        foreach (Guid? targetId in targetIds)
+        foreach (TaskTarget target in targets)
         {
-            ErrorOr<IBaseCommand> built = TaskCommandFactory.Build(command, arguments, targetId);
-
-            if (built.IsError)
-            {
-                refused.AddRange(built.Errors);
-                continue;
-            }
-
-            if (validator is null)
-            {
-                continue;
-            }
-
-            ValidationResult result;
-
-            using (services.GetService<ValidationTexts>()?.Use())
-            {
-                result = await validator.ValidateAsync(new ValidationContext<IBaseCommand>(built.Value), ct);
-            }
-
-            refused.AddRange(ValidationFailureErrors.ToErrors(result));
+            checkedTargets.Add((target, await ValidateOneAsync(command, arguments, target.TargetId, validator, ct)));
         }
 
-        // Arguments are shared by every target, so most refusals repeat once per target; each is reported once.
-        return [.. refused.Distinct()];
+        if (checkedTargets.Count == 0)
+        {
+            return [];
+        }
+
+        List<Error> shared = [.. checkedTargets[0].Errors.Where(error => checkedTargets.All(other => other.Errors.Exists(candidate => Same(candidate, error))))];
+        List<Error> refused = [.. shared];
+
+        foreach ((TaskTarget target, List<Error> errors) in checkedTargets)
+        {
+            refused.AddRange(errors
+                .Where(error => !shared.Exists(candidate => Same(candidate, error)))
+                .Select(error => target.Label is { } label ? TaskErrors.TargetRefused(error, label) : error));
+        }
+
+        return [.. refused.DistinctBy(error => (error.Type, error.Code, error.Description))];
     }
+
+    private async Task<List<Error>> ValidateOneAsync(
+        TaskDescriptor command, string arguments, Guid? targetId, IValidator? validator, CancellationToken ct)
+    {
+        ErrorOr<IBaseCommand> built = TaskCommandFactory.Build(command, arguments, targetId);
+
+        if (built.IsError)
+        {
+            return [.. built.Errors];
+        }
+
+        if (validator is null)
+        {
+            return [];
+        }
+
+        ValidationResult result;
+
+        using (services.GetService<ValidationTexts>()?.Use())
+        {
+            result = await validator.ValidateAsync(new ValidationContext<IBaseCommand>(built.Value), ct);
+        }
+
+        return [.. ValidationFailureErrors.ToErrors(result)];
+    }
+
+    private static bool Same(Error one, Error other) =>
+        one.Type == other.Type && one.Code == other.Code && one.Description == other.Description;
 }
