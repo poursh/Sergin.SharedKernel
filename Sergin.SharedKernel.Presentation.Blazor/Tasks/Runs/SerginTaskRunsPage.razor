@@ -1,0 +1,5 @@
+@attribute [Route(SerginTaskRunsPage.Route)]
+@layout SerginPageLayout
+@* Every run of one module's tasks, whoever and whatever started it. The route is the shell's, under /sys/, not a
+   module's; ?module= picks the module. *@
+<SerginTaskRunsView Module="@Module" />

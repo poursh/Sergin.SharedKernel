@@ -46,3 +46,16 @@ internal sealed class GetRecentRunsForCollectionQueryConfiguration : ICommandCon
         builder.RequirePermissions(TaskPermissions.Manage)
             .NotShown(x => x.Schema).NotShown(x => x.TaskName).NotShown(x => x.ScopeId).NotShown(x => x.Take);
 }
+
+internal sealed class GetTaskRunActorsQueryConfiguration : ICommandConfiguration<GetTaskRunActorsQuery>
+{
+    public void Configure(CommandConfigurationBuilder<GetTaskRunActorsQuery> builder) =>
+        builder.RequirePermissions(TaskPermissions.Manage).NotShown(x => x.Schema);
+}
+
+// The run list's fields are its list fields (TaskRunListFields), named in its own category.
+internal sealed class GetTaskRunsQueryConfiguration : ICommandConfiguration<GetTaskRunsQuery>
+{
+    public void Configure(CommandConfigurationBuilder<GetTaskRunsQuery> builder) =>
+        builder.RequirePermissions(TaskPermissions.Manage).Texts(TaskTexts.RunList.Category).NotShown(x => x.Schema);
+}

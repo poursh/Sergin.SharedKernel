@@ -473,11 +473,11 @@ public sealed partial class SerginActivityIndicator : IDisposable
         string command = CommandText(row);
         (string message, Severity severity) = row.State switch
         {
-            ActivityState.Succeeded => (
+            RunOutcome.Succeeded => (
                 Localizer.Text(TaskUiTexts.Activity.FinishedSucceeded, new { Command = command, row.Target }), Severity.Success),
-            ActivityState.Failed => (
+            RunOutcome.Failed => (
                 Localizer.Text(TaskUiTexts.Activity.FinishedFailed, new { Command = command, row.Target }), Severity.Error),
-            ActivityState.Cancelled when row.Done > 0 => (
+            RunOutcome.Cancelled when row.Done > 0 => (
                 Localizer.Text(
                     TaskUiTexts.Activity.FinishedPartlyCancelled,
                     new
@@ -488,7 +488,7 @@ public sealed partial class SerginActivityIndicator : IDisposable
                         Cancelled = Formatter.Number(row.Cancelled),
                     }),
                 Severity.Normal),
-            ActivityState.Cancelled => (
+            RunOutcome.Cancelled => (
                 Localizer.Text(TaskUiTexts.Activity.FinishedCancelled, new { Command = command, row.Target }), Severity.Normal),
             _ => (
                 Localizer.Text(
@@ -625,25 +625,25 @@ public sealed partial class SerginActivityIndicator : IDisposable
 
     // The first error of a one-record failure as the runs dialog shows it: the item's stored description, else its code.
     private static string? ErrorText(ActivityRow row) =>
-        row is { State: ActivityState.Failed, Total: 1 } ? row.FirstErrorDescription ?? row.FirstErrorCode : null;
+        row is { State: RunOutcome.Failed, Total: 1 } ? row.FirstErrorDescription ?? row.FirstErrorCode : null;
 
     private static string IconOf(ActivityRow row) =>
         row.State switch
         {
-            ActivityState.Running => Icons.Material.Outlined.WorkHistory,
-            ActivityState.Succeeded => Icons.Material.Outlined.CheckCircle,
-            ActivityState.PartlyFailed => Icons.Material.Outlined.Warning,
-            ActivityState.Cancelled => Icons.Material.Outlined.Block,
+            RunOutcome.Running => Icons.Material.Outlined.WorkHistory,
+            RunOutcome.Succeeded => Icons.Material.Outlined.CheckCircle,
+            RunOutcome.PartlyFailed => Icons.Material.Outlined.Warning,
+            RunOutcome.Cancelled => Icons.Material.Outlined.Block,
             _ => Icons.Material.Outlined.Error,
         };
 
     private static Color ColorOf(ActivityRow row) =>
         row.State switch
         {
-            ActivityState.Running => Color.Primary,
-            ActivityState.Succeeded => Color.Success,
-            ActivityState.PartlyFailed => Color.Warning,
-            ActivityState.Cancelled => Color.Default,
+            RunOutcome.Running => Color.Primary,
+            RunOutcome.Succeeded => Color.Success,
+            RunOutcome.PartlyFailed => Color.Warning,
+            RunOutcome.Cancelled => Color.Default,
             _ => Color.Error,
         };
 

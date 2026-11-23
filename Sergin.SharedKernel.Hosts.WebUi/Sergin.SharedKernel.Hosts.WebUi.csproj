@@ -4,6 +4,10 @@
 	</ItemGroup>
 
 	<ItemGroup>
+		<InternalsVisibleTo Include="Sergin.MeterMinder.IntegrationTests.All" />
+	</ItemGroup>
+
+	<ItemGroup>
 		<ProjectReference Include="..\Sergin.SharedKernel.Application\Sergin.SharedKernel.Application.csproj" />
 		<ProjectReference Include="..\Sergin.SharedKernel.Hosts\Sergin.SharedKernel.Hosts.csproj" />
 		<ProjectReference Include="..\Sergin.SharedKernel.Modules\Sergin.SharedKernel.Modules.csproj" />

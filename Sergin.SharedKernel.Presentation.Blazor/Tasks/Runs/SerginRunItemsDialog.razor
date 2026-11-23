@@ -1,0 +1,25 @@
+@* One run's records, opened from the task name on the Task runs page. The heading names the task, then when it started,
+   what started it and who. *@
+<MudDialog>
+    <TitleContent>
+        <MudText Typo="Typo.h6">@TaskText</MudText>
+        <div class="d-flex flex-wrap gap-x-4 sergin-run-heading">
+            <MudText Typo="Typo.body2" Class="mud-text-secondary">@StartedText</MudText>
+            <MudText Typo="Typo.body2" Class="mud-text-secondary">@TriggerText</MudText>
+            <MudText Typo="Typo.body2" Class="mud-text-secondary">@PersonText</MudText>
+        </div>
+    </TitleContent>
+    <DialogContent>
+        @if (loading)
+        {
+            <MudProgressLinear Indeterminate="true" />
+        }
+        else
+        {
+            <SerginRunItemsTable Items="items" RunScope="Run.ScopeId" FinishedIn="timeZone" />
+        }
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="Close">@Localizer.Text(CommonTexts.Close)</MudButton>
+    </DialogActions>
+</MudDialog>

@@ -42,6 +42,8 @@ public static class SerginCoreExtensions
 {
     public const string SectionName = "Sergin";
 
+    private const string ReservedSchema = "sys";
+
     /// <summary>
     /// Registers everything a Sergin host needs regardless of its presentation technology.
     /// The caller must register an <see cref="IUserContextFactory"/> — it is the one service whose
@@ -55,6 +57,19 @@ public static class SerginCoreExtensions
     {
         remoteModules ??= [];
         IConfigurationSection serginSection = builder.Configuration.GetRequiredSection(SectionName);
+
+        string[] sysModules =
+        [
+            .. localModules.Where(m => string.Equals(m.Schema, ReservedSchema, StringComparison.OrdinalIgnoreCase)).Select(m => m.GetType().FullName ?? m.Name)
+                .Concat(remoteModules.Where(m => string.Equals(m.Schema, ReservedSchema, StringComparison.OrdinalIgnoreCase)).Select(m => m.GetType().FullName ?? m.Name))
+        ];
+
+        if (sysModules.Length > 0)
+        {
+            throw new InvalidOperationException(
+                $"Module schema \"{ReservedSchema}\" is reserved for the platform (its permissions and the shell's "
+                + $"pages under /{ReservedSchema}/), and no module may take it: {string.Join(", ", sysModules)}.");
+        }
 
         string[] duplicateSchemas =
         [

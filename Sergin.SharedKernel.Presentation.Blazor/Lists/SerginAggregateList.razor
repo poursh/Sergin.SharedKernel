@@ -85,7 +85,7 @@
             }
         </RowTemplate>
         <NoRecordsContent>
-            <MudText Typo="Typo.body2">@Localizer.Text(HasCriteria ? ShellTexts.Lists.NothingMatchesFilters : ShellTexts.Lists.NothingHereYet)</MudText>
+            <MudText Typo="Typo.body2">@Localizer.Text(NoRecordsText ?? (HasCriteria ? ShellTexts.Lists.NothingMatchesFilters : ShellTexts.Lists.NothingHereYet))</MudText>
         </NoRecordsContent>
         <PagerContent>
             <MudTablePager RowsPerPageString="@RowsPerPageText" />

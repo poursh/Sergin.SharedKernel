@@ -8,16 +8,6 @@ using Sergin.SharedKernel.Presentation.Localizations;
 
 namespace Sergin.SharedKernel.Presentation.Blazor.Tasks;
 
-/// <summary>Where a run of the activity indicator stands.</summary>
-internal enum ActivityState
-{
-    Running,
-    Succeeded,
-    PartlyFailed,
-    Failed,
-    Cancelled,
-}
-
 /// <summary>
 /// One run as the activity indicator shows it: the command's view label (null when no view names it, and
 /// <paramref name="CommandName"/> shows instead), the target's stored label or a record count, the target's detail link
@@ -34,7 +24,7 @@ internal sealed record ActivityRow(
     string CommandName,
     string Target,
     string? Href,
-    ActivityState State,
+    RunOutcome State,
     DateTime StartedAtUtc,
     DateTime? CompletedAtUtc,
     int Done,
@@ -48,7 +38,7 @@ internal sealed record ActivityRow(
     bool Cancelable = true,
     Guid? ScopeId = null)
 {
-    public bool IsRunning => State == ActivityState.Running;
+    public bool IsRunning => State == RunOutcome.Running;
 }
 
 /// <summary>Turns the activity read into rows: pure, so it is tested without a browser.</summary>
@@ -109,22 +99,11 @@ internal static class ActivityRows
             : localizer.Text(TaskUiTexts.Activity.Records, new { Count = formatter.Number(count) });
     }
 
-    public static ActivityState StateOf(ActivityItem item)
+    public static RunOutcome StateOf(ActivityItem item)
     {
         ArgumentNullException.ThrowIfNull(item);
 
-        if (item.Unfinished > 0)
-        {
-            return ActivityState.Running;
-        }
-
-        // A run cancelled part way through, with no failure, reads as cancelled: the finished message counts what was done.
-        if (item.Failed == 0)
-        {
-            return item.Cancelled > 0 ? ActivityState.Cancelled : ActivityState.Succeeded;
-        }
-
-        return item.Succeeded == 0 ? ActivityState.Failed : ActivityState.PartlyFailed;
+        return RunOutcomes.Of(item.Status, item.Unfinished, item.Succeeded, item.Failed, item.Cancelled);
     }
 
     /// <summary>
@@ -218,9 +197,26 @@ internal static class ActivityRows
             ?? model.Children.SelectMany(child => child.Commands).FirstOrDefault(view => view.Request == command.RequestType);
     }
 
-    // A link only for one record of the root itself: a child target's page needs its root, and many targets have no one page.
+    /// <summary>
+    /// The detail link of a run's one record, as the activity row links it; null for any other run (see
+    /// <see cref="HrefOf(int, Guid?, TaskDescriptor?, AggregateViewModel?)"/>).
+    /// </summary>
+    public static string? RecordHref(string commandName, int total, Guid? targetId, TaskCatalog catalog, AggregateViewRegistry views)
+    {
+        ArgumentNullException.ThrowIfNull(catalog);
+        ArgumentNullException.ThrowIfNull(views);
+
+        TaskDescriptor? command = catalog.ByName(commandName);
+
+        return HrefOf(total, targetId, command, command is null ? null : views.Find(command.Root));
+    }
+
     private static string? HrefOf(ActivityItem item, TaskDescriptor? command, AggregateViewModel? model) =>
-        item.Total == 1 && item.TargetId is { } target && command?.TargetKind == CommandTargetKind.Entity && model is not null
+        HrefOf(item.Total, item.TargetId, command, model);
+
+    // A link only for one record of the root itself: a child target's page needs its root, and many targets have no one page.
+    private static string? HrefOf(int total, Guid? targetId, TaskDescriptor? command, AggregateViewModel? model) =>
+        total == 1 && targetId is { } target && command?.TargetKind == CommandTargetKind.Entity && model is not null
             ? model.Routes.Detail?.Invoke(target)
             : null;
 }

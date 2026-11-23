@@ -32,6 +32,8 @@ public static class TaskConfigurationTypes
         typeof(StartTaskCommandConfiguration),
         typeof(CancelTaskRunCommandConfiguration),
         typeof(GetMyActivityQueryConfiguration),
+        typeof(GetTaskRunsQueryConfiguration),
+        typeof(GetTaskRunActorsQueryConfiguration),
     ];
 
     /// <summary>The aggregate feature configurations among <see cref="All"/>, which an opting-in context applies.</summary>

@@ -1,0 +1,147 @@
+@* The Task runs list: a module selector when more than one module runs tasks, then the module's runs, newest first,
+   filtered by aggregate, task, status, person, trigger and start day. With no module running tasks it says so and sends nothing. *@
+<SerginAggregateListView TitleText="TaskUiTexts.RunList.Heading" Trail="Trail">
+    <HeaderActions>
+        <SerginReloadButton OnReload="ReloadAsync" />
+        <SerginCopyLinkButton />
+    </HeaderActions>
+    <ChildContent>
+        @if (schema is null)
+        {
+            <MudText Typo="Typo.body2" Class="sergin-task-runs-empty">@Localizer.Text(TaskUiTexts.RunList.NoModule)</MudText>
+        }
+        else
+        {
+            @if (modules.Count > 1)
+            {
+                <MudSelect T="string" id="sergin-task-runs-module" Label="@Localizer.Text(TaskUiTexts.RunList.Module)" Value="schema"
+                           ValueChanged="OnModuleChanged" Variant="Variant.Outlined" Margin="Margin.Dense" Class="mb-3" Style="max-width: 20rem;">
+                    @foreach (string module in modules)
+                    {
+                        <MudSelectItem T="string" Value="@module">@ModuleText(module)</MudSelectItem>
+                    }
+                </MudSelect>
+            }
+            <SerginAggregateList @key="schema" @ref="list" TItem="TaskRunsListItem" Load="LoadAsync" Searchable="false"
+                                 NoRecordsText="TaskUiTexts.RunList.NoRuns" BuildFilters="BuildFilters" OnFilterRemoved="OnFilterRemoved"
+                                 OnFiltersReset="OnFiltersReset" OnFilterPanelOpened="OnFilterPanelOpenedAsync"
+                                 FilterPanelInitiallyOpen="true" ApplyFiltersAtStart="true">
+                <FilterPanel>
+                    <MudGrid Spacing="3">
+                        <MudItem xs="12" sm="6" md="3">
+                            <MudSelect T="string" Label="@Localizer.Text(TaskTexts.RunList.Aggregate.Label)" Placeholder="@AnyText" @bind-Value="AggregateFilter"
+                                       Clearable="true" Variant="Variant.Outlined" Margin="Margin.Dense">
+                                @foreach (Type root in Roots)
+                                {
+                                    <MudSelectItem T="string" Value="@RootKey(root)">@RootText(root)</MudSelectItem>
+                                }
+                            </MudSelect>
+                        </MudItem>
+                        <MudItem xs="12" sm="6" md="3">
+                            <MudSelect T="string" Label="@Localizer.Text(TaskTexts.RunList.Task.Label)" Placeholder="@AnyText" @bind-Value="TaskFilter"
+                                       Clearable="true" Variant="Variant.Outlined" Margin="Margin.Dense">
+                                @foreach (string task in TaskNames)
+                                {
+                                    <MudSelectItem T="string" Value="@task">@TaskText(task)</MudSelectItem>
+                                }
+                            </MudSelect>
+                        </MudItem>
+                        <MudItem xs="12" sm="6" md="3">
+                            <MudSelect T="RunOutcome?" Label="@Localizer.Text(TaskTexts.RunList.Status.Label)" Placeholder="@AnyText" @bind-Value="StatusFilter"
+                                       Clearable="true" Variant="Variant.Outlined" Margin="Margin.Dense">
+                                @foreach (RunOutcome outcome in Enum.GetValues<RunOutcome>())
+                                {
+                                    <MudSelectItem T="RunOutcome?" Value="@outcome">@OutcomeText(outcome)</MudSelectItem>
+                                }
+                            </MudSelect>
+                        </MudItem>
+                        <MudItem xs="12" sm="6" md="3">
+                            <MudSelect T="Guid?" Label="@Localizer.Text(TaskTexts.RunList.StartedBy.Label)" Placeholder="@AnyText" @bind-Value="StartedByFilter"
+                                       Clearable="true" Variant="Variant.Outlined" Margin="Margin.Dense">
+                                @foreach (Guid actor in actors)
+                                {
+                                    <MudSelectItem T="Guid?" Value="@actor">@NameOf(actor)</MudSelectItem>
+                                }
+                            </MudSelect>
+                        </MudItem>
+                        <MudItem xs="12" sm="6" md="3">
+                            <MudSelect T="TaskRunTrigger?" Label="@Localizer.Text(TaskTexts.RunList.Trigger.Label)" Placeholder="@AnyText" @bind-Value="TriggerFilter"
+                                       Clearable="true" Variant="Variant.Outlined" Margin="Margin.Dense">
+                                @foreach (TaskRunTrigger trigger in Triggers)
+                                {
+                                    <MudSelectItem T="TaskRunTrigger?" Value="@trigger">@Localizer.Text(TaskRunRows.TriggerText(trigger))</MudSelectItem>
+                                }
+                            </MudSelect>
+                        </MudItem>
+                        <MudItem xs="12" sm="6" md="3">
+                            <MudDateRangePicker Label="@Localizer.Text(TaskTexts.RunList.StartedAt.Label)" Culture="@Formatter.Culture" @bind-DateRange="StartedFilter"
+                                                Clearable="true" Variant="Variant.Outlined" Margin="Margin.Dense" />
+                        </MudItem>
+                    </MudGrid>
+                </FilterPanel>
+                <HeaderContent>
+                    <MudTh>@Localizer.Text(TaskUiTexts.RunList.Module)</MudTh>
+                    <MudTh>@Localizer.Text(TaskTexts.RunList.Aggregate.Label)</MudTh>
+                    <MudTh>@Localizer.Text(TaskTexts.RunList.Task.Label)</MudTh>
+                    <MudTh>@Localizer.Text(TaskUiTexts.RunList.Records)</MudTh>
+                    <MudTh>@Localizer.Text(TaskTexts.RunList.StartedBy.Label)</MudTh>
+                    <MudTh>
+                        <MudTableSortLabel T="TaskRunsListItem" SortLabel="@TaskRunListFields.StartedAt" InitialDirection="SortDirection.Descending">
+                            @Localizer.Text(TaskTexts.RunList.StartedAt.Label)
+                        </MudTableSortLabel>
+                    </MudTh>
+                    <MudTh>@Localizer.Text(TaskTexts.RunList.Status.Label)</MudTh>
+                </HeaderContent>
+                <RowTemplate>
+                    <MudTd DataLabel="@Localizer.Text(TaskUiTexts.RunList.Module)">@ModuleText(schema!)</MudTd>
+                    <MudTd DataLabel="@Localizer.Text(TaskTexts.RunList.Aggregate.Label)">@AggregateText(context.CommandName)</MudTd>
+                    <MudTd DataLabel="@Localizer.Text(TaskTexts.RunList.Task.Label)">
+                        <MudLink Typo="Typo.body2" Class="sergin-task-run-task" data-run="@context.Id" OnClick="@(() => OpenRecordsAsync(context))">@TaskText(context.CommandName)</MudLink>
+                    </MudTd>
+                    <MudTd DataLabel="@Localizer.Text(TaskUiTexts.RunList.Records)">
+                        @if (RecordHref(context) is { } href)
+                        {
+                            <MudLink Href="@href" Typo="Typo.body2">@RecordsText(context)</MudLink>
+                        }
+                        else
+                        {
+                            @RecordsText(context)
+                        }
+                    </MudTd>
+                    <MudTd DataLabel="@Localizer.Text(TaskTexts.RunList.StartedBy.Label)">
+                        <MudText Typo="Typo.body2">@NameOf(context.ActingUserId)</MudText>
+                        <MudText Typo="Typo.caption" Class="d-block mud-text-secondary">@TaskRunRows.TriggerLine(Localizer, context)</MudText>
+                    </MudTd>
+                    <MudTd DataLabel="@Localizer.Text(TaskTexts.RunList.StartedAt.Label)" Style="white-space: nowrap;">@Time(context.StartedAtUtc)</MudTd>
+                    <MudTd DataLabel="@Localizer.Text(TaskTexts.RunList.Status.Label)">
+                        <MudChip T="string" Size="Size.Small" Variant="Variant.Text" Color="@TaskRunRows.OutcomeColor(context.Outcome)" Class="ma-0 sergin-run-status">@OutcomeText(context.Outcome)</MudChip>
+                        @if (context.Outcome == RunOutcome.Running)
+                        {
+                            @* As the activity panel draws it: records done for a bulk run, a reported percent, else indeterminate. *@
+                            if (context.Total > 1)
+                            {
+                                <MudProgressLinear Value="@(context.Total - context.Unfinished)" Max="@context.Total" Color="Color.Primary" Class="mt-1" />
+                            }
+                            else if (context.Progress is { } progress)
+                            {
+                                <MudProgressLinear Value="@progress" Max="100" Color="Color.Primary" Class="mt-1" />
+                            }
+                            else
+                            {
+                                <MudProgressLinear Indeterminate="true" Color="Color.Primary" Class="mt-1" />
+                            }
+                        }
+                        else if (context.Outcome != RunOutcome.Skipped)
+                        {
+                            <MudText Typo="Typo.caption" Class="d-block mud-text-secondary">@SummaryText(context)</MudText>
+                        }
+                    </MudTd>
+                </RowTemplate>
+                <RowCommands>
+                    <SerginActivityRowAction Running="@(context.Outcome == RunOutcome.Running)" Cancelable="context.Cancelable"
+                                             OnCancel="@(() => CancelAsync(context))" />
+                </RowCommands>
+            </SerginAggregateList>
+        }
+    </ChildContent>
+</SerginAggregateListView>
