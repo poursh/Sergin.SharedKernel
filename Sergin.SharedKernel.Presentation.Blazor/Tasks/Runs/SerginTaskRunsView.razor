@@ -80,7 +80,7 @@
                     </MudGrid>
                 </FilterPanel>
                 <HeaderContent>
-                    <MudTh>@Localizer.Text(TaskTexts.RunList.Module.Label)</MudTh>
+                    <MudTh>@Localizer.Text(TaskUiTexts.RunList.Module)</MudTh>
                     <MudTh>@Localizer.Text(TaskTexts.RunList.Aggregate.Label)</MudTh>
                     <MudTh>@Localizer.Text(TaskTexts.RunList.Task.Label)</MudTh>
                     <MudTh>@Localizer.Text(TaskUiTexts.RunList.Records)</MudTh>
@@ -93,7 +93,7 @@
                     <MudTh>@Localizer.Text(TaskTexts.RunList.Status.Label)</MudTh>
                 </HeaderContent>
                 <RowTemplate>
-                    <MudTd DataLabel="@Localizer.Text(TaskTexts.RunList.Module.Label)">@ModuleText(schema!)</MudTd>
+                    <MudTd DataLabel="@Localizer.Text(TaskUiTexts.RunList.Module)">@ModuleText(schema!)</MudTd>
                     <MudTd DataLabel="@Localizer.Text(TaskTexts.RunList.Aggregate.Label)">@AggregateText(context.CommandName)</MudTd>
                     <MudTd DataLabel="@Localizer.Text(TaskTexts.RunList.Task.Label)">
                         <MudLink Typo="Typo.body2" Class="sergin-task-run-task" data-run="@context.Id" OnClick="@(() => OpenRecordsAsync(context))">@TaskText(context.CommandName)</MudLink>

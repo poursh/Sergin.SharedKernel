@@ -148,7 +148,7 @@ public sealed partial class SerginTaskRunsView : IAsyncDisposable
     private static IReadOnlyList<TaskRunTrigger> Triggers => triggers;
 
     // The tasks of the module shown, for the Task filter, by the text they are shown by; only the chosen aggregate's.
-    private IReadOnlyList<string> TaskNames =>
+    internal IReadOnlyList<string> TaskNames =>
     [
         .. ModuleTasks
             .Where(task => aggregateFilter is null || RootKey(task.Root) == aggregateFilter)
@@ -205,13 +205,17 @@ public sealed partial class SerginTaskRunsView : IAsyncDisposable
     /// <summary>Loads the current page again; the header's reload icon, a poll tick and a cancel all come here.</summary>
     internal Task ReloadAsync() => disposed || list is null ? Task.CompletedTask : list.ReloadAsync();
 
+    /// <summary>What the filter panel's Apply does: the panel's fields become the applied filters and the first page loads.</summary>
+    internal Task ApplyFiltersAsync() => list is null ? Task.CompletedTask : list.ApplyFiltersAsync();
+
     /// <summary>What the filter panel's Reset does: every filter cleared, the first page loaded again.</summary>
     internal Task ResetFiltersAsync() => list is null ? Task.CompletedTask : list.ResetFiltersAsync();
 
     /// <summary>
     /// One poll tick: reloads while the last load listed a running run or was filtered to Running (a failed load is neither).
     /// </summary>
-    internal Task TickAsync() => HasRunning || runningFilterApplied ? ReloadAsync() : Task.CompletedTask;
+    internal Task TickAsync() =>
+        disposed || list is null || !(HasRunning || runningFilterApplied) ? Task.CompletedTask : list.ReloadQuietlyAsync();
 
     /// <summary>Starts the poll, which reloads every 5 seconds while the last load listed a running run.</summary>
     internal void StartPolling()

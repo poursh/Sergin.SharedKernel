@@ -75,8 +75,6 @@ public static class TaskTexts
 
         public static readonly FieldText Aggregate = Category.Field("Aggregate", "Aggregate");
 
-        public static readonly FieldText Module = Category.Field("Module", "Module");
-
         public static readonly EnumTexts<RunOutcome> Outcomes = Category.Values(
             (RunOutcome.Running, "Running", null),
             (RunOutcome.Succeeded, "Succeeded", null),

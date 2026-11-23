@@ -35,6 +35,7 @@ public sealed partial class SerginAggregateList<TItem>
     private string? term;
     private bool filterPanelOpen;
     private bool loading;
+    private bool quietLoad;
     private HashSet<TItem> selected = [];
     private bool bulkRunning;
 
@@ -130,6 +131,13 @@ public sealed partial class SerginAggregateList<TItem>
     /// <summary>Loads the current page again with the current criteria — the header's reload icon, or after a row command.</summary>
     public Task ReloadAsync() => table.ReloadServerData();
 
+    /// <summary>Loads the current page again without the table's loading line, for a poll that reloads every few seconds.</summary>
+    public Task ReloadQuietlyAsync()
+    {
+        quietLoad = true;
+        return table.ReloadServerData();
+    }
+
     /// <summary>
     /// Replaces the applied filters' chips, for a page whose filters depend on each other: removing one chip that
     /// another needs (a module, under which a category was chosen) calls this from <see cref="OnFilterRemoved"/> with the
@@ -203,8 +211,14 @@ public sealed partial class SerginAggregateList<TItem>
         selected = [];
 
         // Shown for the first load and for every page, search, filter and sort change: all of them come through here.
-        loading = true;
-        StateHasChanged();
+        bool show = !quietLoad;
+        quietLoad = false;
+
+        if (show)
+        {
+            loading = true;
+            StateHasChanged();
+        }
 
         try
         {
@@ -246,7 +260,7 @@ public sealed partial class SerginAggregateList<TItem>
         }
     }
 
-    private Task ApplyFiltersAsync()
+    internal Task ApplyFiltersAsync()
     {
         filters = BuildFilters?.Invoke() ?? [];
         return FirstPageAsync();
