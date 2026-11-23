@@ -160,7 +160,7 @@ public static class TaskUiTexts
 
         public static TextDefinition OneOff { get; } = runs.Text("OneOff", "One-off");
 
-        public static TextDefinition Background { get; } = runs.Text("Background", "Background");
+        public static TextDefinition Manual { get; } = runs.Text("Manual", "Manual");
 
         public static TextDefinition Running { get; } = runs.Text("Running", "Running");
 

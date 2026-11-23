@@ -374,6 +374,9 @@ public sealed partial class SerginTaskSchedulesSection : IDisposable
             arguments);
     }
 
+    // "Manual" for a run a person started, "One-off" for a Run once: the table holds both.
+    private string TriggerText(TaskRunTrigger trigger) => Localizer.Text(TaskUiFormat.TriggerText(trigger));
+
     private string Time(DateTime utc) => TaskUiFormat.Time(Formatter, timeZone, utc);
 
     private string NameOf(Guid userId) => TaskUiFormat.NameOf(names, userId);

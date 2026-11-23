@@ -46,7 +46,7 @@ internal static class TaskUiFormat
         {
             TaskRunTrigger.Schedule => TaskUiTexts.Runs.Scheduled,
             TaskRunTrigger.ScheduleNow => TaskUiTexts.Runs.RunNowTrigger,
-            TaskRunTrigger.Manual => TaskUiTexts.Runs.Background,
+            TaskRunTrigger.Manual => TaskUiTexts.Runs.Manual,
             _ => TaskUiTexts.Runs.OneOff,
         };
 
