@@ -8,16 +8,6 @@ using Sergin.SharedKernel.Presentation.Localizations;
 
 namespace Sergin.SharedKernel.Presentation.Blazor.Tasks;
 
-/// <summary>Where a run of the activity indicator stands.</summary>
-internal enum ActivityState
-{
-    Running,
-    Succeeded,
-    PartlyFailed,
-    Failed,
-    Cancelled,
-}
-
 /// <summary>
 /// One run as the activity indicator shows it: the command's view label (null when no view names it, and
 /// <paramref name="CommandName"/> shows instead), the target's stored label or a record count, the target's detail link
@@ -34,7 +24,7 @@ internal sealed record ActivityRow(
     string CommandName,
     string Target,
     string? Href,
-    ActivityState State,
+    RunOutcome State,
     DateTime StartedAtUtc,
     DateTime? CompletedAtUtc,
     int Done,
@@ -48,7 +38,7 @@ internal sealed record ActivityRow(
     bool Cancelable = true,
     Guid? ScopeId = null)
 {
-    public bool IsRunning => State == ActivityState.Running;
+    public bool IsRunning => State == RunOutcome.Running;
 }
 
 /// <summary>Turns the activity read into rows: pure, so it is tested without a browser.</summary>
@@ -109,22 +99,11 @@ internal static class ActivityRows
             : localizer.Text(TaskUiTexts.Activity.Records, new { Count = formatter.Number(count) });
     }
 
-    public static ActivityState StateOf(ActivityItem item)
+    public static RunOutcome StateOf(ActivityItem item)
     {
         ArgumentNullException.ThrowIfNull(item);
 
-        if (item.Unfinished > 0)
-        {
-            return ActivityState.Running;
-        }
-
-        // A run cancelled part way through, with no failure, reads as cancelled: the finished message counts what was done.
-        if (item.Failed == 0)
-        {
-            return item.Cancelled > 0 ? ActivityState.Cancelled : ActivityState.Succeeded;
-        }
-
-        return item.Succeeded == 0 ? ActivityState.Failed : ActivityState.PartlyFailed;
+        return RunOutcomes.Of(item.Status, item.Unfinished, item.Succeeded, item.Failed, item.Cancelled);
     }
 
     /// <summary>

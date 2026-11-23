@@ -55,4 +55,30 @@ public static class TaskTexts
 
     /// <summary>A cancel of a run whose task declares <c>NotCancelable()</c>.</summary>
     public static readonly TextDefinition NotCancelable = errors.Text("NotCancelable", "This task cannot be cancelled.");
+
+    /// <summary>The run list's field and status texts, under <c>common.tasks.run-list.*</c>.</summary>
+    public static class RunList
+    {
+#pragma warning disable S3218 // Every nested texts class names its own category Category.
+        public static readonly TextCategory Category = TaskTexts.Category.Child("RunList");
+#pragma warning restore S3218
+
+        public static readonly FieldText StartedAt = Category.Field("StartedAt", "Started");
+
+        public static readonly FieldText Task = Category.Field("Task", "Task");
+
+        public static readonly FieldText Trigger = Category.Field("Trigger", "Trigger");
+
+        public static readonly FieldText Status = Category.Field("Status", "Status");
+
+        public static readonly FieldText StartedBy = Category.Field("StartedBy", "Started by");
+
+        public static readonly EnumTexts<RunOutcome> Outcomes = Category.Values(
+            (RunOutcome.Running, "Running", null),
+            (RunOutcome.Succeeded, "Succeeded", null),
+            (RunOutcome.PartlyFailed, "Partly failed", null),
+            (RunOutcome.Failed, "Failed", null),
+            (RunOutcome.Cancelled, "Cancelled", null),
+            (RunOutcome.Skipped, "Skipped", null));
+    }
 }

@@ -59,7 +59,7 @@
                                 {
                                     <MudText Typo="Typo.caption" Class="mud-text-secondary">@ProgressText(row)</MudText>
                                 }
-                                @if (row.State == ActivityState.Cancelled)
+                                @if (row.State == RunOutcome.Cancelled)
                                 {
                                     <MudText Typo="Typo.caption" Class="mud-text-secondary">@Localizer.Text(TaskUiTexts.Activity.Cancelled)</MudText>
                                 }
