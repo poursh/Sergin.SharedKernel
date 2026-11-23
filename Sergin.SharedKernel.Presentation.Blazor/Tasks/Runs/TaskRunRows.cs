@@ -47,12 +47,23 @@ internal static class TaskRunRows
         {
             TaskRunTrigger.Manual => (TaskUiTexts.RunList.TriggerManual, null),
             TaskRunTrigger.Once => (TaskUiTexts.RunList.TriggerOnce, null),
-            TaskRunTrigger.ScheduleNow => (TaskUiTexts.RunList.TriggerScheduleNow, run.ScheduleCron),
-            _ => (TaskUiTexts.RunList.TriggerSchedule, run.ScheduleCron),
+            TaskRunTrigger.ScheduleNow => (TaskUiTexts.RunList.TriggerScheduleNow, ScheduleText(run)),
+            _ => (TaskUiTexts.RunList.TriggerSchedule, ScheduleText(run)),
         };
     }
 
-    /// <summary>The trigger line in the current culture: "Schedule · 0 9 * * *", or the trigger alone.</summary>
+    // The schedule the way the schedules section shows it: the cron as stored, then its time zone.
+    private static string? ScheduleText(TaskRunsListItem run)
+    {
+        if (run.ScheduleCron is null)
+        {
+            return null;
+        }
+
+        return run.ScheduleTimeZoneId is { } zone ? $"{run.ScheduleCron} {zone}" : run.ScheduleCron;
+    }
+
+    /// <summary>The trigger line in the current culture: "Schedule · 0 9 * * * UTC", or the trigger alone.</summary>
     public static string TriggerLine(IStringLocalizer localizer, TaskRunsListItem run)
     {
         ArgumentNullException.ThrowIfNull(localizer);

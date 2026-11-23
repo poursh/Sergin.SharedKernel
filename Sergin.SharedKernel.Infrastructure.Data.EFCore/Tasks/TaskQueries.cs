@@ -264,8 +264,11 @@ internal sealed class TaskQueries(
             $$"""
             FROM (
                 SELECT r.*,
-                       (SELECT count(*) FROM {{quoted}}.task_run_items u
-                        WHERE u.run_id = r.id AND u.status IN ('Pending', 'Running', 'Retrying'))::int AS unfinished
+                       -- Only a Running run can hold unfinished items, so no other run pays for the sub-count.
+                       CASE WHEN r.status = 'Running' THEN
+                           (SELECT count(*) FROM {{quoted}}.task_run_items u
+                            WHERE u.run_id = r.id AND u.status IN ('Pending', 'Running', 'Retrying'))::int
+                       ELSE 0 END AS unfinished
                 FROM {{quoted}}.task_runs r
                 WHERE ((r.schedule_id IS NOT NULL AND EXISTS (
                             SELECT 1 FROM {{quoted}}.task_schedules

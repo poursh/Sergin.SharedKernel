@@ -60,8 +60,8 @@ public static class SerginCoreExtensions
 
         string[] sysModules =
         [
-            .. localModules.Where(m => m.Schema == ReservedSchema).Select(m => m.GetType().FullName ?? m.Name)
-                .Concat(remoteModules.Where(m => m.Schema == ReservedSchema).Select(m => m.GetType().FullName ?? m.Name))
+            .. localModules.Where(m => string.Equals(m.Schema, ReservedSchema, StringComparison.OrdinalIgnoreCase)).Select(m => m.GetType().FullName ?? m.Name)
+                .Concat(remoteModules.Where(m => string.Equals(m.Schema, ReservedSchema, StringComparison.OrdinalIgnoreCase)).Select(m => m.GetType().FullName ?? m.Name))
         ];
 
         if (sysModules.Length > 0)

@@ -160,6 +160,9 @@ public sealed partial class SerginTaskRunsView : IAsyncDisposable
     /// <summary>Loads the current page again; the header's reload icon, a poll tick and a cancel all come here.</summary>
     internal Task ReloadAsync() => disposed || list is null ? Task.CompletedTask : list.ReloadAsync();
 
+    /// <summary>One poll tick: reloads only while the last load listed a running run (a failed load lists none).</summary>
+    internal Task TickAsync() => HasRunning ? ReloadAsync() : Task.CompletedTask;
+
     /// <summary>Starts the poll, which reloads every 5 seconds while the last load listed a running run.</summary>
     internal void StartPolling()
     {
@@ -229,9 +232,11 @@ public sealed partial class SerginTaskRunsView : IAsyncDisposable
         ErrorOr<ListQueryResponse<TaskRunsListItem>> result = await Dispatcher.SendAsync(
             new GetTaskRunsQuery(schema!, request.Paggination, request.Term, request.Filtering, request.Sorting), cancellationToken);
 
+        // A refused load lists nothing running: the poll stops rather than raising an error every tick.
+        HasRunning = !result.IsError && result.Value.Data.Any(run => run.Outcome == RunOutcome.Running);
+
         if (!result.IsError)
         {
-            HasRunning = result.Value.Data.Any(run => run.Outcome == RunOutcome.Running);
             await NameAsync([.. result.Value.Data.Select(run => run.ActingUserId)], cancellationToken);
         }
 
@@ -356,10 +361,7 @@ public sealed partial class SerginTaskRunsView : IAsyncDisposable
         {
             while (!disposed && await timer.WaitForNextTickAsync())
             {
-                if (HasRunning)
-                {
-                    await InvokeAsync(ReloadAsync);
-                }
+                await InvokeAsync(TickAsync);
             }
         }
         catch (Exception exception) when (exception is not OperationCanceledException)
