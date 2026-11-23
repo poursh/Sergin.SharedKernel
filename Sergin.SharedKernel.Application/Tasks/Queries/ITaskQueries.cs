@@ -27,6 +27,9 @@ public interface ITaskQueries
     /// </summary>
     Task<ErrorOr<ListQueryResponse<TaskRunsListItem>>> RunsListAsync(string schema, ListQuery query, CancellationToken ct);
 
+    /// <summary>The distinct people who started the reachable runs of the module, in a stable order.</summary>
+    Task<ErrorOr<IReadOnlyCollection<Guid>>> RunActorsAsync(string schema, CancellationToken ct);
+
     Task<ErrorOr<IReadOnlyCollection<TaskRunItemListItem>>> RunItemsAsync(string schema, Guid runId, CancellationToken ct);
 
     Task<ErrorOr<IReadOnlyCollection<TaskRunListItem>>> RecentRunsForTargetAsync(string schema, Guid targetId, int take, CancellationToken ct);

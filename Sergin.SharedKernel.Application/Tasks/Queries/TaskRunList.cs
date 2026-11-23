@@ -50,5 +50,14 @@ internal sealed class GetTaskRunsQueryHandler(ITaskQueries queries) : IListQuery
         queries.RunsListAsync(request.Schema, request, cancellationToken);
 }
 
+/// <summary>The people who started the runs the caller can reach, for the run list's Started by filter.</summary>
+public sealed record GetTaskRunActorsQuery(string Schema) : IQuery<IReadOnlyCollection<Guid>>;
+
+internal sealed class GetTaskRunActorsQueryHandler(ITaskQueries queries) : IQueryHandler<GetTaskRunActorsQuery, IReadOnlyCollection<Guid>>
+{
+    public Task<ErrorOr<IReadOnlyCollection<Guid>>> Handle(GetTaskRunActorsQuery request, CancellationToken cancellationToken) =>
+        queries.RunActorsAsync(request.Schema, cancellationToken);
+}
+
 /// <summary>Refuses a sort or filter the run list does not declare in <see cref="TaskRunListFields"/>.</summary>
 internal sealed class GetTaskRunsQueryValidator() : ListQueryValidator<GetTaskRunsQuery>(TaskRunListFields.Set);

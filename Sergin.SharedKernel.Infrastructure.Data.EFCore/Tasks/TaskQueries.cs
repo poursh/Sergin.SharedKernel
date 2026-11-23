@@ -339,6 +339,41 @@ internal sealed class TaskQueries(
             CancelableOf(row.CommandName),
             row.ScopeId);
 
+    public async Task<ErrorOr<IReadOnlyCollection<Guid>>> RunActorsAsync(string schema, CancellationToken ct)
+    {
+        if (!TryQuote(schema, out string quoted))
+        {
+            return UnknownSchema;
+        }
+
+        using DbConnection connection = await connectionFactory.CreateConnectionAsync();
+
+        // The reach of the run list: a schedule's run through its live schedule, any other run through its own scope. The
+        // inner query reads task_runs alone, so Reach's unqualified columns bind to the table that owns them in each branch.
+        string sql =
+            $$"""
+            SELECT DISTINCT r.acting_user_id
+            FROM (
+                SELECT r.acting_user_id
+                FROM {{quoted}}.task_runs r
+                WHERE ((r.schedule_id IS NOT NULL AND EXISTS (
+                            SELECT 1 FROM {{quoted}}.task_schedules
+                            WHERE id = r.schedule_id AND deleted_at_utc IS NULL AND {{ScopeColumns.ReachSql}}))
+                       OR (r.schedule_id IS NULL AND {{ScopeColumns.ReachSql}}))) r
+            ORDER BY r.acting_user_id;
+            """;
+
+        DynamicParameters parameters = ScopeColumns.AddParameters(new DynamicParameters(), scopeFilter);
+
+#pragma warning disable S2077
+        IEnumerable<Guid> actors = await connection.QueryAsync<Guid>(new CommandDefinition(sql, parameters, cancellationToken: ct));
+#pragma warning restore S2077
+
+        IReadOnlyCollection<Guid> list = [.. actors];
+
+        return list.ToErrorOr();
+    }
+
     public async Task<ErrorOr<IReadOnlyCollection<TaskRunItemListItem>>> RunItemsAsync(string schema, Guid runId, CancellationToken ct)
     {
         if (!TryQuote(schema, out string quoted))
@@ -354,7 +389,7 @@ internal sealed class TaskQueries(
             $$"""
             SELECT i.target_id AS TargetId, i.status AS Status, i.attempts AS Attempts, i.error_code AS ErrorCode,
                    i.error_description AS ErrorDescription, i.completed_at_utc AS CompletedAtUtc,
-                   i.progress::int AS Progress
+                   i.progress::int AS Progress, i.target_label AS TargetLabel
             FROM {{quoted}}.task_run_items i
             WHERE i.run_id = @RunId
               AND EXISTS (
@@ -382,7 +417,8 @@ internal sealed class TaskQueries(
                 row.ErrorCode,
                 row.ErrorDescription,
                 row.CompletedAtUtc,
-                row.Progress)),
+                row.Progress,
+                row.TargetLabel)),
         ];
 
         return items.ToErrorOr();
@@ -683,6 +719,8 @@ internal sealed class TaskQueries(
         public DateTime? CompletedAtUtc { get; set; }
 
         public int? Progress { get; set; }
+
+        public string? TargetLabel { get; set; }
     }
 
     private sealed class ActivityRow

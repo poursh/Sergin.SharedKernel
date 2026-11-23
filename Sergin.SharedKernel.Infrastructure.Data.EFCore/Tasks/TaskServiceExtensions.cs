@@ -52,6 +52,7 @@ public static class TaskServiceExtensions
         services.AddTransient<IRequestHandler<GetRecentRunsForCollectionQuery, ErrorOr<IReadOnlyCollection<TaskRunListItem>>>, GetRecentRunsForCollectionQueryHandler>();
         services.AddTransient<IRequestHandler<GetTaskRunsQuery, ErrorOr<ListQueryResponse<TaskRunsListItem>>>, GetTaskRunsQueryHandler>();
         services.AddScoped<IValidator<GetTaskRunsQuery>, GetTaskRunsQueryValidator>();
+        services.AddTransient<IRequestHandler<GetTaskRunActorsQuery, ErrorOr<IReadOnlyCollection<Guid>>>, GetTaskRunActorsQueryHandler>();
 
         // A user's own runs across every opted-in module: the directory over the per-context sources, and its query
         // (AddSerginCore registers them too, for a host where nothing opts in).

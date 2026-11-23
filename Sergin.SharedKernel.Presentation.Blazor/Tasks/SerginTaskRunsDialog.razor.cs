@@ -105,9 +105,9 @@ public sealed partial class SerginTaskRunsDialog
 
     private string Time(DateTime utc) => TaskUiFormat.Time(Formatter, timeZone, utc);
 
-    // A record's id, as stored; a collection task's item, which has none, names the run's scope.
+    // The label stored with the item, else a record's id; a collection task's item, which has none, names the run's scope.
     internal string TargetText(TaskRunItemListItem item) =>
-        item.TargetId?.ToString() ?? (openRunScope is { } scope ? TaskUiFormat.ScopeName(Scopes, scope) : string.Empty);
+        item.TargetLabel ?? item.TargetId?.ToString() ?? (openRunScope is { } scope ? TaskUiFormat.ScopeName(Scopes, scope) : string.Empty);
 
     private string NameOf(Guid userId) => TaskUiFormat.NameOf(names, userId);
 

@@ -71,7 +71,10 @@ public sealed record TaskRunsListItem(
     bool Cancelable,
     Guid? ScopeId);
 
-/// <summary>One item of a run; <see cref="Progress"/> is its command's last reported percent, null until it reports.</summary>
+/// <summary>
+/// One item of a run; <see cref="Progress"/> is its command's last reported percent, null until it reports, and
+/// <see cref="TargetLabel"/> the text stored with the item when it was started, null when none was.
+/// </summary>
 public sealed record TaskRunItemListItem(
     Guid? TargetId,
     TaskRunItemStatus Status,
@@ -79,4 +82,5 @@ public sealed record TaskRunItemListItem(
     string? ErrorCode,
     string? ErrorDescription,
     DateTime? CompletedAtUtc,
-    int? Progress);
+    int? Progress,
+    string? TargetLabel = null);
