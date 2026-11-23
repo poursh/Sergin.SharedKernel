@@ -9,7 +9,7 @@ namespace Sergin.SharedKernel.Presentation.Blazor.Aggregates;
 /// The view configuration mistakes that refuse host start, each naming the configuration and the offending type,
 /// property or route. <see cref="AggregateViewRegistry.Build"/> runs every check its requests can answer (two
 /// configurations for one root; a command, detail, list or form naming a request not the root's; routes promising a
-/// page with no query or command behind it; a schedulable command a detail view cannot build from the id; a field
+/// page with no query or command behind it; a task argument no form can build, a Page-mode task without its route; a field
 /// override on an unknown property); <see cref="Ensure"/> checks the configured
 /// routes against the routable components, once the UI assemblies are known.
 /// </summary>
@@ -44,6 +44,11 @@ public static class AggregateViewGuard
                 .Select(link => link.Href(Guid.Empty))
                 .Where(route => !templates.Contains(Normalize(route)))
                 .Select(route => $"  {model.Configuration.FullName} ({model.Root.Name}, link): \"{route}\"")),
+            .. views.All.SelectMany(model => model.Commands
+                .Where(command => command.PageRoute is not null)
+                .Select(command => (command, route: command.PageRoute!(command.Role == CommandRole.CollectionTask ? null : Guid.Empty)))
+                .Where(page => !templates.Contains(Normalize(page.route)))
+                .Select(page => $"  {model.Configuration.FullName} ({model.Root.Name}, {page.command.Request.Name}'s form page): \"{page.route}\"")),
         ];
 
         if (missing.Length > 0)
@@ -88,19 +93,19 @@ public static class AggregateViewGuard
             + $", give the delete a constructor of only the id, or Command<{request.Name}>().Hidden() it.");
 
     /// <summary>
-    /// <c>Confirm(...)</c> is asked before a root's transition or delete and a child's removal; on any other command (an
+    /// <c>Confirm(...)</c> is asked before a root's transition, task over one record or delete and a child's removal; on any other command (an
     /// update links to its form, a set-property opens its own editor) no view would ask it.
     /// </summary>
     internal static void EnsureConfirmAsked(DeclaredView view, Type request, CommandRole role, bool child)
     {
-        bool asked = child ? role == CommandRole.RemoveChild : role is CommandRole.Transition or CommandRole.Delete;
+        bool asked = child ? role == CommandRole.RemoveChild : role is CommandRole.Transition or CommandRole.Task or CommandRole.Delete;
 
         if (!asked)
         {
             throw Refuse(
                 view,
                 $"Command<{request.Name}>().Confirm(...) declares a confirm on {request.FullName}, a {(child ? "child " : string.Empty)}{role} "
-                + "command, which no generated view asks before sending: only a root's transition or delete and a child's removal ask. "
+                + "command, which no generated view asks before sending: only a root's transition, task over one record or delete and a child's removal ask. "
                 + "Remove the Confirm(...).");
         }
     }
@@ -123,20 +128,47 @@ public static class AggregateViewGuard
     }
 
     /// <summary>
-    /// A schedulable command's Schedule… and View schedules entries build the command from the record's id, so a shown one
-    /// must be id-only (a list's bulk schedule already skips one that is not).
+    /// A view builds a shown task from its form: every argument the form does not show (marked <c>NotShown</c>) must be
+    /// buildable without it, by a declared default or as null. A hidden task is never started, so it is not held to this.
     /// </summary>
-    private static void EnsureSchedulableFromId(DeclaredView view, IReadOnlyCollection<CommandView> commands)
+    internal static void EnsureTaskArgumentsBuildable(DeclaredView view, Type request, string? taskName, IReadOnlyCollection<string> unbuildable)
     {
-        CommandView? offender = commands.FirstOrDefault(command => command is { ScheduleName: not null, BuildFromId: null, Hidden: false });
+        if (unbuildable.Count == 0)
+        {
+            return;
+        }
 
-        if (offender is not null)
+        string them = unbuildable.Count == 1 ? "it" : "them";
+
+        throw Refuse(
+            view,
+            $"{request.FullName} is a task (\"{taskName}\") whose argument{(unbuildable.Count == 1 ? string.Empty : "s")} "
+            + $"{string.Join(", ", unbuildable)} no form can build: its configuration marks {them} NotShown, and {them} "
+            + $"{(unbuildable.Count == 1 ? "has" : "have")} no default and cannot be null. Show {them}, give {them} a default, or "
+            + $"Command<{request.Name}>().Hidden() the task.");
+    }
+
+    /// <summary>
+    /// <c>PageRoute(...)</c> names a task's form page, so a shown task in <see cref="SerginEditMode.Page"/> needs one, and
+    /// it is refused anywhere else, where no view would link to it.
+    /// </summary>
+    internal static void EnsurePageRoute(DeclaredView view, Type request, bool task, SerginEditMode mode, Func<Guid?, string>? route, bool hidden)
+    {
+        if (route is not null && (!task || mode != SerginEditMode.Page))
         {
             throw Refuse(
                 view,
-                $"{offender.Request.FullName} is Schedulable(\"{offender.ScheduleName}\"), and a generated detail view schedules it from the "
-                + "record's id alone, but its constructor takes more than the id. Give it a constructor of only the id, or "
-                + $"Command<{offender.Request.Name}>().Hidden() it.");
+                $"Command<{request.Name}>().PageRoute(...) names a form page for {request.FullName}, but only a task declared "
+                + $"Edit(SerginEditMode.Page) is offered on one. Declare Edit(SerginEditMode.Page), or remove the PageRoute(...).");
+        }
+
+        if (task && !hidden && mode == SerginEditMode.Page && route is null)
+        {
+            throw Refuse(
+                view,
+                $"{request.FullName} is a task declared Edit(SerginEditMode.Page), so its action links to a form page, but no "
+                + $"route names it. Declare Command<{request.Name}>().PageRoute(...) with the route of the page hosting "
+                + "SerginGeneratedTaskFormView.");
         }
     }
 
@@ -193,7 +225,6 @@ public static class AggregateViewGuard
 
         EnsureCommandsOfRoot(view, commands);
         EnsureIdOnly(view, commands);
-        EnsureSchedulableFromId(view, commands);
         EnsureQueryShapes(view, getOne, overview, entityOverview, audit);
         EnsureRecord(view, builder.Root.Name, builder.DetailFields?.Record, getOneResponse, "Detail", "GetOne query's response");
         EnsureRecord(view, builder.Root.Name, builder.ListFields?.Record, listItem, "List", "list query's item");

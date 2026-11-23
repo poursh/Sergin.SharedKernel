@@ -6,15 +6,14 @@ namespace Sergin.SharedKernel.Application.Commands.Configuration;
 /// permissions are checked, the registry's answer from <see cref="AggregateRoot"/>'s features:
 /// <see cref="PermissionScope.Current"/> for an untyped request or a <c>Scoped()</c> root, <see cref="PermissionScope.Any"/>
 /// for any other root. <see cref="AggregateRoot"/> is the root the request's type names, or null for an untyped one.
-/// <see cref="ScheduleName"/> is the stable name the configuration gave with <c>Schedulable(name)</c>, or null.
+/// <see cref="Task"/> is how a task (<see cref="Types.ITaskCommand"/>) runs, configured or not, and null for every other request.
 /// </summary>
 public sealed record CommandSettings(
     IReadOnlyCollection<PermissionDefinition> RequiredPermissions,
     bool RequiresExpectedVersion,
     PermissionScope PermissionScope = PermissionScope.Current,
     Type? AggregateRoot = null,
-    string? ScheduleName = null,
-    BackgroundSettings? Background = null)
+    TaskSettings? Task = null)
 {
     public static CommandSettings None { get; } = new([], false);
 }

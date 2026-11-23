@@ -1,7 +1,7 @@
 using System.Reflection;
-using Sergin.SharedKernel.Application.Commands;
+using Sergin.SharedKernel.Application.Commands.Types;
 using Sergin.SharedKernel.Application.Concurrency;
-using Sergin.SharedKernel.Application.ScheduledTasks.Commands;
+using Sergin.SharedKernel.Application.Tasks.Commands;
 using Sergin.SharedKernel.Domain;
 using Sergin.SharedKernel.Modules;
 using Sergin.SharedKernel.Presentation.Blazor.Dispatching;
@@ -17,6 +17,8 @@ internal sealed record ListColumn(FieldView Field, string? SortId, bool Links);
 /// <summary>What the three generated views and the list body share, written once.</summary>
 internal static class GeneratedViewSupport
 {
+    private static readonly IReadOnlyDictionary<string, object?> noValues = new Dictionary<string, object?>(StringComparer.Ordinal);
+
     /// <summary>
     /// The list section step: the nav entry naming the list route, else a step titled as the list; null when the root
     /// has no list route.
@@ -128,53 +130,82 @@ internal static class GeneratedViewSupport
 
     /// <summary>
     /// Sends a command built from the record's id, at <paramref name="version"/> only when the command is version-guarded;
-    /// a background command is started as a run over the record instead, answering its
-    /// <see cref="BackgroundRunStartedResponse"/> with no version sent or read.
+    /// a task is started as a run over the record instead, its arguments at their defaults, answering its
+    /// <see cref="TaskRunStartedResponse"/> with no version sent or read.
     /// </summary>
     public static Task<ViewSendResult> SendFromIdAsync(ISerginDispatcher dispatcher, CommandView command, Guid id, RowVersion? version, string? label = null)
     {
         ArgumentNullException.ThrowIfNull(command);
 
-        return command.Background is not null
-            ? StartManyAsync(dispatcher, command, [new BackgroundTarget(id, null, label)])
+        return command.Task is not null
+            ? StartManyAsync(dispatcher, command, [new TaskTarget(id, label)])
             : SendAsync(dispatcher, command, command.BuildFromId!(id), version);
     }
 
     /// <summary>
-    /// Starts a background command as one run over <paramref name="targets"/>. The template is built from the first target
-    /// (a root command from its id, a child command from its root id and id); the run takes each item's ids from its target.
+    /// Starts a task over one record as one run over <paramref name="targets"/>, with the arguments
+    /// <paramref name="values"/> gave (none: each takes its default). The template is built once, from the form, with the
+    /// first target's id; the run stores its arguments once and takes each item's id from its target.
     /// </summary>
     internal static async Task<ViewSendResult> StartManyAsync(
-        ISerginDispatcher dispatcher, CommandView command, IReadOnlyCollection<BackgroundTarget> targets)
+        ISerginDispatcher dispatcher, CommandView command, IReadOnlyCollection<TaskTarget> targets, IReadOnlyDictionary<string, object?>? values = null)
     {
         ArgumentNullException.ThrowIfNull(dispatcher);
         ArgumentNullException.ThrowIfNull(command);
         ArgumentNullException.ThrowIfNull(targets);
 
-        BackgroundTarget first = targets.FirstOrDefault()
-            ?? throw new ArgumentException("A background command is started over at least one record.", nameof(targets));
-        ErrorOr<BackgroundRunStartedResponse> started = await dispatcher.StartAsync((IBaseCommand)TemplateOf(command, first), targets);
+        TaskTarget first = targets.FirstOrDefault()
+            ?? throw new ArgumentException("A task over one record is started over at least one record.", nameof(targets));
 
-        return started.IsError
+        if (command.Role != CommandRole.Task)
+        {
+            throw new InvalidOperationException($"{command.Request.FullName} cannot be started over records: it is not a task over one record.");
+        }
+
+        return ResultOf(await dispatcher.StartTaskAsync(TaskTemplateOf(command, first.TargetId, values), targets));
+    }
+
+    /// <summary>
+    /// Starts a task over the collection (<see cref="CommandRole.CollectionTask"/>) as one run with no record, in the caller's
+    /// current scope, with the arguments <paramref name="values"/> gave; a second start while that run is going is refused
+    /// (<c>Tasks.AlreadyRunning</c>).
+    /// </summary>
+    internal static async Task<ViewSendResult> StartCollectionAsync(
+        ISerginDispatcher dispatcher, CommandView command, IReadOnlyDictionary<string, object?>? values = null)
+    {
+        ArgumentNullException.ThrowIfNull(dispatcher);
+        ArgumentNullException.ThrowIfNull(command);
+
+        return ResultOf(await dispatcher.StartTaskAsync(CollectionTemplateOf(command, values), []));
+    }
+
+    /// <summary>Builds a collection task's template, as its schedule saves it; refuses any other command.</summary>
+    internal static ITaskCommand CollectionTemplateOf(CommandView command, IReadOnlyDictionary<string, object?>? values = null)
+    {
+        ArgumentNullException.ThrowIfNull(command);
+
+        return command.Role == CommandRole.CollectionTask
+            ? TaskTemplateOf(command, id: null, values)
+            : throw new InvalidOperationException($"{command.Request.FullName} cannot be started from a list view: it is not a task over the collection.");
+    }
+
+    /// <summary>
+    /// A task built from the record's id (null for a task over the collection) and its form's values by argument name; an
+    /// argument the values do not give takes its declared default, else its primitive's. Refuses any other command.
+    /// </summary>
+    internal static ITaskCommand TaskTemplateOf(CommandView command, Guid? id, IReadOnlyDictionary<string, object?>? values = null)
+    {
+        ArgumentNullException.ThrowIfNull(command);
+
+        return command.BuildTask is { } build
+            ? build(id, values ?? noValues)
+            : throw new InvalidOperationException($"{command.Request.FullName} is not a task a view can start.");
+    }
+
+    private static ViewSendResult ResultOf(ErrorOr<TaskRunStartedResponse> started) =>
+        started.IsError
             ? new ViewSendResult(null, null, started.Errors)
             : new ViewSendResult(started.Value, null, []);
-    }
-
-    private static object TemplateOf(CommandView command, BackgroundTarget target)
-    {
-        if (command.BuildFromId is { } fromId)
-        {
-            return fromId(target.TargetId);
-        }
-
-        if (command.BuildFromIds is { } fromIds && target.RootId is { } rootId)
-        {
-            return fromIds(rootId, target.TargetId);
-        }
-
-        throw new InvalidOperationException(
-            $"{command.Request.FullName} cannot be started from a view: its constructor is neither id-only nor (RootId, Id) with a root id given.");
-    }
 
     /// <summary>Sends <paramref name="request"/>, built for <paramref name="command"/>, at <paramref name="version"/> only when the command is version-guarded.</summary>
     public static Task<ViewSendResult> SendAsync(ISerginDispatcher dispatcher, CommandView command, object request, RowVersion? version)

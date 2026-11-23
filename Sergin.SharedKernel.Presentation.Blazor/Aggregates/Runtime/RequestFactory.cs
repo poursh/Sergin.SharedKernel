@@ -117,7 +117,8 @@ public static class RequestFactory
     /// A request built from the target id (ignored when the request has no <c>Id</c>, as a create) and form values keyed by
     /// parameter name; a primitive is wrapped into the parameter's type. A missing value becomes the primitive's default
     /// (empty string, <see cref="Guid.Empty"/>, 0), so a wrapper is never null and the validators can read it; only a
-    /// parameter declared nullable stays null.
+    /// parameter declared nullable stays null. An optional parameter whose name is absent from the values takes its
+    /// declared default.
     /// </summary>
     public static Func<Guid, IReadOnlyDictionary<string, object?>, object> ForForm(Type requestType)
     {
@@ -141,6 +142,8 @@ public static class RequestFactory
         ];
         bool[] isId = [.. parameters.Select(parameter => IsNamed(parameter, IdParameter))];
         bool[] isRootId = [.. parameters.Select(parameter => IsNamed(parameter, RootIdParameter))];
+        bool[] hasDefault = [.. parameters.Select(parameter => parameter.HasDefaultValue)];
+        object?[] defaults = [.. parameters.Select(DefaultOf)];
         string[] names = [.. parameters.Select(parameter => parameter.Name!)];
         Func<object?[], object> build = Compile(constructor);
 
@@ -150,6 +153,13 @@ public static class RequestFactory
 
             for (int index = 0; index < names.Length; index++)
             {
+                // An optional parameter no field gave (a task argument marked NotShown) takes its declared default as it is.
+                if (hasDefault[index] && !isId[index] && !isRootId[index] && !Has(values, names[index]))
+                {
+                    arguments[index] = defaults[index];
+                    continue;
+                }
+
                 object? value = ValueOf(values, names[index]);
 
                 if (isId[index])
@@ -322,6 +332,9 @@ public static class RequestFactory
     }
 
     private static bool IsNamed(ParameterInfo parameter, string name) => string.Equals(parameter.Name, name, StringComparison.OrdinalIgnoreCase);
+
+    private static bool Has(IReadOnlyDictionary<string, object?> values, string name) =>
+        values.ContainsKey(name) || values.Keys.Any(key => string.Equals(key, name, StringComparison.OrdinalIgnoreCase));
 
     private static object? ValueOf(IReadOnlyDictionary<string, object?> values, string name)
     {

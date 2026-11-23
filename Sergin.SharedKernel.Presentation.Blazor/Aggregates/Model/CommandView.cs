@@ -1,4 +1,5 @@
 using Sergin.SharedKernel.Application.Commands.Configuration;
+using Sergin.SharedKernel.Application.Commands.Types;
 using Sergin.SharedKernel.Domain.Securities;
 using Sergin.SharedKernel.Presentation.Blazor.Actions;
 
@@ -18,7 +19,10 @@ namespace Sergin.SharedKernel.Presentation.Blazor.Aggregates.Model;
 /// <param name="Permissions">The permissions its configuration requires.</param>
 /// <param name="AnyScope">Whether they are checked on any scope (an aggregate that is not <c>Scoped()</c>).</param>
 /// <param name="RequiresVersion">Whether it is sent at the record's version.</param>
-/// <param name="ScheduleName">The name its configuration gave with <c>Schedulable(name)</c>, or null.</param>
+/// <param name="Task">
+/// How it runs when it is a task (<c>ITaskCommand</c>), or null: a task is never sent inline, a view starts it as a run
+/// over the record (or the selected rows) and reads no version, and offers Schedule… for one that is <c>Schedulable()</c>.
+/// </param>
 /// <param name="Selectable">Whether it may run once per selected row (<c>ISelectable</c>).</param>
 /// <param name="SucceededText">The text shown after it succeeds, placeholders filled from the loaded record; null for none.</param>
 /// <param name="ConfirmTitle">The confirm's title (a delete's, or any command's from <c>Confirm(...)</c>), or null for the default.</param>
@@ -51,9 +55,10 @@ namespace Sergin.SharedKernel.Presentation.Blazor.Aggregates.Model;
 /// parent's id; null for any other command, and for a hidden one.
 /// </param>
 /// <param name="MoveParentField">The move command's <c>NewParentId</c> field text, which labels its dialog's parent picker; null with no <paramref name="BuildMove"/>.</param>
-/// <param name="Background">
-/// What its configuration declared with <c>Background(timeout)</c>, or null: such a command is never sent inline, a view
-/// starts it as a background run over the record (or the selected rows) and reads no version.
+/// <param name="BuildTask">
+/// Builds a task (<see cref="CommandRole.Task"/> or <see cref="CommandRole.CollectionTask"/>) from the record's id (null for
+/// a task over the collection) and its arguments by name, as its form edits them; an argument not given takes its declared
+/// default, else its primitive's. Null for any other command.
 /// </param>
 public sealed record CommandView(
     Type Request,
@@ -64,7 +69,7 @@ public sealed record CommandView(
     IReadOnlyCollection<PermissionDefinition> Permissions,
     bool AnyScope,
     bool RequiresVersion,
-    string? ScheduleName,
+    TaskSettings? Task,
     bool Selectable,
     TextDefinition? SucceededText,
     TextDefinition? ConfirmTitle,
@@ -86,7 +91,7 @@ public sealed record CommandView(
     TextDefinition? ConfirmLabel = null,
     Func<Guid, Guid, object>? BuildMove = null,
     FieldText? MoveParentField = null,
-    BackgroundSettings? Background = null)
+    Func<Guid?, IReadOnlyDictionary<string, object?>, ITaskCommand>? BuildTask = null)
 {
     /// <summary>
     /// The values a delete's confirm asks for: its constructor's shown parameters beside the <c>Id</c>, built with
@@ -94,6 +99,16 @@ public sealed record CommandView(
     /// delete. A list offers such a delete neither as a row action nor in bulk, having no dialog to ask with.
     /// </summary>
     public IReadOnlyList<FormFieldView> ConfirmFields { get; init; } = [];
+
+    /// <summary>
+    /// A shown task's arguments as its form renders them: its constructor's parameters beyond what its type declares (the
+    /// <c>Id</c>) and what its configuration marks <c>NotShown</c>. Empty for a task that takes none, which starts on
+    /// click, and for any other command.
+    /// </summary>
+    public IReadOnlyList<FormFieldView> TaskFields { get; init; } = [];
+
+    /// <summary>A task's form page, from <c>PageRoute(...)</c> with <c>Edit(SerginEditMode.Page)</c>; null otherwise.</summary>
+    public Func<Guid?, string>? PageRoute { get; init; }
 }
 
 /// <summary>An entry a configuration put behind a command's drop-down with <c>MenuItem(...)</c>.</summary>

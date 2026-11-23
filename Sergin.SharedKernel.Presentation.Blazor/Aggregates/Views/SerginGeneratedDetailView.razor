@@ -41,6 +41,14 @@
                                          OnSubmit="InlineSubmitted(command)" Busy="commands.IsRunning(command)" />
             }
         }
+        @if (record is not null)
+        {
+            @foreach (CommandView command in inlineTasks)
+            {
+                <GeneratedTaskSection @key="command.Request" Command="command" Targets="RecordTargets" OnStarted="InlineTaskStarted"
+                                      Busy="IsTaskRunning(command)" MenuItems="MenuItemsOf(command)" />
+            }
+        }
         @if (Model.Tree is not null && Model.Routes.Detail is not null && record is not null)
         {
             <GeneratedTreeChildren Tree="Model.Tree" NodeId="Id" NodeHref="Model.Routes.Detail" Generation="Context.Generation" />
@@ -53,9 +61,9 @@
         {
             @SectionsFragment
         }
-        @if (Model.HasSchedulableCommand)
+        @if (Model.HasEntityTask)
         {
-            <SerginScheduledTasksSection @ref="section" Schema="@Model.Schema" TargetId="Id" @bind-CommandName="commandName" CommandLabel="commandLabel"
+            <SerginTaskSchedulesSection @ref="section" Schema="@Model.Schema" TargetId="Id" TargetLabel="@DisplayText" @bind-CommandName="commandName" CommandLabel="commandLabel"
                                          Loaded="OnSectionLoaded" />
         }
     </Entities>

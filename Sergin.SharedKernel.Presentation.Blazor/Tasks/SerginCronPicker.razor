@@ -1,0 +1,56 @@
+@* When a schedule fires: a few common shapes and a cron field for anything else, then the zone and the next fire times. *@
+<MudStack Spacing="2" Class="sergin-cron-picker">
+    <MudSelect T="CronChoice" Label="@Localizer.Text(TaskUiTexts.Cron.Repeat)" Value="choice" ValueChanged="ChoiceChangedAsync"
+               Variant="Variant.Outlined" Margin="Margin.Dense">
+        <MudSelectItem T="CronChoice" Value="CronChoice.Daily">@Localizer.Text(TaskUiTexts.Cron.Daily)</MudSelectItem>
+        <MudSelectItem T="CronChoice" Value="CronChoice.Hourly">@Localizer.Text(TaskUiTexts.Cron.Hourly)</MudSelectItem>
+        <MudSelectItem T="CronChoice" Value="CronChoice.Weekly">@Localizer.Text(TaskUiTexts.Cron.Weekly)</MudSelectItem>
+        <MudSelectItem T="CronChoice" Value="CronChoice.Custom">@Localizer.Text(TaskUiTexts.Cron.Custom)</MudSelectItem>
+    </MudSelect>
+
+    @if (choice == CronChoice.Weekly)
+    {
+        <MudSelect T="DayOfWeek" Label="@Localizer.Text(TaskUiTexts.Cron.Day)" Value="day" ValueChanged="DayChangedAsync"
+                   Variant="Variant.Outlined" Margin="Margin.Dense">
+            @foreach (DayOfWeek value in Enum.GetValues<DayOfWeek>())
+            {
+                <MudSelectItem T="DayOfWeek" Value="value">@DayName(value)</MudSelectItem>
+            }
+        </MudSelect>
+    }
+
+    @if (choice is CronChoice.Daily or CronChoice.Weekly)
+    {
+        <MudTextField T="string" InputType="InputType.Time" Label="@Localizer.Text(TaskUiTexts.Cron.Time)" Value="@TimeText"
+                      ValueChanged="TimeChangedAsync" Immediate="true" Variant="Variant.Outlined" Margin="Margin.Dense" />
+    }
+
+    @if (choice == CronChoice.Hourly)
+    {
+        <MudNumericField T="int" Label="@Localizer.Text(TaskUiTexts.Cron.Minute)" Value="time.Minute" ValueChanged="MinuteChangedAsync"
+                         Min="0" Max="59" Variant="Variant.Outlined" Margin="Margin.Dense" />
+    }
+
+    @if (choice == CronChoice.Custom)
+    {
+        <MudTextField T="string" Label="@Localizer.Text(TaskUiTexts.Cron.Expression)" Value="custom" ValueChanged="CustomChangedAsync"
+                      For="CronFor" Immediate="true" Variant="Variant.Outlined" Margin="Margin.Dense" />
+    }
+
+    <MudText Typo="Typo.caption" Class="sergin-cron-zone">@ZoneCaption</MudText>
+
+    <div>
+        <MudText Typo="Typo.subtitle2">@Localizer.Text(TaskUiTexts.Cron.NextRuns)</MudText>
+        @if (NextRuns.Count == 0)
+        {
+            <MudText Typo="Typo.body2">@Localizer.Text(TaskUiTexts.Cron.NoNextRuns)</MudText>
+        }
+        else
+        {
+            @foreach (string run in NextRuns)
+            {
+                <MudText Typo="Typo.body2" Class="sergin-cron-next">@run</MudText>
+            }
+        }
+    </div>
+</MudStack>

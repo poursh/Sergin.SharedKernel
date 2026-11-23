@@ -12,8 +12,10 @@ namespace Sergin.SharedKernel.Hosts.Commands;
 /// on an entity or child target; an <c>ISetPropertyCommand</c> with exactly one shown property besides its ids, an
 /// <c>ITransitionCommand</c> with none; a restore or purge only on a <c>SoftDeletable()</c> root; an
 /// <see cref="IReverseOf{TOther}"/> naming a transition on the same root; and no
-/// <see cref="ICommand{TResponse}"/> without an effect unless it is an <see cref="ISystemCommand"/>. One refusal names
-/// every offending type.
+/// <see cref="ICommand{TResponse}"/> without an effect unless it is an <see cref="ISystemCommand"/>. A task
+/// (<see cref="ITaskCommand"/>) implements one of its two generic shapes, never the bare marker alone, and targets a root
+/// entity or the root's collection, never a child or a root's child collection (child tasks are dropped); an
+/// <see cref="ISelectable"/> collection task has no record to select. One refusal names every offending type.
 /// </summary>
 /// <remarks>
 /// "Shown" here is every public instance property, minus the ids the record's interfaces declare (<c>Id</c>,
@@ -28,6 +30,8 @@ public sealed class CommandTypeGuard(IEnumerable<Assembly> contractsAssemblies)
     private static readonly HashSet<Type> setPropertyEffects = [typeof(ISetPropertyCommand<,>), typeof(ISetPropertyCommand<,,,>)];
 
     private static readonly HashSet<Type> transitionEffects = [typeof(ITransitionCommand<,>), typeof(ITransitionCommand<,,,>)];
+
+    private static readonly HashSet<Type> taskEffects = [typeof(ITaskCommand<,>), typeof(ITaskCommand<>)];
 
     private static readonly HashSet<Type> softDeleteEffects = [typeof(IRestoreCommand<,>), typeof(IPurgeCommand<,>)];
 
@@ -77,6 +81,12 @@ public sealed class CommandTypeGuard(IEnumerable<Assembly> contractsAssemblies)
     private static List<string> ProblemsOf(
         Type request, CommandConfigurationRegistry registry, AggregateFeatureRegistry aggregates, bool requireTyped)
     {
+        // A child task is refused alone: reading its target would refuse it again, as two target kinds, hiding the reason.
+        if (TaskTargetProblem(request) is { } taskProblem)
+        {
+            return [taskProblem];
+        }
+
         CommandTarget? target;
 
         try
@@ -94,6 +104,13 @@ public sealed class CommandTypeGuard(IEnumerable<Assembly> contractsAssemblies)
         if (effects.Distinct().Count() > 1)
         {
             problems.Add($"{request.FullName} implements more than one effect ({string.Join(", ", effects.Select(Named))}); a request has one");
+        }
+
+        if (CommandTypes.IsTask(request) && !effects.Any(taskEffects.Contains))
+        {
+            problems.Add(
+                $"{request.FullName} implements ITaskCommand alone; a task implements ITaskCommand<TRoot, TId> (one entity) "
+                + "or ITaskCommand<TRoot> (the collection)");
         }
 
         if (CommandTypes.IsSelectable(request) && target?.Kind is not (CommandTargetKind.Entity or CommandTargetKind.ChildEntity))
@@ -134,6 +151,18 @@ public sealed class CommandTypeGuard(IEnumerable<Assembly> contractsAssemblies)
 
         return problems;
     }
+
+    /// <summary>
+    /// A task naming a child or a root's child collection. Checked before the target is read, since an entity task with a
+    /// child target is otherwise refused as two target kinds, which hides the reason.
+    /// </summary>
+    private static string? TaskTargetProblem(Type request) =>
+        CommandTypes.IsTask(request) && request.GetInterfaces().Any(contract => contract.IsGenericType
+            && contract.GetGenericTypeDefinition() is var definition
+            && (definition == typeof(IChildEntityTarget<,,,>) || definition == typeof(IRootTarget<,>)))
+            ? $"{request.FullName} is a task on a child entity or a root's child collection; a task targets a root entity "
+                + "(ITaskCommand<TRoot, TId>) or the root's collection (ITaskCommand<TRoot>)"
+            : null;
 
     private static IEnumerable<string> ReverseProblems(Type request, CommandTarget? target)
     {

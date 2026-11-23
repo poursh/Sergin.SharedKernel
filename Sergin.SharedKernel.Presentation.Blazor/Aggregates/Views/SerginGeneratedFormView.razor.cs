@@ -36,6 +36,7 @@ public sealed partial class SerginGeneratedFormView<TRoot>
     private RowVersion? version;
     private SerginProblem? problem;
     private bool submitting;
+    private bool seededDefaults;
     private FieldView? titleField;
     private AggregateViewModel? belongsToModel;
     private Func<object, string, Task<IEnumerable<string>>> validation = default!;
@@ -151,6 +152,13 @@ public sealed partial class SerginGeneratedFormView<TRoot>
             return LoadAsync();
         }
 
+        // A new record's fields start from the defaults their parameters declare.
+        if (!seededDefaults)
+        {
+            values.SetDefaults(Fields);
+            seededDefaults = true;
+        }
+
         // The parent property is never rendered: the page's ParentId fills it, as a Guid the request factory wraps.
         if (Model.CreateParent is { } parentProperty)
         {
@@ -212,7 +220,8 @@ public sealed partial class SerginGeneratedFormView<TRoot>
 
         foreach (FormFieldView field in Fields)
         {
-            values.Set(field.Name, stored.GetValueOrDefault(field.Name));
+            // A field the record does not carry starts from its declared default, as on a new record.
+            values.Set(field.Name, stored.TryGetValue(field.Name, out object? value) ? value : field.Default);
 
             if (field.ParentFromRecord is { } parentOf)
             {

@@ -78,7 +78,7 @@ internal sealed class AggregateViewModelJoin(
             FormFields(create, builder, getOneResponse),
             FormFields(update, builder, getOneResponse),
             new Dictionary<SerginViewSlot, Type>(builder.Slots),
-            commandViews.Any(command => command.ScheduleName is not null),
+            commandViews.Any(command => command is { Role: CommandRole.Task, Task.Schedulable: true }),
             detailTitle,
             listTitle,
             filters,
@@ -451,6 +451,9 @@ internal sealed class AggregateViewModelJoin(
             Func<object, bool>? appliesWhen = AppliesWhenOf(request, declared, declarations, candidates, hidden, child);
 
             CommandSettings settings = commands.For(request);
+            bool task = role is CommandRole.Task or CommandRole.CollectionTask;
+            AggregateViewGuard.EnsurePageRoute(view, request, task, mode, declared?.DeclaredPageRoute, hidden);
+            IReadOnlyList<FormFieldView> taskFields = task && !hidden ? TaskFieldsOf(request, settings, declarations, getOneResponse) : [];
             FormFieldView? valueField = role == CommandRole.SetProperty && !child && !hidden ? ValueFieldOf(request, declarations, getOneResponse) : null;
             IReadOnlyList<FormFieldView> confirmFields = role == CommandRole.Delete && !child && !hidden ? ConfirmFieldsOf(request, declarations, getOneResponse) : [];
             bool shownMove = role == CommandRole.Move && !child && !hidden;
@@ -476,7 +479,7 @@ internal sealed class AggregateViewModelJoin(
                 settings.RequiredPermissions,
                 settings.PermissionScope == PermissionScope.Any,
                 settings.RequiresExpectedVersion,
-                settings.ScheduleName,
+                settings.Task,
                 CommandTypes.IsSelectable(request),
                 declared?.DeclaredSucceededText,
                 declared?.ConfirmTitle,
@@ -498,11 +501,51 @@ internal sealed class AggregateViewModelJoin(
                 declared?.ConfirmLabel,
                 shownMove ? RequestFactory.ForMove(request) : null,
                 moveParentField,
-                settings.Background)
+                task ? TaskBuilderOf(request) : null)
             {
                 ConfirmFields = confirmFields,
+                TaskFields = taskFields,
+                PageRoute = task && mode == SerginEditMode.Page ? declared?.DeclaredPageRoute : null,
             };
         }
+    }
+
+    /// <summary>
+    /// A shown task's arguments as form fields: its constructor's parameters beyond its target and the ones its configuration
+    /// marks <c>NotShown</c>. A <c>NotShown</c> one no form could fill (neither a declared default nor nullable) is refused,
+    /// naming the task, since every start and every run item builds the task from what the form gave.
+    /// </summary>
+    private IReadOnlyList<FormFieldView> TaskFieldsOf(Type request, CommandSettings settings, ViewDeclarationBuilder declarations, Type? getOneResponse)
+    {
+        IReadOnlyList<FormFieldView> fields = FormFields(request, declarations, getOneResponse);
+        IReadOnlySet<string> declaredByType = CommandTypes.InterfaceMemberNames(request);
+        NullabilityInfoContext nullability = new();
+        string[] unbuildable =
+        [
+            .. ConstructorOf(request)
+                .GetParameters()
+                .Where(parameter => !declaredByType.Contains(parameter.Name!)
+                    && fields.All(field => field.Name != parameter.Name)
+                    && !parameter.HasDefaultValue
+                    && !IsNullable(parameter, nullability))
+                .Select(parameter => parameter.Name!),
+        ];
+
+        AggregateViewGuard.EnsureTaskArgumentsBuildable(view, request, settings.Task?.Name, unbuildable);
+
+        return fields;
+    }
+
+    private static bool IsNullable(ParameterInfo parameter, NullabilityInfoContext nullability) =>
+        Nullable.GetUnderlyingType(parameter.ParameterType) is not null
+        || !parameter.ParameterType.IsValueType && nullability.Create(parameter).WriteState == NullabilityState.Nullable;
+
+    /// <summary>A task built from the record's id (none for a task over the collection) and its arguments by name.</summary>
+    private static Func<Guid?, IReadOnlyDictionary<string, object?>, ITaskCommand> TaskBuilderOf(Type request)
+    {
+        Func<Guid, IReadOnlyDictionary<string, object?>, object> build = RequestFactory.ForForm(request);
+
+        return (id, values) => (ITaskCommand)build(id ?? Guid.Empty, values);
     }
 
     /// <summary>
@@ -630,6 +673,8 @@ internal sealed class AggregateViewModelJoin(
                 _ when effects.Contains(typeof(IUpdateCommand<,>)) => CommandRole.Update,
                 _ when effects.Contains(typeof(IDeleteCommand<,>)) => CommandRole.Delete,
                 _ when effects.Contains(typeof(ITransitionCommand<,>)) => CommandRole.Transition,
+                _ when effects.Contains(typeof(ITaskCommand<,>)) => CommandRole.Task,
+                _ when effects.Contains(typeof(ITaskCommand<>)) => CommandRole.CollectionTask,
                 _ when effects.Contains(typeof(ISetPropertyCommand<,>)) => CommandRole.SetProperty,
                 _ when effects.Contains(typeof(IMoveCommand<,>)) => CommandRole.Move,
                 _ => null,
@@ -927,9 +972,16 @@ internal sealed class AggregateViewModelJoin(
                 parameter,
                 declared?.ChildPickers.GetValueOrDefault(parameter.Name!),
                 getOneResponse,
-                declared?.FieldOverrides.GetValueOrDefault(parameter.Name!))),
+                declared?.FieldOverrides.GetValueOrDefault(parameter.Name!)) with
+            {
+                Default = DeclaredDefaultOf(parameter),
+            }),
         ];
     }
+
+    // A parameter's declared default as the value its input starts from; null without one (or with a null default).
+    private static object? DeclaredDefaultOf(ParameterInfo parameter) =>
+        parameter.HasDefaultValue && parameter.DefaultValue is not (null or DBNull or Missing) ? parameter.DefaultValue : null;
 
     private FormFieldView FormFieldOf(
         Type command, ParameterInfo parameter, ChildPickerDeclaration? picker, Type? getOneResponse, FormFieldOverride? overridden)

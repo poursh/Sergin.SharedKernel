@@ -5,6 +5,10 @@
         <SerginReloadButton OnReload="ReloadAsync" />
     </HeaderActions>
     <ChildContent>
+        @foreach (CommandView command in inlineTasks)
+        {
+            <GeneratedTaskSection @key="command.Request" Command="command" Busy="IsCollectionTaskRunning(command)" MenuItems="MenuItemsOf(command)" />
+        }
         @Body
     </ChildContent>
 </SerginAggregateListView>

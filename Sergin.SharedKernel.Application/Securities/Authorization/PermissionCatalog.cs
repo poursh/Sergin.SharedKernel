@@ -179,7 +179,7 @@ public sealed class PermissionCatalog
     }
 
     /// <summary>
-    /// An aggregate SharedKernel itself owns (the scheduled task), whose permission no one module can own and so lives
+    /// An aggregate SharedKernel itself owns (the task schedule), whose permission no one module can own and so lives
     /// in <c>sys</c>; a module's aggregate, or a test's, never does.
     /// </summary>
     private static bool IsPlatformRoot(Type root) =>

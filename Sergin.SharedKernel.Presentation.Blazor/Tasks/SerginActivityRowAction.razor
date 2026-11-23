@@ -1,0 +1,11 @@
+@* What ends a running activity row: the Cancel button, or, for a task that declares NotCancelable(), a plain note. A row
+   that is not running has neither. *@
+@if (Running && !Cancelable)
+{
+    <MudText Typo="Typo.caption" Class="mud-text-secondary sergin-not-cancelable">@Localizer.Text(TaskUiTexts.Activity.NotCancelable)</MudText>
+}
+else if (Running)
+{
+    <MudIconButton Icon="@Icons.Material.Outlined.Cancel" Size="Size.Small" title="@CancelLabel"
+                   aria-label="@CancelLabel" OnClick="@(() => OnCancel.InvokeAsync())" />
+}

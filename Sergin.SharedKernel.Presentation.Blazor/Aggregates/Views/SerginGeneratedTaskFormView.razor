@@ -1,0 +1,30 @@
+@typeparam TRoot
+@typeparam TTask
+@* The argument form of one task of a configured root, generated from its model: see the code-behind. *@
+@if (Mode == SerginEditMode.Page)
+{
+    <SerginFormView TitleText="Command.Label" Trail="Trail" Problem="problem" Ready="Ready"
+                    Model="Arguments.Values" Validation="validation" OnSubmit="OnSubmit" Submitting="starting"
+                    SubmitLabelText="TaskUiTexts.Start" CancelHref="@LeaveHref">
+        @foreach (FormFieldView field in Command.TaskFields)
+        {
+            <GeneratedInput @key="field.Name" Field="field" Values="Arguments.Values" Validate="ValidateAsync" />
+        }
+    </SerginFormView>
+}
+else if (Mode == SerginEditMode.Inline)
+{
+    <SerginProblemPanel Problem="problem" />
+    @if (Ready)
+    {
+        <GeneratedTaskSection Command="Command" Targets="Targets" Busy="Busy" />
+    }
+}
+else
+{
+    <SerginProblemPanel Problem="problem" />
+    @if (Ready)
+    {
+        <GeneratedTaskForm Command="Command" Targets="Targets" Busy="Busy" />
+    }
+}

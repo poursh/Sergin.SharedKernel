@@ -1,15 +1,14 @@
 using Microsoft.AspNetCore.Components;
 using MudBlazor;
-using Sergin.SharedKernel.Application.Commands;
-using Sergin.SharedKernel.Application.ScheduledTasks;
-using Sergin.SharedKernel.Application.ScheduledTasks.Commands;
+using Sergin.SharedKernel.Application.Tasks;
+using Sergin.SharedKernel.Application.Tasks.Commands;
 using Sergin.SharedKernel.Application.Securities.Authorization;
 using Sergin.SharedKernel.Domain;
-using Sergin.SharedKernel.Domain.ScheduledTasks;
+using Sergin.SharedKernel.Domain.Tasks;
 using Sergin.SharedKernel.Domain.Securities;
 using Sergin.SharedKernel.Presentation.Blazor.Dispatching;
 using Sergin.SharedKernel.Presentation.Blazor.Errors;
-using Sergin.SharedKernel.Presentation.Blazor.ScheduledTasks;
+using Sergin.SharedKernel.Presentation.Blazor.Tasks;
 using Sergin.SharedKernel.Presentation.Localizations;
 using Sergin.SharedKernel.Presentation.Blazor.Actions;
 using Sergin.SharedKernel.Presentation.Blazor.Lists;
@@ -23,15 +22,17 @@ internal static class GeneratedLists
 {
     public static IReadOnlySet<CommandRole> Icons { get; } = new HashSet<CommandRole> { CommandRole.Update, CommandRole.Delete };
 
-    public static IReadOnlySet<CommandRole> Menu { get; } = new HashSet<CommandRole> { CommandRole.Transition };
+    public static IReadOnlySet<CommandRole> Menu { get; } = new HashSet<CommandRole> { CommandRole.Transition, CommandRole.Task };
 
     /// <summary>
-    /// Whether a list offers <paramref name="command"/> in bulk: a shown, selectable command built from a row's id alone,
-    /// with no <c>AppliesWhen</c> a row could not answer. A delete that asks for values (<see cref="CommandView.ConfirmFields"/>)
-    /// has no id-only builder, so it is never one.
+    /// Whether a list offers <paramref name="command"/> in bulk: a shown, selectable command built from a row's id alone, or
+    /// a task (whose arguments, if any, one form asks for once for every selected row), with no <c>AppliesWhen</c> a row
+    /// could not answer. A delete that asks for values (<see cref="CommandView.ConfirmFields"/>) has no id-only builder, so
+    /// it is never one.
     /// </summary>
     public static bool IsBulkAction(CommandView command) =>
-        command is { Selectable: true, Hidden: false, BuildFromId: not null, AppliesWhen: null, ConfirmFields.Count: 0 };
+        command is { Selectable: true, Hidden: false, AppliesWhen: null, ConfirmFields.Count: 0 }
+        && (command.BuildFromId is not null || command.Role == CommandRole.Task);
 }
 
 /// <summary>What a generated list view asks of its body, whose item type it does not name.</summary>
@@ -44,12 +45,13 @@ internal interface IGeneratedListBody
 /// The table of a generated list over <typeparamref name="TItem"/>, the list query's item type: a column per visible
 /// list field, its header a sort label when the list field set declares the field sortable, the display field linking
 /// to the record; quick search (when the list declares a field set), the filter panel, and per row the Edit and Delete
-/// icons and a menu of the root's transitions. Every selectable command is a bulk action.
+/// icons and a menu of the root's transitions and tasks over one record. Every selectable command is a bulk action. A task over
+/// the collection is the list view's header action, not the table's.
 /// </summary>
 /// <remarks>
 /// A row's delete is confirmed and sent at the version read just before it, as the detail page sends it; a
 /// version-guarded transition likewise. A bulk run sends each row's command in turn and reports one count and each
-/// distinct error once, except a background command, which starts as one run over every selected row. A schedulable command's row entry and bulk button carry Schedule… for a user who may manage
+/// distinct error once, except a task, which starts as one run over every selected row. A schedulable task's row entry and bulk button carry Schedule… for a user who may manage
 /// scheduled tasks; the list offers no View schedules. The item's id and arguments are read by readers compiled once
 /// per item type.
 /// </remarks>
@@ -125,7 +127,8 @@ public sealed partial class GeneratedListBody<TItem> : IGeneratedListBody
 
     /// <summary>
     /// The Schedule dialog's request for running <paramref name="command"/> on <paramref name="items"/>: one target per
-    /// row, shown by its display field; the template's own id is ignored.
+    /// row, shown by its display field, and the task's arguments at their declared defaults; the template's own id is ignored
+    /// when it is saved.
     /// </summary>
     internal static SerginScheduleRequest ScheduleRequestFor(AggregateViewModel model, CommandView command, IReadOnlyList<TItem> items)
     {
@@ -133,16 +136,19 @@ public sealed partial class GeneratedListBody<TItem> : IGeneratedListBody
         ArgumentNullException.ThrowIfNull(command);
         ArgumentNullException.ThrowIfNull(items);
 
-        Func<Guid, object> build = command.BuildFromId
-            ?? throw new InvalidOperationException($"{command.Request.FullName} cannot be scheduled from a list: its constructor is not id-only.");
         FieldView? title = GeneratedViewSupport.TitleFieldOf(model.ListFields, model.ListTitleField);
+        GeneratedFormValues arguments = SerginScheduleArguments.Defaults(command);
+        Guid first = items.Count > 0 ? IdOf(items[0]) : Guid.Empty;
 
+        // The template's id is the first row's, so a rule over the record (it must exist) checks a real one.
         return new SerginScheduleRequest(
             model.Schema,
             command.Label,
-            () => (IBaseCommand)build(Guid.Empty),
-            [.. items.Select(item => new ScheduledTaskTarget(IdOf(item), null))],
-            [.. items.Select(item => GeneratedViewSupport.DisplayOf(item, title, IdOf(item)))]);
+            () => GeneratedViewSupport.TaskTemplateOf(command, first, arguments.Values),
+            [.. items.Select(item => new TaskScheduleTarget(IdOf(item)))],
+            [.. items.Select(item => GeneratedViewSupport.DisplayOf(item, title, IdOf(item)))],
+            TaskView: command,
+            ArgumentValues: arguments);
     }
 
     public Task ReloadAsync() => list.ReloadAsync();
@@ -159,7 +165,7 @@ public sealed partial class GeneratedListBody<TItem> : IGeneratedListBody
         titleField = GeneratedViewSupport.TitleFieldOf(Model.ListFields, Model.ListTitleField);
         columns = GeneratedViewSupport.ColumnsOf(Model.ListFields, Model.ListFieldSet, titleField);
 
-        canManageSchedules = Model.HasSchedulableCommand && await ScopeAuthorization.CurrentUserHasAsync(ScheduledTaskPermissions.Manage);
+        canManageSchedules = Model.HasSchedulableCommand && await ScopeAuthorization.CurrentUserHasAsync(TaskPermissions.Manage);
         BulkActions = [.. BulkActionsOf()];
     }
 
@@ -240,10 +246,10 @@ public sealed partial class GeneratedListBody<TItem> : IGeneratedListBody
     {
         List<SerginMenuItem> items = [];
 
-        if (command.ScheduleName is not null && command.BuildFromId is not null && canManageSchedules)
+        if (command.Task is { Schedulable: true } && canManageSchedules)
         {
             items.Add(new SerginMenuItem(
-                ScheduledTaskUiTexts.ScheduleAction,
+                TaskUiTexts.ScheduleAction,
                 Icons.Material.Outlined.Schedule,
                 EventCallback.Factory.Create(this, () => DialogService.ShowScheduleAsync(ScheduleRequestFor(Model, command, [item]))),
                 command.Permissions.FirstOrDefault(),
@@ -265,16 +271,23 @@ public sealed partial class GeneratedListBody<TItem> : IGeneratedListBody
 
     private async Task RunRowAsync(CommandView command, TItem item)
     {
+        // A task with arguments asks for them in its dialog, which starts it over the row.
+        if (command is { Task: not null, TaskFields.Count: > 0 })
+        {
+            await AskTaskArgumentsAsync(command, [item]);
+            return;
+        }
+
         ErrorOr<Success> result = await commands.WhileRunningAsync(command, () => SendAsync(command, item));
 
         if (result.IsError)
         {
             ErrorPresenter.Notify(result.Errors);
         }
-        else if (command.Background is not null)
+        else if (command.Task is not null)
         {
             // Only started: nothing has changed yet, so the rows are not read again.
-            ActivityPanel.NotifyStarted(Snackbar, Localizer, Localizer.Text(ShellTexts.CommandActions.BackgroundStarted));
+            ActivityPanel.NotifyStarted(Snackbar, Localizer, Localizer.Text(ShellTexts.CommandActions.TaskStarted));
             return;
         }
         else if (command.SucceededText is { } succeeded)
@@ -317,13 +330,13 @@ public sealed partial class GeneratedListBody<TItem> : IGeneratedListBody
     }
 
     // A version-guarded command is checked against the version read just before it, as the detail page holds it; a stale
-    // answer surfaces as an error and the reload shows the list as it now is. A background command is started over the row,
+    // answer surfaces as an error and the reload shows the list as it now is. A task is started over the row,
     // with no version read.
     private async Task<ErrorOr<Success>> SendAsync(CommandView command, TItem item)
     {
         Guid id = IdOf(item);
 
-        if (command.Background is not null)
+        if (command.Task is not null)
         {
             ViewSendResult started = await GeneratedViewSupport.SendFromIdAsync(Dispatcher, command, id, version: null, LabelOf(item));
             return started.IsError ? ErrorsOf(started) : Result.Success;
@@ -371,13 +384,13 @@ public sealed partial class GeneratedListBody<TItem> : IGeneratedListBody
                 yield return new SerginBulkAction<TItem>(
                     command.Label, command.Icon, SerginActionKind.Danger, items => DeleteSelectedAsync(command, items), permission, command.AnyScope);
             }
-            else if (command.Role == CommandRole.Transition)
+            else if (command.Role is CommandRole.Transition or CommandRole.Task)
             {
-                IReadOnlyList<SerginBulkMenuItem<TItem>> menu = command.ScheduleName is not null && canManageSchedules
+                IReadOnlyList<SerginBulkMenuItem<TItem>> menu = command.Task is { Schedulable: true } && canManageSchedules
                     ?
                     [
                         new SerginBulkMenuItem<TItem>(
-                            ScheduledTaskUiTexts.ScheduleAction,
+                            TaskUiTexts.ScheduleAction,
                             Icons.Material.Outlined.Schedule,
                             items => DialogService.ShowScheduleAsync(ScheduleRequestFor(Model, command, items)),
                             permission,
@@ -399,7 +412,7 @@ public sealed partial class GeneratedListBody<TItem> : IGeneratedListBody
 
     private async Task RunSelectedAsync(CommandView command, IReadOnlyList<TItem> items)
     {
-        if (command.Background is not null)
+        if (command.Task is not null)
         {
             await StartSelectedAsync(command, items);
             return;
@@ -411,11 +424,31 @@ public sealed partial class GeneratedListBody<TItem> : IGeneratedListBody
         await ChangedAsync();
     }
 
-    // A background command runs as one run over every selected row, not a send per row. The reload clears the selection.
+    /// <summary>
+    /// Opens a task's argument dialog over <paramref name="items"/>: one form whose values every row's run item takes;
+    /// answers its reference. Internal for the argument form tests.
+    /// </summary>
+    internal Task<IDialogReference> AskTaskArgumentsAsync(CommandView command, IReadOnlyList<TItem> items) =>
+        DialogService.ShowTaskFormAsync(command, [.. items.Select(item => new TaskTarget(IdOf(item), LabelOf(item)))]);
+
+    // A task runs as one run over every selected row, not a send per row; one with arguments asks for them once, in its
+    // dialog, for every row. The reload clears the selection.
     private async Task StartSelectedAsync(CommandView command, IReadOnlyList<TItem> items)
     {
+        if (command.TaskFields.Count > 0)
+        {
+            IDialogReference dialog = await AskTaskArgumentsAsync(command, items);
+
+            if (await dialog.Result is { Canceled: false })
+            {
+                await ChangedAsync();
+            }
+
+            return;
+        }
+
         ViewSendResult result = await GeneratedViewSupport.StartManyAsync(
-            Dispatcher, command, [.. items.Select(item => new BackgroundTarget(IdOf(item), null, LabelOf(item)))]);
+            Dispatcher, command, [.. items.Select(item => new TaskTarget(IdOf(item), LabelOf(item)))]);
 
         if (result.IsError)
         {
@@ -424,7 +457,7 @@ public sealed partial class GeneratedListBody<TItem> : IGeneratedListBody
         else
         {
             ActivityPanel.NotifyStarted(
-                Snackbar, Localizer, Localizer.Text(ShellTexts.CommandActions.BackgroundStartedMany, new { Count = Formatter.Number(items.Count) }));
+                Snackbar, Localizer, Localizer.Text(ShellTexts.CommandActions.TaskStartedMany, new { Count = Formatter.Number(items.Count) }));
         }
 
         await ChangedAsync();

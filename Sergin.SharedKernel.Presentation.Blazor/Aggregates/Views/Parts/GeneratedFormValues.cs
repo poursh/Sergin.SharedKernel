@@ -17,6 +17,20 @@ public sealed class GeneratedFormValues
 
     public void Set(string name, object? value) => values[name] = value;
 
+    /// <summary>Sets each field that declares a default to it, so a new form shows what an untouched field submits.</summary>
+    public void SetDefaults(IEnumerable<FormFieldView> fields)
+    {
+        ArgumentNullException.ThrowIfNull(fields);
+
+        foreach (FormFieldView field in fields)
+        {
+            if (field.Default is { } value)
+            {
+                values[field.Name] = value;
+            }
+        }
+    }
+
     /// <summary>The parent a child picker's options are listed under; <see cref="Guid.Empty"/> while none is chosen.</summary>
     public Guid ParentOf(string name) => parents.GetValueOrDefault(name);
 

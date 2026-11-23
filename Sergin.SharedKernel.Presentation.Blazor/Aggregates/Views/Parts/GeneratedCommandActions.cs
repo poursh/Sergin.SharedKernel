@@ -18,7 +18,9 @@ internal enum ViewLinkPlacement
 
 /// <summary>
 /// The actions of a generated record view (or of one list row), from its root's commands: an update links to the edit route, a
-/// transition and a delete run through the view's own handlers, and a set-property command in the Dialog edit mode opens
+/// transition, a task over the record (which the run handler starts as a run, asking for its arguments first when it has
+/// any) and a delete run through the view's own handlers; a task in the Page mode links to its form page, and one in the
+/// Inline mode with arguments is the record view's section, not an action (a list row offers it, through the dialog); a set-property command in the Dialog edit mode opens
 /// its dialog when the view gave an edit handler (a detail view does, a list row does not), as a move command opens its parent
 /// picker when the view gave a move handler; each is disabled while it runs. Commands are offered in
 /// the model's order, a hidden one not at all (the actions bar puts the danger ones at the far end); each carries its
@@ -29,7 +31,7 @@ internal enum ViewLinkPlacement
 /// new record under this one, carrying the create command's permission.
 /// </summary>
 /// <param name="receiver">The view, so a click re-renders it.</param>
-/// <param name="runAsync">Sends a transition.</param>
+/// <param name="runAsync">Sends a transition, or starts a task over the record.</param>
 /// <param name="deleteAsync">Confirms and sends a delete.</param>
 /// <param name="editAsync">Opens a Dialog-mode set-property command's dialog; null where the view offers none.</param>
 /// <param name="confirmAsync">
@@ -78,7 +80,7 @@ internal sealed class GeneratedCommandActions(
     /// The detail bar's actions: a self-parented root's create command (<see cref="AggregateViewModel.ChildCreate"/>) is offered as
     /// a Secondary link to the create route with this record as the parent.
     /// </param>
-    /// <param name="busy">Whether a command's action shows as busy (its background run on the record is going); null for none.</param>
+    /// <param name="busy">Whether a command's action shows as busy (its task's run on the record is going); null for none.</param>
     public IReadOnlyList<SerginPageAction> For(
         AggregateViewModel model,
         Guid id,
@@ -113,7 +115,9 @@ internal sealed class GeneratedCommandActions(
             SerginPageAction? action = command.Role switch
             {
                 CommandRole.Update when model.Routes.Edit is { } edit => Action(command, menuItemsOf, busy) with { Href = edit(id) },
-                CommandRole.Transition => Action(command, menuItemsOf, busy) with
+                CommandRole.Task when command.PageRoute is { } page => Action(command, menuItemsOf, busy) with { Href = page(id) },
+                CommandRole.Task when !row && command is { EditMode: SerginEditMode.Inline, TaskFields.Count: > 0 } => null,
+                CommandRole.Transition or CommandRole.Task => Action(command, menuItemsOf, busy) with
                 {
                     OnClick = EventCallback.Factory.Create(receiver, () => ConfirmedAsync(command, record, runCommand)),
                 },

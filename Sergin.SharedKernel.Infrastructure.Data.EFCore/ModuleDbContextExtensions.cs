@@ -5,13 +5,13 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Sergin.SharedKernel.Application.Commands.Configuration;
 using Sergin.SharedKernel.Application.Events.Integration;
-using Sergin.SharedKernel.Application.ScheduledTasks;
-using Sergin.SharedKernel.Application.ScheduledTasks.Activity;
+using Sergin.SharedKernel.Application.Tasks;
+using Sergin.SharedKernel.Application.Tasks.Activity;
 using Sergin.SharedKernel.Application.Securities.Authorization;
 using Sergin.SharedKernel.Infrastructure.Data.EFCore.Aggregates;
 using Sergin.SharedKernel.Infrastructure.Data.EFCore.Interceptors;
 using Sergin.SharedKernel.Infrastructure.Data.EFCore.Outbox;
-using Sergin.SharedKernel.Infrastructure.Data.EFCore.ScheduledTasks;
+using Sergin.SharedKernel.Infrastructure.Data.EFCore.Tasks;
 
 namespace Sergin.SharedKernel.Infrastructure.Data.EFCore;
 
@@ -79,30 +79,30 @@ public static class ModuleDbContextExtensions
             services.AddSingleton<IOutboxRelaySource>(sp => (IOutboxRelaySource)ActivatorUtilities.CreateInstance(sp, relaySourceType, schema));
         }
 
-        if (typeof(IScheduledTasksDbContext).IsAssignableFrom(typeof(TContext)))
+        if (typeof(ITasksDbContext).IsAssignableFrom(typeof(TContext)))
         {
-            // The scheduled-task configurations are one source per host, however many contexts opt in: the command
+            // The task configurations are one source per host, however many contexts opt in: the command
             // registry derives the management requests' rules from it and the permission catalogue picks up Manage.
             // No schema, as the configurations are SharedKernel's, not this module's.
-            if (!services.Any(descriptor => descriptor.ServiceType == typeof(ScheduledTasksRegistration)))
+            if (!services.Any(descriptor => descriptor.ServiceType == typeof(TasksRegistration)))
             {
-                services.AddSingleton(ModuleConfigurationSource.FromTypes([.. ScheduledTaskConfigurationTypes.All]));
+                services.AddSingleton(ModuleConfigurationSource.FromTypes([.. TaskConfigurationTypes.All]));
             }
 
-            services.AddSingleton(new ScheduledTasksRegistration(schema, typeof(TContext)));
+            services.AddSingleton(new TasksRegistration(schema, typeof(TContext)));
 
             // This context's store, keyed by its schema so the resolver finds the module that owns a task. Reflection
-            // for the same reason as the relay source: EfScheduledTaskStore<TContext> constrains TContext to
-            // IScheduledTasksDbContext, which the runtime check above proves but the compiler cannot see.
-            Type storeType = typeof(EfScheduledTaskStore<>).MakeGenericType(typeof(TContext));
-            services.AddKeyedScoped<IScheduledTaskStore>(
-                schema, (sp, _) => (IScheduledTaskStore)ActivatorUtilities.CreateInstance(sp, storeType, schema));
+            // for the same reason as the relay source: EfTaskStore<TContext> constrains TContext to
+            // ITasksDbContext, which the runtime check above proves but the compiler cannot see.
+            Type storeType = typeof(EfTaskStore<>).MakeGenericType(typeof(TContext));
+            services.AddKeyedScoped<ITaskStore>(
+                schema, (sp, _) => (ITaskStore)ActivatorUtilities.CreateInstance(sp, storeType, schema));
 
             // This context's runs, as the activity directory reads them: one source per opted-in context.
-            services.AddScoped<IBackgroundRunSource>(sp => ActivatorUtilities.CreateInstance<LocalBackgroundRunSource>(sp, schema));
+            services.AddScoped<ITaskRunSource>(sp => ActivatorUtilities.CreateInstance<LocalTaskRunSource>(sp, schema));
 
             // The executor and resolver, once per host however many contexts opt in.
-            services.AddSerginScheduledTasks();
+            services.AddSerginTasks();
         }
 
         return services;

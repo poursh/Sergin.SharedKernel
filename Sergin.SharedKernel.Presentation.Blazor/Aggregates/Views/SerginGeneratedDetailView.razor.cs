@@ -1,16 +1,16 @@
 using Microsoft.AspNetCore.Components;
 using MudBlazor;
 using Sergin.SharedKernel.Application.Aggregates;
-using Sergin.SharedKernel.Application.Commands;
-using Sergin.SharedKernel.Application.ScheduledTasks;
+using Sergin.SharedKernel.Application.Tasks;
+using Sergin.SharedKernel.Application.Tasks.Commands;
 using Sergin.SharedKernel.Application.Securities.Authorization;
 using Sergin.SharedKernel.Domain;
-using Sergin.SharedKernel.Domain.ScheduledTasks;
+using Sergin.SharedKernel.Domain.Tasks;
 using Sergin.SharedKernel.Domain.Securities;
 using Sergin.SharedKernel.Presentation.Blazor.Aggregates.Views.Parts;
 using Sergin.SharedKernel.Presentation.Blazor.Dispatching;
 using Sergin.SharedKernel.Presentation.Blazor.Errors;
-using Sergin.SharedKernel.Presentation.Blazor.ScheduledTasks;
+using Sergin.SharedKernel.Presentation.Blazor.Tasks;
 using Sergin.SharedKernel.Presentation.Blazor.Validation;
 using Sergin.SharedKernel.Presentation.Errors;
 using Sergin.SharedKernel.Presentation.Blazor.Actions;
@@ -25,10 +25,10 @@ namespace Sergin.SharedKernel.Presentation.Blazor.Aggregates.Views;
 /// The detail view of <typeparamref name="TRoot"/>, generated from its <see cref="AggregateViewModel"/>: the record
 /// loaded through its GetOne query (at its version when the root is <c>Versioned()</c>), the header's reload, copy-link and (with an audit query) information
 /// buttons, a field per visible response property, an action per offered command, and, when a command is schedulable,
-/// the record's scheduled tasks. A configuration's <see cref="SerginViewSlot.DetailFields"/> component replaces the
+/// the record's schedules. A configuration's <see cref="SerginViewSlot.DetailFields"/> component replaces the
 /// fields, and its <see cref="SerginViewSlot.DetailEntities"/> component renders above the child sections (<see cref="SerginGeneratedChildSection"/>,
 /// one per child entity with a list query, given the record's version, or a child's own <c>Section&lt;T&gt;()</c> component,
-/// given <c>Context</c>) and the scheduled tasks; the
+/// given <c>Context</c>) and the schedules section; the
 /// <see cref="SerginViewSlot.DetailOverview"/> and <see cref="SerginViewSlot.DetailOverviewSummary"/> components fill the
 /// overview (the entity overview query read once per load, in <c>Context.Overview</c>); all get
 /// <c>Context</c>, an <see cref="AggregateViewContext"/>.
@@ -49,8 +49,10 @@ namespace Sergin.SharedKernel.Presentation.Blazor.Aggregates.Views;
 /// prefilled from the record; Inline, for a user who holds its permissions, the detail field itself as a select or switch
 /// (sent on change) or, for any other value, a <see cref="GeneratedInlineEditCard"/> below the fields. Each send goes
 /// through <see cref="GeneratedSetProperty"/>; every error is shown and the record is read again after any outcome.
-/// A <c>Background()</c> command's action carries a spinner while the activity indicator lists its run on this record as
-/// unfinished, and stays clickable; the view re-renders when the indicator's rows change.
+/// A task's action carries a spinner while the activity indicator lists its run on this record as
+/// unfinished, and stays clickable; the view re-renders when the indicator's rows change. A task with arguments asks for
+/// them in its edit mode: Dialog, its action opening <see cref="TaskFormDialog"/>; Page, its action linking to its form
+/// page; Inline, for a user who holds its permissions, a <see cref="GeneratedTaskSection"/> below the fields and no action.
 /// </remarks>
 public sealed partial class SerginGeneratedDetailView<TRoot> : IDisposable
     where TRoot : class, IAggregateRoot
@@ -61,7 +63,7 @@ public sealed partial class SerginGeneratedDetailView<TRoot> : IDisposable
     private bool canManageSchedules;
     private string? commandName;
     private TextDefinition? commandLabel;
-    private SerginScheduledTasksSection? section;
+    private SerginTaskSchedulesSection? section;
     private GeneratedCommandActions commands = default!;
     private FieldView? titleField;
     private object? overview;
@@ -70,6 +72,7 @@ public sealed partial class SerginGeneratedDetailView<TRoot> : IDisposable
     private readonly Dictionary<string, CommandView> inlineChoices = new(StringComparer.Ordinal);
     private GeneratedSetProperty setProperty = default!;
     private IReadOnlyList<CommandView> inlineCards = [];
+    private IReadOnlyList<CommandView> inlineTasks = [];
     private IReadOnlyDictionary<string, object?> recordValues = new Dictionary<string, object?>(StringComparer.Ordinal);
     private bool watchingActivity;
     private volatile bool disposed;
@@ -122,7 +125,7 @@ public sealed partial class SerginGeneratedDetailView<TRoot> : IDisposable
     private IEnumerable<FieldView> VisibleFields => Model.DetailFields.Where(candidate => !candidate.Hidden);
 
     // A child entity with a list query, or drawn by its own component, is a section of the detail, after the entities slot
-    // and before the scheduled tasks.
+    // and before the schedules section.
     private IEnumerable<ChildViewModel> Sections => Model.Children.Where(child => child.List is not null || child.Section is not null);
 
     // Each section is kept by its child type, so a reload asks each to load its rows again without remounting it; a child's
@@ -179,15 +182,16 @@ public sealed partial class SerginGeneratedDetailView<TRoot> : IDisposable
         record is null ? new(Model.Singular) : SerginBreadcrumb.Data(DisplayText),
     ];
 
-    private IReadOnlyList<SerginPageAction> Actions =>
+    // Internal, not private: the task placement tests read the actions the bar is given.
+    internal IReadOnlyList<SerginPageAction> Actions =>
         record is null
             ? []
-            : commands.For(Model, Id, MenuItemsOf, record: record, links: ViewLinkPlacement.AfterCommands, childCreate: true, busy: IsBackgroundRunning);
+            : commands.For(Model, Id, MenuItemsOf, record: record, links: ViewLinkPlacement.AfterCommands, childCreate: true, busy: IsTaskRunning);
 
-    // A background command's run on this record, as the indicator last read it: one-record runs only, since a run over
-    // several records names none of them in the activity read.
-    private bool IsBackgroundRunning(CommandView command) =>
-        command is { Background: not null, ScheduleName: { } name } && ActivityPanel.IsRunning(name, Id);
+    // A task's run on this record, as the indicator last read it: one-record runs only, since a run over
+    // several records names none of them in the activity read. No other command is ever busy.
+    private bool IsTaskRunning(CommandView command) =>
+        command is { Role: CommandRole.Task, Task: { } task } && ActivityPanel.IsRunning(task.Name, Id, scopeId: null);
 
     protected override async Task OnInitializedAsync()
     {
@@ -199,9 +203,9 @@ public sealed partial class SerginGeneratedDetailView<TRoot> : IDisposable
                 $"{typeof(TRoot).FullName} has no GetOne query, so its detail view has nothing to load. Add an IGetOneQuery<{typeof(TRoot).Name}, …>.");
         }
 
-        // Only a root with a background command has an action to mark busy. Subscribed before the first await, so a view
+        // Only a root with a task has an action to mark busy. Subscribed before the first await, so a view
         // disposed while it initializes has already subscribed and unsubscribes.
-        if (Model.Commands.Any(command => command.Background is not null))
+        if (Model.Commands.Any(command => command.Role == CommandRole.Task))
         {
             ActivityPanel.RowsChanged += OnActivityChanged;
             watchingActivity = true;
@@ -216,7 +220,7 @@ public sealed partial class SerginGeneratedDetailView<TRoot> : IDisposable
             : null;
         await LoadInlineCommandsAsync();
 
-        canManageSchedules = Model.HasSchedulableCommand && await ScopeAuthorization.CurrentUserHasAsync(ScheduledTaskPermissions.Manage);
+        canManageSchedules = Model.HasEntityTask && await ScopeAuthorization.CurrentUserHasAsync(TaskPermissions.Manage);
     }
 
     /// <inheritdoc />
@@ -342,9 +346,22 @@ public sealed partial class SerginGeneratedDetailView<TRoot> : IDisposable
     private Task<ViewSendResult> SendAsync(CommandView command) =>
         GeneratedViewSupport.SendFromIdAsync(Dispatcher, command, Id, version, DisplayText);
 
-    // Sends a transition (its confirm, if any, was asked by the action). Internal for the host-changed test.
+    // Sends a transition (its confirm, if any, was asked by the action), or starts a task: one with arguments asks for them
+    // in its dialog, which starts it. Internal for the host-changed test.
     internal async Task RunAsync(CommandView command)
     {
+        if (command is { Task: not null, TaskFields.Count: > 0 })
+        {
+            IDialogReference dialog = await AskTaskArgumentsAsync(command);
+
+            if (await dialog.Result is { Canceled: false })
+            {
+                await TaskStartedAsync();
+            }
+
+            return;
+        }
+
         ViewSendResult result = await commands.WhileRunningAsync(command, () => SendAsync(command));
 
         if (await GeneratedViewSupport.FailedAsync(result, ErrorPresenter, LoadAsync))
@@ -352,16 +369,12 @@ public sealed partial class SerginGeneratedDetailView<TRoot> : IDisposable
             return;
         }
 
-        // A background command was only started: nothing has changed yet, so the record is not read again; the schedule
+        // A task was only started: nothing has changed yet, so the record is not read again; the schedule
         // section is, so it lists the new run and polls it while it is Running.
-        if (command.Background is not null)
+        if (command.Task is not null)
         {
-            ActivityPanel.NotifyStarted(Snackbar, Localizer, Localizer.Text(ShellTexts.CommandActions.BackgroundStarted));
-
-            if (section is not null)
-            {
-                await section.ReloadAsync();
-            }
+            ActivityPanel.NotifyStarted(Snackbar, Localizer, Localizer.Text(ShellTexts.CommandActions.TaskStarted));
+            await TaskStartedAsync();
 
             return;
         }
@@ -373,6 +386,25 @@ public sealed partial class SerginGeneratedDetailView<TRoot> : IDisposable
 
         await ChangedAsync();
     }
+
+    // A task was only started: nothing has changed yet, so the record is not read again; the schedule section is, so it
+    // lists the new run and polls it while it is Running.
+    private async Task TaskStartedAsync()
+    {
+        if (section is not null)
+        {
+            await section.ReloadAsync();
+        }
+    }
+
+    // Opens a task's argument dialog over this record; answers its reference, which the argument form tests read.
+    internal Task<IDialogReference> AskTaskArgumentsAsync(CommandView command) =>
+        DialogService.ShowTaskFormAsync(command, RecordTargets);
+
+    // The record a task over it is started over, named by its title as the person sees it.
+    private IReadOnlyCollection<TaskTarget> RecordTargets => [new TaskTarget(Id, DisplayText)];
+
+    private EventCallback InlineTaskStarted => EventCallback.Factory.Create(this, TaskStartedAsync);
 
     // A command declared with Confirm(...): its texts filled from the record, the button its confirm label or its own.
     private Task<bool> ConfirmAsync(CommandView command, object? shown) =>
@@ -548,6 +580,20 @@ public sealed partial class SerginGeneratedDetailView<TRoot> : IDisposable
         }
 
         inlineCards = cards;
+
+        // A task with arguments in the Inline mode is a section of the detail, for a user who holds its permissions.
+        List<CommandView> tasks = [];
+
+        foreach (CommandView command in Model.Commands.Where(command => command is
+                     { Role: CommandRole.Task, Hidden: false, EditMode: SerginEditMode.Inline, TaskFields.Count: > 0 }))
+        {
+            if (await HoldsAsync(command))
+            {
+                tasks.Add(command);
+            }
+        }
+
+        inlineTasks = tasks;
     }
 
     private async Task<bool> HoldsAsync(CommandView command)
@@ -630,23 +676,27 @@ public sealed partial class SerginGeneratedDetailView<TRoot> : IDisposable
     private Dictionary<string, object?> PlaceholderArguments() =>
         GeneratedViewSupport.ArgumentsOf(Model.DetailArguments, record, DisplayText);
 
-    // Schedule… and View schedules for a schedulable command (to a user who may manage scheduled tasks), then the
-    // configuration's own entries.
+    // To a user who may manage tasks: Schedule… for a schedulable task, View schedules for any task (a schedule saved before
+    // the task lost Schedulable() still fires and stays removable), then the configuration's own entries.
     private IReadOnlyList<SerginMenuItem> MenuItemsOf(CommandView command)
     {
         List<SerginMenuItem> items = [];
         PermissionDefinition? permission = command.Permissions.FirstOrDefault();
 
-        if (command.ScheduleName is { } name && canManageSchedules)
+        if (command is { Role: CommandRole.Task, Task: { Name: var name } task } && canManageSchedules)
         {
+            if (task.Schedulable)
+            {
+                items.Add(new SerginMenuItem(
+                    TaskUiTexts.ScheduleAction,
+                    Icons.Material.Outlined.Schedule,
+                    EventCallback.Factory.Create(this, () => ScheduleAsync(command)),
+                    permission,
+                    command.AnyScope));
+            }
+
             items.Add(new SerginMenuItem(
-                ScheduledTaskUiTexts.ScheduleAction,
-                Icons.Material.Outlined.Schedule,
-                EventCallback.Factory.Create(this, () => ScheduleAsync(command)),
-                permission,
-                command.AnyScope));
-            items.Add(new SerginMenuItem(
-                ScheduledTaskUiTexts.ViewSchedules,
+                TaskUiTexts.ViewSchedules,
                 Icons.Material.Outlined.EventNote,
                 EventCallback.Factory.Create(this, () => ViewSchedulesAsync(name, command.Label)),
                 permission,
@@ -669,15 +719,18 @@ public sealed partial class SerginGeneratedDetailView<TRoot> : IDisposable
 
     private async Task ScheduleAsync(CommandView command)
     {
-        IReadOnlyCollection<ScheduledTaskTarget> targets = [new ScheduledTaskTarget(Id, null)];
+        IReadOnlyCollection<TaskScheduleTarget> targets = [new TaskScheduleTarget(Id)];
+        GeneratedFormValues arguments = SerginScheduleArguments.Defaults(command);
 
         // Saved, run once or cancelled: the section reads its lists again either way (a one-off run starts Running).
         await DialogService.ShowScheduleAsync(new SerginScheduleRequest(
             Model.Schema,
             command.Label,
-            () => (IBaseCommand)command.BuildFromId!(Id),
+            () => GeneratedViewSupport.TaskTemplateOf(command, Id, arguments.Values),
             targets,
-            [DisplayText]));
+            [DisplayText],
+            TaskView: command,
+            ArgumentValues: arguments));
 
         if (section is not null)
         {
@@ -692,7 +745,7 @@ public sealed partial class SerginGeneratedDetailView<TRoot> : IDisposable
         commandLabel = label;
         StateHasChanged();
 
-        await ScrollManager.ScrollIntoViewAsync($"#{SerginScheduledTasksSection.ElementId}", ScrollBehavior.Smooth);
+        await ScrollManager.ScrollIntoViewAsync($"#{SerginTaskSchedulesSection.ElementId}", ScrollBehavior.Smooth);
     }
 
     // The section counted its schedules: the View schedules entries show the new counts.

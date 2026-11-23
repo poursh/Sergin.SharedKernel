@@ -40,6 +40,9 @@ public abstract class CommandViewBuilder
 
     internal SerginEditMode DeclaredEditMode { get; private protected set; } = SerginEditMode.Dialog;
 
+    /// <summary>The route of a task's form page <c>PageRoute(...)</c> declared, or null.</summary>
+    internal Func<Guid?, string>? DeclaredPageRoute { get; private protected set; }
+
     /// <summary>The record type <c>DisabledWhen&lt;TRecord&gt;</c> reads, or null.</summary>
     internal Type? DisabledRecord { get; private protected set; }
 
@@ -148,10 +151,25 @@ public sealed class CommandViewBuilder<TCommand> : CommandViewBuilder
         return this;
     }
 
-    /// <summary>Where an edit command is offered; <see cref="SerginEditMode.Dialog"/> by default.</summary>
+    /// <summary>
+    /// Where an edit command is offered, or where a task asks for its arguments (a modal form, a form section on the host
+    /// page, or a form page of its own); <see cref="SerginEditMode.Dialog"/> by default.
+    /// </summary>
     public CommandViewBuilder<TCommand> Edit(SerginEditMode mode)
     {
         DeclaredEditMode = mode;
+        return this;
+    }
+
+    /// <summary>
+    /// The route of a task's form page, for <c>Edit(SerginEditMode.Page)</c> on a task: built from the record's id for a
+    /// task over one record, from null for a task over the collection. The module adds the routable page that hosts
+    /// <c>SerginGeneratedTaskFormView</c> there; the start guard checks the route matches it.
+    /// </summary>
+    public CommandViewBuilder<TCommand> PageRoute(Func<Guid?, string> route)
+    {
+        ArgumentNullException.ThrowIfNull(route);
+        DeclaredPageRoute = route;
         return this;
     }
 

@@ -1,0 +1,19 @@
+@* A task's arguments as a form: an input per argument, Start, then the host's own buttons (a dialog's Cancel) and, while
+   the record's run is going, the spinner. MudForm's details are SerginFormView's: onsubmit splatted lowercase as an
+   EventCallback, SuppressImplicitSubmission false so Enter submits, and Start disabled while invalid. *@
+<MudForm @ref="form" Model="Arguments.Values" Validation="@validation" @bind-IsValid="isValid"
+         SuppressImplicitSubmission="false" onsubmit="@OnFormSubmit">
+    @foreach (FormFieldView field in Command.TaskFields)
+    {
+        <GeneratedInput @key="field.Name" Field="field" Values="Arguments.Values" Validate="ValidateAsync" />
+    }
+    <MudStack Row="true" Spacing="2" AlignItems="AlignItems.Center" Class="mt-3">
+        <MudButton ButtonType="ButtonType.Submit" Variant="Variant.Filled" Color="Color.Primary"
+                   Disabled="@(starting || !isValid)">@Localizer.Text(TaskUiTexts.Start)</MudButton>
+        @ChildContent
+        @if (Busy)
+        {
+            <MudProgressCircular Indeterminate="true" Size="Size.Small" Class="ms-2 sergin-action-busy" Style="width: 16px; height: 16px;" />
+        }
+    </MudStack>
+</MudForm>
