@@ -24,8 +24,9 @@ namespace Sergin.SharedKernel.Presentation.Blazor.Tasks.Runs;
 /// ran on, who started it and how, when, and where it stands, with Cancel on a running row. The modules are the schemas
 /// the task catalogue names; with none the view says so and sends nothing (no handler would answer). With more than one,
 /// a selector picks the module, kept in the query string as <c>?module=</c>; an unknown value falls back to the first in
-/// drawer order. The list reloads every 5 seconds while a row it shows is running: the run notifier publishes per acting
-/// user, and this page lists everyone's runs.
+/// drawer order. The list reloads every 5 seconds while a row it shows is running, or while the filters applied to the last
+/// successful load ask for running runs (so an empty Running view notices a run started later): the run notifier publishes
+/// per acting user, and this page lists everyone's runs.
 /// </summary>
 public sealed partial class SerginTaskRunsView : IAsyncDisposable
 {
@@ -136,6 +137,9 @@ public sealed partial class SerginTaskRunsView : IAsyncDisposable
     /// <summary>Whether the last load listed a running run, which keeps the poll reloading.</summary>
     internal bool HasRunning { get; private set; }
 
+    // Whether the filters the last load sent included status = Running; false after a refused load.
+    private bool runningFilterApplied;
+
     /// <summary>Whether the poll timer runs (from the first render until disposal).</summary>
     internal bool IsPolling => poller is not null;
 
@@ -186,6 +190,7 @@ public sealed partial class SerginTaskRunsView : IAsyncDisposable
             StatusFilter = RunOutcome.Running;
             actors = [];
             HasRunning = false;
+            runningFilterApplied = false;
         }
     }
 
@@ -203,8 +208,10 @@ public sealed partial class SerginTaskRunsView : IAsyncDisposable
     /// <summary>What the filter panel's Reset does: every filter cleared, the first page loaded again.</summary>
     internal Task ResetFiltersAsync() => list is null ? Task.CompletedTask : list.ResetFiltersAsync();
 
-    /// <summary>One poll tick: reloads only while the last load listed a running run (a failed load lists none).</summary>
-    internal Task TickAsync() => HasRunning ? ReloadAsync() : Task.CompletedTask;
+    /// <summary>
+    /// One poll tick: reloads while the last load listed a running run or was filtered to Running (a failed load is neither).
+    /// </summary>
+    internal Task TickAsync() => HasRunning || runningFilterApplied ? ReloadAsync() : Task.CompletedTask;
 
     /// <summary>Starts the poll, which reloads every 5 seconds while the last load listed a running run.</summary>
     internal void StartPolling()
@@ -277,6 +284,7 @@ public sealed partial class SerginTaskRunsView : IAsyncDisposable
 
         // A refused load lists nothing running: the poll stops rather than raising an error every tick.
         HasRunning = !result.IsError && result.Value.Data.Any(run => run.Outcome == RunOutcome.Running);
+        runningFilterApplied = !result.IsError && request.Filtering is { } applied && applied.Filters.Any(IsRunningFilter);
 
         if (!result.IsError)
         {
@@ -285,6 +293,9 @@ public sealed partial class SerginTaskRunsView : IAsyncDisposable
 
         return result;
     }
+
+    private static bool IsRunningFilter(FilterData filter) =>
+        filter.Id == TaskRunListFields.Status && string.Equals(filter.Value?.ToString(), nameof(RunOutcome.Running), StringComparison.Ordinal);
 
     // The people who started the module's runs, named, the first time the filter panel opens for this module.
     private async Task OnFilterPanelOpenedAsync()
