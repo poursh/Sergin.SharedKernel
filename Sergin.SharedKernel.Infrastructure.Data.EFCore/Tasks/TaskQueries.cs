@@ -221,6 +221,8 @@ internal sealed class TaskQueries(
             [TaskRunListFields.Trigger] = "r.\"trigger\"",
             [TaskRunListFields.Status] = OutcomeSql,
             [TaskRunListFields.StartedBy] = "r.acting_user_id",
+            // Resolved to task names by the handler before the query is built; never reaches the criteria.
+            [TaskRunListFields.Aggregate] = "r.command_name",
         },
         searchColumns: [],
         tieBreaker: "r.id");
@@ -238,7 +240,7 @@ internal sealed class TaskQueries(
     // Newest first, as every other run read, when the request names no sort.
     private const string DefaultRunListOrderBy = "ORDER BY r.started_at_utc DESC, r.id DESC";
 
-    public async Task<ErrorOr<ListQueryResponse<TaskRunsListItem>>> RunsListAsync(string schema, ListQuery query, CancellationToken ct)
+    public async Task<ErrorOr<ListQueryResponse<TaskRunsListItem>>> RunsListAsync(string schema, ListQuery query, IReadOnlyCollection<string>? taskNames, CancellationToken ct)
     {
         ArgumentNullException.ThrowIfNull(query);
 
@@ -254,6 +256,14 @@ internal sealed class TaskQueries(
 
         ListQuerySqlParts criteria = ListQuerySql.Apply(query, RunListColumns, parameters);
         string orderBy = query.Sorting?.Sorts.Any() == true ? criteria.OrderBy : DefaultRunListOrderBy;
+
+        string where = criteria.Where;
+
+        if (taskNames is not null)
+        {
+            where += " AND r.command_name = ANY(@AggregateTasks)";
+            parameters.Add("AggregateTasks", taskNames.ToArray());
+        }
 
         // The reachable runs, with RecentRunsAsync's reach predicate as it stands there: a schedule's run through its live
         // schedule, any other run through its own scope. The inner query reads task_runs alone, so in each branch Reach's
@@ -282,7 +292,7 @@ internal sealed class TaskQueries(
             $$"""
             SELECT count(*)
             {{reachable}}
-            WHERE TRUE{{criteria.Where}};
+            WHERE TRUE{{where}};
 
             SELECT r.id AS Id, r.command_name AS CommandName, r."trigger" AS Trigger, r.acting_user_id AS ActingUserId,
                    r.schedule_id AS ScheduleId, s.cron AS ScheduleCron, s.time_zone_id AS ScheduleTimeZoneId,
@@ -299,7 +309,7 @@ internal sealed class TaskQueries(
                 ORDER BY i.id
                 LIMIT 1) one ON true
             LEFT JOIN {{quoted}}.task_schedules s ON s.id = r.schedule_id AND s.deleted_at_utc IS NULL
-            WHERE TRUE{{criteria.Where}}
+            WHERE TRUE{{where}}
             {{orderBy}}
             LIMIT @PageSize OFFSET @Offset;
             """;

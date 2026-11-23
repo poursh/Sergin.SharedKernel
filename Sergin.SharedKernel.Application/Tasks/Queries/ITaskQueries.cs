@@ -24,8 +24,9 @@ public interface ITaskQueries
     /// <summary>
     /// Every reachable run of the module, filtered and sorted by <paramref name="query"/>'s criteria over
     /// <see cref="TaskRunListFields"/>, newest first when it names no sort; the total counts the same runs.
+    /// When <paramref name="taskNames"/> is not null only runs of those tasks are listed (the aggregate filter, resolved by the handler).
     /// </summary>
-    Task<ErrorOr<ListQueryResponse<TaskRunsListItem>>> RunsListAsync(string schema, ListQuery query, CancellationToken ct);
+    Task<ErrorOr<ListQueryResponse<TaskRunsListItem>>> RunsListAsync(string schema, ListQuery query, IReadOnlyCollection<string>? taskNames, CancellationToken ct);
 
     /// <summary>The distinct people who started the reachable runs of the module, in a stable order.</summary>
     Task<ErrorOr<IReadOnlyCollection<Guid>>> RunActorsAsync(string schema, CancellationToken ct);

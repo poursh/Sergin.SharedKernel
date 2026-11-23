@@ -28,8 +28,15 @@ public static partial class TaskNames
             ? request.Name[..^CommandSuffix.Length]
             : request.Name;
 
-        string derived = $"{Kebab(root.Name)}.{Kebab(verb)}";
+        string derived = $"{RootKey(root)}.{Kebab(verb)}";
         return string.IsNullOrEmpty(schema) ? derived : $"{schema}.{derived}";
+    }
+
+    /// <summary>The root's kebab-case name as it appears in a derived task name, e.g. <c>device</c> for <c>Device</c>.</summary>
+    public static string RootKey(Type root)
+    {
+        ArgumentNullException.ThrowIfNull(root);
+        return Kebab(root.Name);
     }
 
     // PascalCase to kebab case: a word starts at an upper-case letter after a lower-case letter or digit, or at the last
