@@ -1,3 +1,4 @@
+using MudBlazor;
 using Sergin.SharedKernel.Application.Aggregates;
 using Sergin.SharedKernel.Application.Tasks;
 using Sergin.SharedKernel.Application.Tasks.Queries;
@@ -124,6 +125,19 @@ internal static class TaskRunRows
 
         return localizer.Text(run.Cancelled > 0 ? TaskUiTexts.RunList.SummaryWithCancelled : TaskUiTexts.RunList.Summary, values);
     }
+
+    /// <summary>
+    /// The colour of a run's status chip: blue while running, green when every record succeeded, amber when some
+    /// failed, red when all failed, neutral for a cancelled or skipped run.
+    /// </summary>
+    public static Color OutcomeColor(RunOutcome outcome) => outcome switch
+    {
+        RunOutcome.Running => Color.Info,
+        RunOutcome.Succeeded => Color.Success,
+        RunOutcome.PartlyFailed => Color.Warning,
+        RunOutcome.Failed => Color.Error,
+        _ => Color.Default,
+    };
 
     /// <summary>
     /// The aggregate a task acts on, by its declared name in the current culture, else the root type's name; a dash for a

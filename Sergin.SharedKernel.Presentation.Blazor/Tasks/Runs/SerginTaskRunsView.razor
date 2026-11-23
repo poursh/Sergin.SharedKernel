@@ -114,7 +114,7 @@
                     </MudTd>
                     <MudTd DataLabel="@Localizer.Text(TaskTexts.RunList.StartedAt.Label)" Style="white-space: nowrap;">@Time(context.StartedAtUtc)</MudTd>
                     <MudTd DataLabel="@Localizer.Text(TaskTexts.RunList.Status.Label)">
-                        <MudText Typo="Typo.body2">@OutcomeText(context.Outcome)</MudText>
+                        <MudChip T="string" Size="Size.Small" Variant="Variant.Text" Color="@TaskRunRows.OutcomeColor(context.Outcome)" Class="ma-0 sergin-run-status">@OutcomeText(context.Outcome)</MudChip>
                         @if (context.Outcome == RunOutcome.Running)
                         {
                             @* As the activity panel draws it: records done for a bulk run, a reported percent, else indeterminate. *@
