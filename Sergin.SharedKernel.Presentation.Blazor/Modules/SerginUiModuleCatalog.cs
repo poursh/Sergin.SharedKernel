@@ -6,14 +6,19 @@ namespace Sergin.SharedKernel.Presentation.Blazor.Modules;
 
 public sealed class SerginUiModuleCatalog
 {
-    public SerginUiModuleCatalog(IReadOnlyCollection<ISerginWebUiModule> modules)
+    public SerginUiModuleCatalog(
+        IReadOnlyCollection<ISerginWebUiModule> modules, IReadOnlyCollection<SerginShellNavEntry>? shellEntries = null)
     {
         Modules = modules;
+        ShellEntries = shellEntries ?? [];
         RoutableAssemblies = [.. modules.Select(module => module.UiAssembly), typeof(SerginUiModuleCatalog).Assembly];
         NavSections =
         [
             .. modules
-                .GroupBy(module => module.NavGroup)
+                .Select(module => (Group: module.NavGroup, Subsection: new SerginNavSubsection(module.NavCaption, [.. InDrawerOrder(module.NavItems)])))
+                .Concat(ShellEntries.Select(entry => (entry.Group, Subsection: new SerginNavSubsection(entry.Caption, [.. InDrawerOrder(entry.Items)]))))
+                .Where(pair => pair.Subsection.Items.Count > 0)
+                .GroupBy(pair => pair.Group, pair => pair.Subsection)
                 .OrderBy(group => group.Key.Order)
                 .ThenBy(group => group.Key.Title.Default, StringComparer.Ordinal)
                 .Select(group => new SerginNavSection(group.Key, [.. InDrawerOrder(group)]))
@@ -22,6 +27,11 @@ public sealed class SerginUiModuleCatalog
     }
 
     public IReadOnlyCollection<ISerginWebUiModule> Modules { get; }
+
+    /// <summary>
+    /// Entries the shell contributes to the drawer itself, beside the modules'.
+    /// </summary>
+    public IReadOnlyCollection<SerginShellNavEntry> ShellEntries { get; }
 
     /// <summary>
     /// Every assembly the router must scan for <c>@page</c> templates: each module's UI assembly, plus the
@@ -59,10 +69,8 @@ public sealed class SerginUiModuleCatalog
     public SerginNavGroup? GroupOf(string href)
         => NavSections.FirstOrDefault(section => section.Items.Any(item => item.Href == href))?.Group;
 
-    private static IEnumerable<SerginNavSubsection> InDrawerOrder(IEnumerable<ISerginWebUiModule> modules)
-        => modules
-            .Where(module => module.NavItems.Count > 0)
-            .Select(module => new SerginNavSubsection(module.NavCaption, [.. InDrawerOrder(module.NavItems)]))
+    private static IEnumerable<SerginNavSubsection> InDrawerOrder(IEnumerable<SerginNavSubsection> subsections)
+        => subsections
             .OrderBy(subsection => subsection.Items.First().Order)
             .ThenBy(subsection => subsection.Caption?.Default, StringComparer.Ordinal);
 
