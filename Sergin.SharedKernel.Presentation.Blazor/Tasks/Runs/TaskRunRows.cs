@@ -1,3 +1,4 @@
+using Sergin.SharedKernel.Application.Aggregates;
 using Sergin.SharedKernel.Application.Tasks;
 using Sergin.SharedKernel.Application.Tasks.Queries;
 using Sergin.SharedKernel.Domain.Tasks;
@@ -122,6 +123,27 @@ internal static class TaskRunRows
         };
 
         return localizer.Text(run.Cancelled > 0 ? TaskUiTexts.RunList.SummaryWithCancelled : TaskUiTexts.RunList.Summary, values);
+    }
+
+    /// <summary>
+    /// The aggregate a task acts on, by its declared name in the current culture, else the root type's name; a dash for a
+    /// task the catalogue no longer knows.
+    /// </summary>
+    public static string AggregateText(IStringLocalizer localizer, string commandName, TaskCatalog catalog, AggregateFeatureRegistry aggregates)
+    {
+        ArgumentNullException.ThrowIfNull(catalog);
+
+        return catalog.ByName(commandName) is { } task ? RootText(localizer, task.Root, aggregates) : "—";
+    }
+
+    /// <summary>An aggregate root by its declared name in the current culture, else its type's name.</summary>
+    public static string RootText(IStringLocalizer localizer, Type root, AggregateFeatureRegistry aggregates)
+    {
+        ArgumentNullException.ThrowIfNull(localizer);
+        ArgumentNullException.ThrowIfNull(root);
+        ArgumentNullException.ThrowIfNull(aggregates);
+
+        return aggregates.NameOf(root) is { } name ? localizer.Text(name) : root.Name;
     }
 
     /// <summary>The task's view label, else its stored name.</summary>

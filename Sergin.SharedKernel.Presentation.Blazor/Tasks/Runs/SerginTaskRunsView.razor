@@ -1,5 +1,5 @@
 @* The Task runs list: a module selector when more than one module runs tasks, then the module's runs, newest first,
-   filtered by task, status, person, trigger and start day. With no module running tasks it says so and sends nothing. *@
+   filtered by aggregate, task, status, person, trigger and start day. With no module running tasks it says so and sends nothing. *@
 <SerginAggregateListView TitleText="TaskUiTexts.RunList.Heading" Trail="Trail">
     <HeaderActions>
         <SerginReloadButton OnReload="ReloadAsync" />
@@ -24,9 +24,19 @@
             }
             <SerginAggregateList @key="schema" @ref="list" TItem="TaskRunsListItem" Load="LoadAsync" Searchable="false"
                                  NoRecordsText="TaskUiTexts.RunList.NoRuns" BuildFilters="BuildFilters" OnFilterRemoved="OnFilterRemoved"
-                                 OnFiltersReset="OnFiltersReset" OnFilterPanelOpened="OnFilterPanelOpenedAsync">
+                                 OnFiltersReset="OnFiltersReset" OnFilterPanelOpened="OnFilterPanelOpenedAsync"
+                                 FilterPanelInitiallyOpen="true" ApplyFiltersAtStart="true">
                 <FilterPanel>
                     <MudGrid Spacing="3">
+                        <MudItem xs="12" sm="6" md="3">
+                            <MudSelect T="string" Label="@Localizer.Text(TaskTexts.RunList.Aggregate.Label)" Placeholder="@AnyText" @bind-Value="AggregateFilter"
+                                       Clearable="true" Variant="Variant.Outlined" Margin="Margin.Dense">
+                                @foreach (Type root in Roots)
+                                {
+                                    <MudSelectItem T="string" Value="@RootKey(root)">@RootText(root)</MudSelectItem>
+                                }
+                            </MudSelect>
+                        </MudItem>
                         <MudItem xs="12" sm="6" md="3">
                             <MudSelect T="string" Label="@Localizer.Text(TaskTexts.RunList.Task.Label)" Placeholder="@AnyText" @bind-Value="TaskFilter"
                                        Clearable="true" Variant="Variant.Outlined" Margin="Margin.Dense">
@@ -70,6 +80,8 @@
                     </MudGrid>
                 </FilterPanel>
                 <HeaderContent>
+                    <MudTh>@Localizer.Text(TaskTexts.RunList.Module.Label)</MudTh>
+                    <MudTh>@Localizer.Text(TaskTexts.RunList.Aggregate.Label)</MudTh>
                     <MudTh>@Localizer.Text(TaskTexts.RunList.Task.Label)</MudTh>
                     <MudTh>@Localizer.Text(TaskUiTexts.RunList.Records)</MudTh>
                     <MudTh>@Localizer.Text(TaskTexts.RunList.StartedBy.Label)</MudTh>
@@ -81,6 +93,8 @@
                     <MudTh>@Localizer.Text(TaskTexts.RunList.Status.Label)</MudTh>
                 </HeaderContent>
                 <RowTemplate>
+                    <MudTd DataLabel="@Localizer.Text(TaskTexts.RunList.Module.Label)">@ModuleText(schema!)</MudTd>
+                    <MudTd DataLabel="@Localizer.Text(TaskTexts.RunList.Aggregate.Label)">@AggregateText(context.CommandName)</MudTd>
                     <MudTd DataLabel="@Localizer.Text(TaskTexts.RunList.Task.Label)">
                         <MudLink Typo="Typo.body2" Class="sergin-task-run-task" data-run="@context.Id" OnClick="@(() => OpenRecordsAsync(context))">@TaskText(context.CommandName)</MudLink>
                     </MudTd>

@@ -70,6 +70,20 @@ public sealed partial class SerginAggregateList<TItem>
     [Parameter]
     public EventCallback OnFilterPanelOpened { get; set; }
 
+    /// <summary>
+    /// Whether the filter panel shows from the first render; <see cref="OnFilterPanelOpened"/> is raised once after the
+    /// first interactive render (never while prerendering), so the panel's pickers load. The toggle still closes it.
+    /// </summary>
+    [Parameter]
+    public bool FilterPanelInitiallyOpen { get; set; }
+
+    /// <summary>
+    /// Whether the first load already sends the filters the page's fields start with: the applied filters (and their
+    /// chips) are seeded from <see cref="BuildFilters"/> before it. Reset and chip removal clear them like any other.
+    /// </summary>
+    [Parameter]
+    public bool ApplyFiltersAtStart { get; set; }
+
     /// <summary>Whether to show the quick search; false for a list whose query repository does not read <c>Term</c>.</summary>
     [Parameter]
     public bool Searchable { get; set; } = true;
@@ -133,6 +147,25 @@ public sealed partial class SerginAggregateList<TItem>
 
     [Inject]
     private IScopeAuthorization ScopeAuthorization { get; set; } = default!;
+
+    protected override void OnInitialized()
+    {
+        filterPanelOpen = FilterPanelInitiallyOpen && FilterPanel is not null;
+
+        if (ApplyFiltersAtStart)
+        {
+            filters = BuildFilters?.Invoke() ?? [];
+        }
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        // OnAfterRender never runs while prerendering, so the pickers load once the circuit is interactive.
+        if (firstRender && filterPanelOpen)
+        {
+            await OnFilterPanelOpened.InvokeAsync();
+        }
+    }
 
     protected override async Task OnParametersSetAsync()
     {
@@ -219,7 +252,8 @@ public sealed partial class SerginAggregateList<TItem>
         return FirstPageAsync();
     }
 
-    private async Task ResetFiltersAsync()
+    /// <summary>What the panel's Reset does: clears every applied filter, tells the page, and loads the first page.</summary>
+    internal async Task ResetFiltersAsync()
     {
         filters = [];
         await OnFiltersReset.InvokeAsync();

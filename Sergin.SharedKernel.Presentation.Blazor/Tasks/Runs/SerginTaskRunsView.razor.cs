@@ -2,6 +2,7 @@ using System.Globalization;
 using Microsoft.AspNetCore.Components;
 using Microsoft.Extensions.Logging;
 using MudBlazor;
+using Sergin.SharedKernel.Application.Aggregates;
 using Sergin.SharedKernel.Application.Securities.Users;
 using Sergin.SharedKernel.Application.Tasks;
 using Sergin.SharedKernel.Application.Tasks.Commands;
@@ -48,6 +49,7 @@ public sealed partial class SerginTaskRunsView : IAsyncDisposable
     private volatile bool disposed;
 
     private IReadOnlyList<Guid> actors = [];
+    private string? aggregateFilter;
 
     /// <summary>The schema asked for (the page's <c>?module=</c>); the first module when absent or not listed.</summary>
     [Parameter]
@@ -87,6 +89,9 @@ public sealed partial class SerginTaskRunsView : IAsyncDisposable
     private AggregateViewRegistry Views { get; set; } = default!;
 
     [Inject]
+    private AggregateFeatureRegistry Aggregates { get; set; } = default!;
+
+    [Inject]
     private SerginUiModuleCatalog UiModules { get; set; } = default!;
 
     [Inject]
@@ -97,6 +102,24 @@ public sealed partial class SerginTaskRunsView : IAsyncDisposable
 
     /// <summary>The filter panel's Task field: a task's stored name.</summary>
     internal string? TaskFilter { get; set; }
+
+    /// <summary>
+    /// The filter panel's Aggregate field: a root's kebab key (<c>device</c>). Choosing one narrows the Task field to that
+    /// root's tasks, and drops a chosen task on another root.
+    /// </summary>
+    internal string? AggregateFilter
+    {
+        get => aggregateFilter;
+        set
+        {
+            aggregateFilter = value;
+
+            if (TaskFilter is not null && !TaskNames.Contains(TaskFilter, StringComparer.Ordinal))
+            {
+                TaskFilter = null;
+            }
+        }
+    }
 
     /// <summary>The filter panel's Status field.</summary>
     internal RunOutcome? StatusFilter { get; set; }
@@ -120,9 +143,23 @@ public sealed partial class SerginTaskRunsView : IAsyncDisposable
 
     private static IReadOnlyList<TaskRunTrigger> Triggers => triggers;
 
-    // The tasks of the module shown, for the Task filter, by the text they are shown by.
+    // The tasks of the module shown, for the Task filter, by the text they are shown by; only the chosen aggregate's.
     private IReadOnlyList<string> TaskNames =>
-        [.. Catalog.Commands.Where(task => task.Schema == schema).Select(task => task.Name).OrderBy(TaskText, StringComparer.CurrentCulture)];
+    [
+        .. ModuleTasks
+            .Where(task => aggregateFilter is null || RootKey(task.Root) == aggregateFilter)
+            .Select(task => task.Name)
+            .OrderBy(TaskText, StringComparer.CurrentCulture),
+    ];
+
+    // The aggregates the module's tasks act on, for the Aggregate filter, by the name they are shown by.
+    private IReadOnlyList<Type> Roots =>
+        [.. ModuleTasks.Select(task => task.Root).Distinct().OrderBy(RootText, StringComparer.CurrentCulture)];
+
+    // The property TaskNames hides the type of that name here.
+    private static string RootKey(Type root) => Application.Tasks.TaskNames.RootKey(root);
+
+    private IEnumerable<TaskDescriptor> ModuleTasks => Catalog.Commands.Where(task => task.Schema == schema);
 
     private string? FirstModule => modules.Count > 0 ? modules[0] : null;
 
@@ -144,6 +181,9 @@ public sealed partial class SerginTaskRunsView : IAsyncDisposable
             // Another module: its list starts afresh (keyed on the schema), with none of the last module's filters.
             schema = selected;
             ClearFilters();
+
+            // Each module's list opens on its running runs; Reset or the chip shows every run.
+            StatusFilter = RunOutcome.Running;
             actors = [];
             HasRunning = false;
         }
@@ -159,6 +199,9 @@ public sealed partial class SerginTaskRunsView : IAsyncDisposable
 
     /// <summary>Loads the current page again; the header's reload icon, a poll tick and a cancel all come here.</summary>
     internal Task ReloadAsync() => disposed || list is null ? Task.CompletedTask : list.ReloadAsync();
+
+    /// <summary>What the filter panel's Reset does: every filter cleared, the first page loaded again.</summary>
+    internal Task ResetFiltersAsync() => list is null ? Task.CompletedTask : list.ResetFiltersAsync();
 
     /// <summary>One poll tick: reloads only while the last load listed a running run (a failed load lists none).</summary>
     internal Task TickAsync() => HasRunning ? ReloadAsync() : Task.CompletedTask;
@@ -285,6 +328,12 @@ public sealed partial class SerginTaskRunsView : IAsyncDisposable
     {
         List<SerginAppliedFilter> filters = [];
 
+        if (aggregateFilter is { } aggregate)
+        {
+            string shown = Roots.FirstOrDefault(root => RootKey(root) == aggregate) is { } root ? RootText(root) : aggregate;
+            filters.Add(new(TaskRunListFields.Aggregate, FilteringType.equals, aggregate, Chip(TaskTexts.RunList.Aggregate, shown)));
+        }
+
         if (TaskFilter is { } task)
         {
             filters.Add(new(TaskRunListFields.Task, FilteringType.equals, task, Chip(TaskTexts.RunList.Task, TaskText(task))));
@@ -323,6 +372,9 @@ public sealed partial class SerginTaskRunsView : IAsyncDisposable
     {
         switch (filter.Id)
         {
+            case TaskRunListFields.Aggregate:
+                aggregateFilter = null;
+                break;
             case TaskRunListFields.Task:
                 TaskFilter = null;
                 break;
@@ -345,6 +397,7 @@ public sealed partial class SerginTaskRunsView : IAsyncDisposable
 
     private void ClearFilters()
     {
+        aggregateFilter = null;
         TaskFilter = null;
         StatusFilter = null;
         StartedByFilter = null;
@@ -374,6 +427,10 @@ public sealed partial class SerginTaskRunsView : IAsyncDisposable
     private string ModuleText(string module) => moduleCaption(module) is { } caption ? Localizer.Text(caption) : module;
 
     private string TaskText(string commandName) => TaskRunRows.TaskText(Localizer, commandName, Catalog, Views);
+
+    private string AggregateText(string commandName) => TaskRunRows.AggregateText(Localizer, commandName, Catalog, Aggregates);
+
+    private string RootText(Type root) => TaskRunRows.RootText(Localizer, root, Aggregates);
 
     private string OutcomeText(RunOutcome outcome) => Localizer.Text(TaskTexts.RunList.Outcomes.For(outcome));
 
