@@ -21,6 +21,12 @@ public interface ITaskQueries
 
     Task<ErrorOr<ListQueryResponse<TaskRunListItem>>> RunsAsync(string schema, TaskScheduleId scheduleId, Paggination paggination, CancellationToken ct);
 
+    /// <summary>
+    /// Every reachable run of the module, filtered and sorted by <paramref name="query"/>'s criteria over
+    /// <see cref="TaskRunListFields"/>, newest first when it names no sort; the total counts the same runs.
+    /// </summary>
+    Task<ErrorOr<ListQueryResponse<TaskRunsListItem>>> RunsListAsync(string schema, ListQuery query, CancellationToken ct);
+
     Task<ErrorOr<IReadOnlyCollection<TaskRunItemListItem>>> RunItemsAsync(string schema, Guid runId, CancellationToken ct);
 
     Task<ErrorOr<IReadOnlyCollection<TaskRunListItem>>> RecentRunsForTargetAsync(string schema, Guid targetId, int take, CancellationToken ct);

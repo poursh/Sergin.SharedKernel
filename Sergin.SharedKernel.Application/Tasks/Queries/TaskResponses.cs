@@ -43,6 +43,34 @@ public sealed record TaskRunListItem(
     bool Cancelable = true,
     Guid? ScopeId = null);
 
+/// <summary>
+/// One row of a module's run list. <see cref="Outcome"/> is the shown status, by the one rule (<see cref="RunOutcomes"/>);
+/// <see cref="ScheduleCron"/> and <see cref="ScheduleTimeZoneId"/> are the live schedule's, null for a one-off run. The
+/// target columns and <see cref="Progress"/> name a one-item run's record, null for a run over several;
+/// <see cref="ScopeId"/> is a collection task's run's scope, null otherwise.
+/// </summary>
+public sealed record TaskRunsListItem(
+    Guid Id,
+    string CommandName,
+    TaskRunTrigger Trigger,
+    Guid ActingUserId,
+    Guid? ScheduleId,
+    string? ScheduleCron,
+    string? ScheduleTimeZoneId,
+    RunOutcome Outcome,
+    DateTime StartedAtUtc,
+    DateTime? CompletedAtUtc,
+    int Total,
+    int Succeeded,
+    int Failed,
+    int Cancelled,
+    int Unfinished,
+    Guid? TargetId,
+    string? TargetLabel,
+    int? Progress,
+    bool Cancelable,
+    Guid? ScopeId);
+
 /// <summary>One item of a run; <see cref="Progress"/> is its command's last reported percent, null until it reports.</summary>
 public sealed record TaskRunItemListItem(
     Guid? TargetId,

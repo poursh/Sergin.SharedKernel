@@ -13,6 +13,7 @@ using Sergin.SharedKernel.Domain;
 using Sergin.SharedKernel.Domain.Tasks;
 using Sergin.SharedKernel.Infrastracture.Data;
 using Sergin.SharedKernel.Infrastructure.Data.EFCore.Aggregates;
+using Sergin.SharedKernel.Infrastructure.Data.EFCore.Queries;
 
 namespace Sergin.SharedKernel.Infrastructure.Data.EFCore.Tasks;
 
@@ -208,6 +209,135 @@ internal sealed class TaskQueries(
             return new ListQueryResponse<TaskRunListItem>(runs, total);
         }
     }
+
+    // The run list's sort and filter fields, keyed by TaskRunListFields, over the reachable runs below (r): status is
+    // the shown outcome, computed over r's unfinished count, so filter and column read the one expression.
+    private static readonly ListQueryColumns RunListColumns = new(
+        TaskRunListFields.Set,
+        new Dictionary<string, string>
+        {
+            [TaskRunListFields.StartedAt] = "r.started_at_utc",
+            [TaskRunListFields.Task] = "r.command_name",
+            [TaskRunListFields.Trigger] = "r.\"trigger\"",
+            [TaskRunListFields.Status] = OutcomeSql,
+            [TaskRunListFields.StartedBy] = "r.acting_user_id",
+        },
+        searchColumns: [],
+        tieBreaker: "r.id");
+
+    // RunOutcomes.Of, clause for clause, answering the RunOutcome member names: Skipped by status; Running while any item
+    // is unfinished; with no failure Cancelled if any item was cancelled, else Succeeded; with failures Failed if none
+    // succeeded, else PartlyFailed. r.unfinished is the reachable runs' count of unfinished items, the activity read's.
+    private const string OutcomeSql =
+        "(CASE WHEN r.status = 'Skipped' THEN 'Skipped' "
+        + "WHEN r.unfinished > 0 THEN 'Running' "
+        + "WHEN r.failed = 0 THEN (CASE WHEN r.cancelled > 0 THEN 'Cancelled' ELSE 'Succeeded' END) "
+        + "WHEN r.succeeded = 0 THEN 'Failed' "
+        + "ELSE 'PartlyFailed' END)";
+
+    // Newest first, as every other run read, when the request names no sort.
+    private const string DefaultRunListOrderBy = "ORDER BY r.started_at_utc DESC, r.id DESC";
+
+    public async Task<ErrorOr<ListQueryResponse<TaskRunsListItem>>> RunsListAsync(string schema, ListQuery query, CancellationToken ct)
+    {
+        ArgumentNullException.ThrowIfNull(query);
+
+        if (!TryQuote(schema, out string quoted))
+        {
+            return UnknownSchema;
+        }
+
+        using DbConnection connection = await connectionFactory.CreateConnectionAsync();
+
+        DynamicParameters parameters = ScopeColumns.AddParameters(
+            new DynamicParameters(new { PageSize = query.Paggination.Size.Value, Offset = query.Paggination.Skip }), scopeFilter);
+
+        ListQuerySqlParts criteria = ListQuerySql.Apply(query, RunListColumns, parameters);
+        string orderBy = query.Sorting?.Sorts.Any() == true ? criteria.OrderBy : DefaultRunListOrderBy;
+
+        // The reachable runs, with RecentRunsAsync's reach predicate as it stands there: a schedule's run through its live
+        // schedule, any other run through its own scope. The inner query reads task_runs alone, so in each branch Reach's
+        // unqualified columns bind to the table that owns them; the joins below sit outside it, where the schedule's own
+        // scope columns cannot capture them. The criteria read the inner query's columns, so count and page read the
+        // same rows.
+        string reachable =
+            $$"""
+            FROM (
+                SELECT r.*,
+                       (SELECT count(*) FROM {{quoted}}.task_run_items u
+                        WHERE u.run_id = r.id AND u.status IN ('Pending', 'Running', 'Retrying'))::int AS unfinished
+                FROM {{quoted}}.task_runs r
+                WHERE ((r.schedule_id IS NOT NULL AND EXISTS (
+                            SELECT 1 FROM {{quoted}}.task_schedules
+                            WHERE id = r.schedule_id AND deleted_at_utc IS NULL AND {{ScopeColumns.ReachSql}}))
+                       OR (r.schedule_id IS NULL AND {{ScopeColumns.ReachSql}}))) r
+            """;
+
+        // The lateral reads the one item of a one-item run, as the activity read does; the schedule join names a cron
+        // run's live schedule, and is null for a one-off run.
+        string sql =
+            $$"""
+            SELECT count(*)
+            {{reachable}}
+            WHERE TRUE{{criteria.Where}};
+
+            SELECT r.id AS Id, r.command_name AS CommandName, r."trigger" AS Trigger, r.acting_user_id AS ActingUserId,
+                   r.schedule_id AS ScheduleId, s.cron AS ScheduleCron, s.time_zone_id AS ScheduleTimeZoneId,
+                   {{OutcomeSql}} AS Outcome, r.started_at_utc AS StartedAtUtc, r.completed_at_utc AS CompletedAtUtc,
+                   r.total AS Total, r.succeeded AS Succeeded, r.failed AS Failed, r.cancelled AS Cancelled,
+                   r.unfinished AS Unfinished, one.target_id AS TargetId, one.target_label AS TargetLabel,
+                   one.progress::int AS Progress,
+                   CASE WHEN r.target_kind = 'Collection' THEN r.scope_id END AS ScopeId
+            {{reachable}}
+            LEFT JOIN LATERAL (
+                SELECT i.target_id, i.target_label, i.progress
+                FROM {{quoted}}.task_run_items i
+                WHERE i.run_id = r.id AND r.total = 1
+                ORDER BY i.id
+                LIMIT 1) one ON true
+            LEFT JOIN {{quoted}}.task_schedules s ON s.id = r.schedule_id AND s.deleted_at_utc IS NULL
+            WHERE TRUE{{criteria.Where}}
+            {{orderBy}}
+            LIMIT @PageSize OFFSET @Offset;
+            """;
+
+        // The schema was matched against the registered ones and the criteria hold only RunListColumns' expressions;
+        // every value is a parameter.
+#pragma warning disable S2077
+        SqlMapper.GridReader grid = await connection.QueryMultipleAsync(new CommandDefinition(sql, parameters, cancellationToken: ct));
+#pragma warning restore S2077
+
+        await using (grid)
+        {
+            int total = await grid.ReadSingleAsync<int>();
+            IReadOnlyCollection<TaskRunsListItem> runs = [.. (await grid.ReadAsync<RunsListRow>()).Select(ToListItem)];
+
+            return new ListQueryResponse<TaskRunsListItem>(runs, total);
+        }
+    }
+
+    private TaskRunsListItem ToListItem(RunsListRow row) =>
+        new(
+            row.Id,
+            row.CommandName,
+            Enum.Parse<TaskRunTrigger>(row.Trigger),
+            row.ActingUserId,
+            row.ScheduleId,
+            row.ScheduleCron,
+            row.ScheduleTimeZoneId,
+            Enum.Parse<RunOutcome>(row.Outcome),
+            row.StartedAtUtc,
+            row.CompletedAtUtc,
+            row.Total,
+            row.Succeeded,
+            row.Failed,
+            row.Cancelled,
+            row.Unfinished,
+            row.TargetId,
+            row.TargetLabel,
+            row.Progress,
+            CancelableOf(row.CommandName),
+            row.ScopeId);
 
     public async Task<ErrorOr<IReadOnlyCollection<TaskRunItemListItem>>> RunItemsAsync(string schema, Guid runId, CancellationToken ct)
     {
@@ -493,6 +623,47 @@ internal sealed class TaskQueries(
         public int Failed { get; set; }
 
         public int Cancelled { get; set; }
+
+        public Guid? ScopeId { get; set; }
+    }
+
+    private sealed class RunsListRow
+    {
+        public Guid Id { get; set; }
+
+        public string CommandName { get; set; } = string.Empty;
+
+        public string Trigger { get; set; } = string.Empty;
+
+        public Guid ActingUserId { get; set; }
+
+        public Guid? ScheduleId { get; set; }
+
+        public string? ScheduleCron { get; set; }
+
+        public string? ScheduleTimeZoneId { get; set; }
+
+        public string Outcome { get; set; } = string.Empty;
+
+        public DateTime StartedAtUtc { get; set; }
+
+        public DateTime? CompletedAtUtc { get; set; }
+
+        public int Total { get; set; }
+
+        public int Succeeded { get; set; }
+
+        public int Failed { get; set; }
+
+        public int Cancelled { get; set; }
+
+        public int Unfinished { get; set; }
+
+        public Guid? TargetId { get; set; }
+
+        public string? TargetLabel { get; set; }
+
+        public int? Progress { get; set; }
 
         public Guid? ScopeId { get; set; }
     }
