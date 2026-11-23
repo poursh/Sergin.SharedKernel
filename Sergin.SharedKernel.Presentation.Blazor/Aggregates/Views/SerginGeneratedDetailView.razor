@@ -61,7 +61,7 @@
         {
             @SectionsFragment
         }
-        @if (Model.HasSchedulableCommand)
+        @if (Model.HasEntityTask)
         {
             <SerginTaskSchedulesSection @ref="section" Schema="@Model.Schema" TargetId="Id" TargetLabel="@DisplayText" @bind-CommandName="commandName" CommandLabel="commandLabel"
                                          Loaded="OnSectionLoaded" />

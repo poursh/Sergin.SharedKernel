@@ -31,8 +31,9 @@ namespace Sergin.SharedKernel.Presentation.Blazor.Aggregates.Model;
 /// <param name="UpdateFields">The update command's shown fields.</param>
 /// <param name="Slots">The components the configuration put in the views' slots.</param>
 /// <param name="HasSchedulableCommand">
-/// Whether any task over one record (<see cref="CommandRole.Task"/>) is <c>Schedulable()</c>: the detail view then lists the
-/// record's schedules. A collection task's are listed from the list header instead (<see cref="HasSchedulableCollectionTask"/>).
+/// Whether any task over one record (<see cref="CommandRole.Task"/>) is <c>Schedulable()</c>: a row then offers Schedule….
+/// The record's schedules are listed for any shown task (<see cref="HasEntityTask"/>), since a schedule saved before its task
+/// lost <c>Schedulable()</c> still fires and must stay removable.
 /// </param>
 /// <param name="DetailTitleField">The GetOne response's display property: breadcrumb tail, fields title, schedule target label.</param>
 /// <param name="ListTitleField">The list item's display property.</param>
@@ -123,9 +124,19 @@ public sealed record AggregateViewModel(
     /// <summary>The create route's query key that carries the parent's id, as a self-parented create action links with it.</summary>
     public const string ParentIdQueryKey = "parentId";
 
-    /// <summary>Whether a shown task over the collection (<see cref="CommandRole.CollectionTask"/>) is <c>Schedulable()</c>.</summary>
-    public bool HasSchedulableCollectionTask =>
-        Commands.Any(command => command is { Role: CommandRole.CollectionTask, Hidden: false, Task.Schedulable: true });
+    /// <summary>
+    /// Whether a shown task over one record (<see cref="CommandRole.Task"/>) exists, schedulable or not: the detail view then
+    /// lists the record's schedules, so one saved before its task lost <c>Schedulable()</c> can still be paused or deleted.
+    /// </summary>
+    public bool HasEntityTask =>
+        Commands.Any(command => command is { Role: CommandRole.Task, Hidden: false, Task: not null });
+
+    /// <summary>
+    /// Whether a shown task over the collection (<see cref="CommandRole.CollectionTask"/>) exists, schedulable or not: its
+    /// list header then offers Schedules (Schedule… only for a <c>Schedulable()</c> one).
+    /// </summary>
+    public bool HasCollectionTask =>
+        Commands.Any(command => command is { Role: CommandRole.CollectionTask, Hidden: false, Task: not null });
 
     /// <summary>The self-parented create route for a new record under <paramref name="parentId"/>; null without one.</summary>
     public string? ChildCreateHref(Guid parentId) =>

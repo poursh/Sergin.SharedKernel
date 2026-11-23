@@ -287,7 +287,7 @@ public sealed partial class GeneratedListBody<TItem> : IGeneratedListBody
         else if (command.Task is not null)
         {
             // Only started: nothing has changed yet, so the rows are not read again.
-            ActivityPanel.NotifyStarted(Snackbar, Localizer, Localizer.Text(ShellTexts.CommandActions.BackgroundStarted));
+            ActivityPanel.NotifyStarted(Snackbar, Localizer, Localizer.Text(ShellTexts.CommandActions.TaskStarted));
             return;
         }
         else if (command.SucceededText is { } succeeded)
@@ -457,7 +457,7 @@ public sealed partial class GeneratedListBody<TItem> : IGeneratedListBody
         else
         {
             ActivityPanel.NotifyStarted(
-                Snackbar, Localizer, Localizer.Text(ShellTexts.CommandActions.BackgroundStartedMany, new { Count = Formatter.Number(items.Count) }));
+                Snackbar, Localizer, Localizer.Text(ShellTexts.CommandActions.TaskStartedMany, new { Count = Formatter.Number(items.Count) }));
         }
 
         await ChangedAsync();

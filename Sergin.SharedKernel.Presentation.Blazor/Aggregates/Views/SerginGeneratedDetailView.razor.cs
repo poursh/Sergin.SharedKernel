@@ -220,7 +220,7 @@ public sealed partial class SerginGeneratedDetailView<TRoot> : IDisposable
             : null;
         await LoadInlineCommandsAsync();
 
-        canManageSchedules = Model.HasSchedulableCommand && await ScopeAuthorization.CurrentUserHasAsync(TaskPermissions.Manage);
+        canManageSchedules = Model.HasEntityTask && await ScopeAuthorization.CurrentUserHasAsync(TaskPermissions.Manage);
     }
 
     /// <inheritdoc />
@@ -373,7 +373,7 @@ public sealed partial class SerginGeneratedDetailView<TRoot> : IDisposable
         // section is, so it lists the new run and polls it while it is Running.
         if (command.Task is not null)
         {
-            ActivityPanel.NotifyStarted(Snackbar, Localizer, Localizer.Text(ShellTexts.CommandActions.BackgroundStarted));
+            ActivityPanel.NotifyStarted(Snackbar, Localizer, Localizer.Text(ShellTexts.CommandActions.TaskStarted));
             await TaskStartedAsync();
 
             return;
@@ -676,21 +676,25 @@ public sealed partial class SerginGeneratedDetailView<TRoot> : IDisposable
     private Dictionary<string, object?> PlaceholderArguments() =>
         GeneratedViewSupport.ArgumentsOf(Model.DetailArguments, record, DisplayText);
 
-    // Schedule… and View schedules for a schedulable task (to a user who may manage scheduled tasks), then the
-    // configuration's own entries.
+    // To a user who may manage tasks: Schedule… for a schedulable task, View schedules for any task (a schedule saved before
+    // the task lost Schedulable() still fires and stays removable), then the configuration's own entries.
     private IReadOnlyList<SerginMenuItem> MenuItemsOf(CommandView command)
     {
         List<SerginMenuItem> items = [];
         PermissionDefinition? permission = command.Permissions.FirstOrDefault();
 
-        if (command is { Role: CommandRole.Task, Task: { Schedulable: true, Name: var name } } && canManageSchedules)
+        if (command is { Role: CommandRole.Task, Task: { Name: var name } task } && canManageSchedules)
         {
-            items.Add(new SerginMenuItem(
-                TaskUiTexts.ScheduleAction,
-                Icons.Material.Outlined.Schedule,
-                EventCallback.Factory.Create(this, () => ScheduleAsync(command)),
-                permission,
-                command.AnyScope));
+            if (task.Schedulable)
+            {
+                items.Add(new SerginMenuItem(
+                    TaskUiTexts.ScheduleAction,
+                    Icons.Material.Outlined.Schedule,
+                    EventCallback.Factory.Create(this, () => ScheduleAsync(command)),
+                    permission,
+                    command.AnyScope));
+            }
+
             items.Add(new SerginMenuItem(
                 TaskUiTexts.ViewSchedules,
                 Icons.Material.Outlined.EventNote,

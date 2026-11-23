@@ -166,7 +166,7 @@ public sealed partial class SerginGeneratedListView<TRoot> : IDisposable
             watchingActivity = true;
         }
 
-        canManageSchedules = Model.HasSchedulableCollectionTask && await ScopeAuthorization.CurrentUserHasAsync(TaskPermissions.Manage);
+        canManageSchedules = Model.HasCollectionTask && await ScopeAuthorization.CurrentUserHasAsync(TaskPermissions.Manage);
         inlineTasks = [.. await HeldAsync(CollectionTasks.Where(IsInlineSection))];
         await LoadOverviewAsync();
     }
@@ -332,19 +332,24 @@ public sealed partial class SerginGeneratedListView<TRoot> : IDisposable
     private bool IsCollectionTaskRunning(CommandView command) =>
         command.Task is { } task && ActivityPanel.IsRunning(task.Name, targetId: null, CurrentScope.ScopeId);
 
-    // Schedule… and Schedules for a schedulable collection task, to a user who may manage scheduled tasks.
+    // To a user who may manage tasks: Schedule… for a schedulable collection task, and Schedules for any (a schedule saved
+    // before the task lost Schedulable() still fires and stays removable).
     private List<SerginMenuItem> MenuItemsOf(CommandView command)
     {
         List<SerginMenuItem> items = [];
 
-        if (command.Task is { Schedulable: true, Name: var name } && canManageSchedules)
+        if (command.Task is { Name: var name } task && canManageSchedules)
         {
-            items.Add(new SerginMenuItem(
-                TaskUiTexts.ScheduleAction,
-                Icons.Material.Outlined.Schedule,
-                EventCallback.Factory.Create(this, () => DialogService.ShowScheduleAsync(ScheduleRequestFor(command))),
-                command.Permissions.FirstOrDefault(),
-                command.AnyScope));
+            if (task.Schedulable)
+            {
+                items.Add(new SerginMenuItem(
+                    TaskUiTexts.ScheduleAction,
+                    Icons.Material.Outlined.Schedule,
+                    EventCallback.Factory.Create(this, () => DialogService.ShowScheduleAsync(ScheduleRequestFor(command))),
+                    command.Permissions.FirstOrDefault(),
+                    command.AnyScope));
+            }
+
             items.Add(new SerginMenuItem(
                 TaskUiTexts.Schedules,
                 Icons.Material.Outlined.EventNote,
@@ -419,7 +424,7 @@ public sealed partial class SerginGeneratedListView<TRoot> : IDisposable
             return;
         }
 
-        ActivityPanel.NotifyStarted(Snackbar, Localizer, Localizer.Text(ShellTexts.CommandActions.BackgroundStarted));
+        ActivityPanel.NotifyStarted(Snackbar, Localizer, Localizer.Text(ShellTexts.CommandActions.TaskStarted));
     }
 
     /// <summary>Opens a collection task's argument dialog; answers its reference. Internal for the argument form tests.</summary>

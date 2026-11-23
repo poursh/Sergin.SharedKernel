@@ -15,4 +15,7 @@ public sealed record TaskSettings(string Name, TimeSpan InactivityTimeout, TimeS
 
     /// <summary>The longest inactivity timeout a task may declare.</summary>
     public static TimeSpan MaxInactivityTimeout { get; } = TimeSpan.FromHours(1);
+
+    /// <summary>The longest maximum duration a task may declare (a timer cannot run past about 49 days).</summary>
+    public static TimeSpan MaxMaxDuration { get; } = TimeSpan.FromHours(24);
 }

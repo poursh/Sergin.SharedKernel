@@ -19,8 +19,8 @@ namespace Sergin.SharedKernel.Application.Commands.Configuration;
 /// checked on the current scope and never requires a version. Refuses two configurations for one request, a
 /// configuration without a parameterless constructor, a configuration whose Configure throws, a required permission
 /// no aggregate registered, an opt-out where nothing is required, and a task whose <c>Task(...)</c> declares an inactivity
-/// timeout outside (0, <see cref="TaskSettings.MaxInactivityTimeout"/>] or a maximum duration that is not above zero or is
-/// below the inactivity timeout — each naming the type. Every task, configured or not, carries its
+/// timeout outside (0, <see cref="TaskSettings.MaxInactivityTimeout"/>] or a maximum duration that is not above zero, is
+/// below the inactivity timeout or is above <see cref="TaskSettings.MaxMaxDuration"/> — each naming the type. Every task, configured or not, carries its
 /// <see cref="TaskSettings"/>, its name derived from the schema of the source that holds it (<see cref="TaskNames"/>).
 /// </summary>
 public sealed class CommandConfigurationRegistry
@@ -266,6 +266,13 @@ public sealed class CommandConfigurationRegistry
             throw new InvalidOperationException(
                 who + $"with a maximum duration of {Describe(max)}, which must be above zero and at least its inactivity "
                 + $"timeout of {Describe(inactivity)}.");
+        }
+
+        if (declared.DeclaredMaxDuration is { } longest && longest > TaskSettings.MaxMaxDuration)
+        {
+            throw new InvalidOperationException(
+                who + $"with a maximum duration of {Describe(longest)}, which must be at most "
+                + $"{Describe(TaskSettings.MaxMaxDuration)}.");
         }
 
         return defaults with

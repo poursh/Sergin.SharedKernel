@@ -123,7 +123,7 @@ public sealed partial class TaskRunItemRecoveryService(
         }
     }
 
-    [LoggerMessage(Level = LogLevel.Warning, Message = "Scheduled run item {RunItemId} in schema {Schema} had gone quiet; it was handed to the job engine again.")]
+    [LoggerMessage(Level = LogLevel.Warning, Message = "Task run item {RunItemId} in schema {Schema} had gone quiet; it was handed to the job engine again.")]
     private partial void LogRecovered(Guid runItemId, string schema);
 
     [LoggerMessage(Level = LogLevel.Warning, Message = "Scheduled run {RunId} in schema {Schema} was cancelled and had items left quiet; they were cancelled.")]
@@ -132,6 +132,6 @@ public sealed partial class TaskRunItemRecoveryService(
     [LoggerMessage(Level = LogLevel.Warning, Message = "Scheduled run {RunId} in schema {Schema} had every item finished but was still open; it was completed.")]
     private partial void LogRunCompleted(Guid runId, string schema);
 
-    [LoggerMessage(Level = LogLevel.Error, Message = "The scheduled run item recovery failed for schema {Schema}; retrying after the recovery interval.")]
+    [LoggerMessage(Level = LogLevel.Error, Message = "The task run item recovery failed for schema {Schema}; retrying after the recovery interval.")]
     private partial void LogRecoveryFailed(Exception exception, string schema);
 }

@@ -96,6 +96,6 @@ internal sealed partial class InProcessRunItemWorker(
     [LoggerMessage(Level = LogLevel.Warning, Message = "TickerQ licence not configured; scheduled runs are off, run-now and one-off runs execute in process.")]
     private partial void LogEngineOff();
 
-    [LoggerMessage(Level = LogLevel.Error, Message = "The in-process engine failed to deliver scheduled run item {RunItemId} in schema {Schema}; the recovery will hand it over again.")]
+    [LoggerMessage(Level = LogLevel.Error, Message = "The in-process engine failed to deliver task run item {RunItemId} in schema {Schema}; the recovery will hand it over again.")]
     private partial void LogDeliveryFailed(Exception exception, Guid runItemId, string schema);
 }

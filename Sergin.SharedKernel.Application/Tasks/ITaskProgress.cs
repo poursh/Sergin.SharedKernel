@@ -107,6 +107,6 @@ internal sealed partial class TaskProgress(
         return ValueTask.CompletedTask;
     }
 
-    [LoggerMessage(Level = LogLevel.Warning, Message = "The progress of scheduled run item {RunItemId} could not be written; the next report tries again.")]
+    [LoggerMessage(Level = LogLevel.Warning, Message = "The progress of task run item {RunItemId} could not be written; the next report tries again.")]
     private partial void LogWriteFailed(Exception exception, Guid runItemId);
 }

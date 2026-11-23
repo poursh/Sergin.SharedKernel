@@ -10,5 +10,5 @@ namespace Sergin.SharedKernel.Application.Tasks;
 public static class TaskPermissions
 {
     public static PermissionDefinition Manage { get; } =
-        PermissionDefinition.Create("permission.sys.tasks.manage", "Manage scheduled tasks");
+        PermissionDefinition.Create("permission.sys.tasks.manage", "Manage tasks");
 }

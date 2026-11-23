@@ -25,11 +25,11 @@ public static class TaskErrors
 
     /// <summary>A stored command name no configuration declares any more.</summary>
     public static Error UnknownCommand { get; } =
-        Error.Failure("Tasks.UnknownCommand", "The scheduled command is not declared by any module.");
+        Error.Failure("Tasks.UnknownCommand", "The task is not declared by any module.");
 
     /// <summary>Stored arguments that no longer fit the command's shape.</summary>
     public static Error ArgumentsInvalid { get; } =
-        Error.Failure("Tasks.ArgumentsInvalid", "The scheduled command's stored arguments no longer fit its shape.");
+        Error.Failure("Tasks.ArgumentsInvalid", "The task's stored arguments no longer fit its shape.");
 
     /// <summary>A run was saved but the engine could not take its items; they are failed so the run can finish.</summary>
     public static Error EngineUnavailable { get; } =

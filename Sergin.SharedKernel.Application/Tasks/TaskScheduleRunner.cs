@@ -1,4 +1,6 @@
 using Microsoft.Extensions.Logging;
+using Sergin.SharedKernel.Application.Tasks.Activity;
+using Sergin.SharedKernel.Application.Tasks.Commands;
 using Sergin.SharedKernel.Application.Times;
 using Sergin.SharedKernel.Domain.Tasks;
 
@@ -17,6 +19,7 @@ internal sealed partial class TaskScheduleRunner(
     TaskRunStarter starter,
     TaskRunItemExecutor executor,
     IDateTimeProvider clock,
+    IRunNotifier notifier,
     ILogger<TaskScheduleRunner> logger) : ITaskScheduleRunner
 {
     public async Task FireAsync(string schema, TaskScheduleId scheduleId, CancellationToken ct)
@@ -68,7 +71,10 @@ internal sealed partial class TaskScheduleRunner(
         await store.SaveAsync(ct);
     }
 
-    /// <summary>A completed run whose every item failed <see cref="TaskErrors.NotSchedulable"/>, nothing enqueued.</summary>
+    /// <summary>
+    /// A completed run whose every item failed <see cref="TaskErrors.NotSchedulable"/>, nothing enqueued; its user's open
+    /// circuits hear of it once it is saved, as of any other run that finishes.
+    /// </summary>
     private async Task AddFailedRunAsync(
         ITaskStore store, TaskRunDefinition definition, IReadOnlyCollection<TaskScheduleTarget> targets, CancellationToken ct)
     {
@@ -85,6 +91,7 @@ internal sealed partial class TaskScheduleRunner(
         run.Complete(0, items.Length, 0, now);
         store.AddRun(run, items);
         await store.SaveAsync(ct);
+        notifier.Publish(new RunChanged(new TaskRunRef(store.Schema, run.Id), run.ActingUserId));
     }
 
     [LoggerMessage(Level = LogLevel.Warning, Message = "Scheduled task {ScheduleId} ({CommandName}) fired but its task is no longer schedulable; the run failed.")]

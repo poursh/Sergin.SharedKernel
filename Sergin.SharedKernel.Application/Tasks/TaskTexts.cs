@@ -9,7 +9,7 @@ public static class TaskTexts
 
     private static readonly TextCategory errors = Category.Child("Errors");
 
-    public static readonly TextDefinition Singular = Category.Text("Singular", "Scheduled task");
+    public static readonly TextDefinition Singular = Category.Text("Singular", "Schedule");
 
     /// <summary>The management validators: the template is not a <c>Schedulable()</c> task, or belongs to another module.</summary>
     public static readonly TextDefinition NotSchedulable = errors.Text("NotSchedulable", "This command cannot be scheduled.");

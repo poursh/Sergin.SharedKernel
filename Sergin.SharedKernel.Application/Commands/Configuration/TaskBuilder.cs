@@ -3,8 +3,8 @@ namespace Sergin.SharedKernel.Application.Commands.Configuration;
 /// <summary>
 /// What a task's configuration declares inside <c>Task(...)</c>. Every member is optional: a task that calls none of
 /// them, or has no configuration at all, gets every default. The registry refuses, at host start, an inactivity timeout
-/// outside (0, <see cref="TaskSettings.MaxInactivityTimeout"/>] and a maximum duration that is not above zero or is below
-/// the inactivity timeout; the task catalogue refuses a malformed name, one outside the module's schema and one two
+/// outside (0, <see cref="TaskSettings.MaxInactivityTimeout"/>] and a maximum duration that is not above zero, is below
+/// the inactivity timeout or is above <see cref="TaskSettings.MaxMaxDuration"/>; the task catalogue refuses a malformed name, one outside the module's schema and one two
 /// tasks share.
 /// </summary>
 public sealed class TaskBuilder

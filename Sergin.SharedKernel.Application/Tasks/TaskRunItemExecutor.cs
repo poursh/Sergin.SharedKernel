@@ -283,7 +283,7 @@ internal sealed partial class TaskRunItemExecutor(
             await using AsyncServiceScope scope = scopes.CreateAsyncScope();
             scope.ServiceProvider.GetRequiredService<UserContextAccessor>().Current = new DelegatedUserContext(run.ActingUserId, run.Id);
             scope.ServiceProvider.GetRequiredService<IAuthorizationScopeContext>().Set(run.ScopeId);
-            scope.ServiceProvider.GetRequiredService<RunItemContext>().Set(item.Id, schema, run.Id, run.ActingUserId, timeouts);
+            scope.ServiceProvider.GetRequiredService<RunItemContext>().Set(item.Id, built.Value.GetType(), schema, run.Id, run.ActingUserId, timeouts);
 
             try
             {
@@ -347,9 +347,9 @@ internal sealed partial class TaskRunItemExecutor(
         }
     }
 
-    [LoggerMessage(Level = LogLevel.Warning, Message = "The heartbeat of scheduled run item {RunItemId} failed; the next tick tries again.")]
+    [LoggerMessage(Level = LogLevel.Warning, Message = "The heartbeat of task run item {RunItemId} failed; the next tick tries again.")]
     private partial void LogHeartbeatFailed(Exception exception, Guid runItemId);
 
-    [LoggerMessage(Level = LogLevel.Warning, Message = "Scheduled run item {RunItemId} of run {RunId} ({CommandName}) threw on attempt {Attempt}.")]
+    [LoggerMessage(Level = LogLevel.Warning, Message = "Task run item {RunItemId} of run {RunId} ({CommandName}) threw on attempt {Attempt}.")]
     private partial void LogAttemptThrew(Exception exception, Guid runItemId, Guid runId, string commandName, int attempt);
 }

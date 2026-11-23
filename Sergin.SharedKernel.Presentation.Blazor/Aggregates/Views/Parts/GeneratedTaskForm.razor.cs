@@ -132,6 +132,6 @@ internal static class GeneratedTaskStarts
             snackbar,
             localizer,
             targets > 1
-                ? localizer.Text(ShellTexts.CommandActions.BackgroundStartedMany, new { Count = formatter.Number(targets) })
-                : localizer.Text(ShellTexts.CommandActions.BackgroundStarted));
+                ? localizer.Text(ShellTexts.CommandActions.TaskStartedMany, new { Count = formatter.Number(targets) })
+                : localizer.Text(ShellTexts.CommandActions.TaskStarted));
 }
