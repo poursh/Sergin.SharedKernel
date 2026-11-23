@@ -34,7 +34,7 @@ internal sealed class TaskQueries(
     IEnumerable<TasksRegistration> registrations,
     TaskCatalog catalog) : ITaskQueries
 {
-    private const int MaxOneOffTake = 100;
+    private const int MaxRecentTake = 100;
 
     private const int MaxActivityTake = 100;
 
@@ -258,23 +258,23 @@ internal sealed class TaskQueries(
         return items.ToErrorOr();
     }
 
-    public Task<ErrorOr<IReadOnlyCollection<TaskRunListItem>>> OneOffRunsForTargetAsync(
+    public Task<ErrorOr<IReadOnlyCollection<TaskRunListItem>>> RecentRunsForTargetAsync(
         string schema, Guid targetId, int take, CancellationToken ct) =>
-        OneOffRunsAsync(
+        RecentRunsAsync(
             schema,
             quoted => $"EXISTS (SELECT 1 FROM {quoted}.task_run_items i WHERE i.run_id = r.id AND i.target_id = @TargetId)",
-            new DynamicParameters(new { TargetId = targetId, Take = Math.Clamp(take, 1, MaxOneOffTake) }),
+            new DynamicParameters(new { TargetId = targetId, Take = Math.Clamp(take, 1, MaxRecentTake) }),
             ct);
 
-    public Task<ErrorOr<IReadOnlyCollection<TaskRunListItem>>> OneOffRunsForCollectionAsync(
+    public Task<ErrorOr<IReadOnlyCollection<TaskRunListItem>>> RecentRunsForCollectionAsync(
         string schema, string taskName, Guid scopeId, int take, CancellationToken ct) =>
-        OneOffRunsAsync(
+        RecentRunsAsync(
             schema,
             _ => "r.target_kind = 'Collection' AND r.command_name = @TaskName AND r.scope_id = @ScopeId",
-            new DynamicParameters(new { TaskName = taskName, ScopeId = scopeId, Take = Math.Clamp(take, 1, MaxOneOffTake) }),
+            new DynamicParameters(new { TaskName = taskName, ScopeId = scopeId, Take = Math.Clamp(take, 1, MaxRecentTake) }),
             ct);
 
-    private async Task<ErrorOr<IReadOnlyCollection<TaskRunListItem>>> OneOffRunsAsync(
+    private async Task<ErrorOr<IReadOnlyCollection<TaskRunListItem>>> RecentRunsAsync(
         string schema, Func<string, string> filterOf, DynamicParameters parameters, CancellationToken ct)
     {
         if (!TryQuote(schema, out string quoted))
@@ -284,12 +284,17 @@ internal sealed class TaskQueries(
 
         using DbConnection connection = await connectionFactory.CreateConnectionAsync();
 
-        // The outer query's only table is the runs, which carry their own scope.
+        // Every trigger: a schedule's run is reached through its live schedule (a deleted one hides its history, as in
+        // the runs dialog), any other run through its own scope. In each branch the nearest table to Reach's unqualified
+        // columns is the one that owns them.
         string sql =
             $$"""
             SELECT {{RunColumns}}
             FROM {{quoted}}.task_runs r
-            WHERE r.schedule_id IS NULL AND r."trigger" IN ('Once', 'Manual') AND {{ScopeColumns.ReachSql}}
+            WHERE ((r.schedule_id IS NOT NULL AND EXISTS (
+                        SELECT 1 FROM {{quoted}}.task_schedules
+                        WHERE id = r.schedule_id AND deleted_at_utc IS NULL AND {{ScopeColumns.ReachSql}}))
+                   OR (r.schedule_id IS NULL AND {{ScopeColumns.ReachSql}}))
               AND {{filterOf(quoted)}}
             ORDER BY r.started_at_utc DESC, r.id DESC
             LIMIT @Take;

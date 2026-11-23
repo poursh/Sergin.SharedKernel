@@ -28,9 +28,9 @@ internal sealed class GetTaskRunItemsQueryConfiguration : ICommandConfiguration<
         builder.RequirePermissions(TaskPermissions.Manage).NotShown(x => x.Schema).NotShown(x => x.RunId);
 }
 
-internal sealed class GetOneOffRunsForTargetQueryConfiguration : ICommandConfiguration<GetOneOffRunsForTargetQuery>
+internal sealed class GetRecentRunsForTargetQueryConfiguration : ICommandConfiguration<GetRecentRunsForTargetQuery>
 {
-    public void Configure(CommandConfigurationBuilder<GetOneOffRunsForTargetQuery> builder) =>
+    public void Configure(CommandConfigurationBuilder<GetRecentRunsForTargetQuery> builder) =>
         builder.RequirePermissions(TaskPermissions.Manage).NotShown(x => x.Schema).NotShown(x => x.TargetId).NotShown(x => x.Take);
 }
 
@@ -40,9 +40,9 @@ internal sealed class GetTaskSchedulesForCollectionQueryConfiguration : ICommand
         builder.RequirePermissions(TaskPermissions.Manage).NotShown(x => x.Schema).NotShown(x => x.TaskName).NotShown(x => x.ScopeId);
 }
 
-internal sealed class GetOneOffRunsForCollectionQueryConfiguration : ICommandConfiguration<GetOneOffRunsForCollectionQuery>
+internal sealed class GetRecentRunsForCollectionQueryConfiguration : ICommandConfiguration<GetRecentRunsForCollectionQuery>
 {
-    public void Configure(CommandConfigurationBuilder<GetOneOffRunsForCollectionQuery> builder) =>
+    public void Configure(CommandConfigurationBuilder<GetRecentRunsForCollectionQuery> builder) =>
         builder.RequirePermissions(TaskPermissions.Manage)
             .NotShown(x => x.Schema).NotShown(x => x.TaskName).NotShown(x => x.ScopeId).NotShown(x => x.Take);
 }

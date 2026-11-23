@@ -23,10 +23,10 @@ public interface ITaskQueries
 
     Task<ErrorOr<IReadOnlyCollection<TaskRunItemListItem>>> RunItemsAsync(string schema, Guid runId, CancellationToken ct);
 
-    Task<ErrorOr<IReadOnlyCollection<TaskRunListItem>>> OneOffRunsForTargetAsync(string schema, Guid targetId, int take, CancellationToken ct);
+    Task<ErrorOr<IReadOnlyCollection<TaskRunListItem>>> RecentRunsForTargetAsync(string schema, Guid targetId, int take, CancellationToken ct);
 
-    /// <summary>The latest one-off runs of the collection task <paramref name="taskName"/> in the scope <paramref name="scopeId"/>.</summary>
-    Task<ErrorOr<IReadOnlyCollection<TaskRunListItem>>> OneOffRunsForCollectionAsync(string schema, string taskName, Guid scopeId, int take, CancellationToken ct);
+    /// <summary>The latest runs, of every trigger, of the collection task <paramref name="taskName"/> in the scope <paramref name="scopeId"/>.</summary>
+    Task<ErrorOr<IReadOnlyCollection<TaskRunListItem>>> RecentRunsForCollectionAsync(string schema, string taskName, Guid scopeId, int take, CancellationToken ct);
 
     /// <summary>
     /// The runs <paramref name="userId"/> started (Background, Run now, Run once; never a schedule's), running or

@@ -42,10 +42,10 @@ public sealed partial class SerginTaskSchedulesSection : IDisposable
     /// <summary>The id of the section's root element, so a view can scroll to it or link to it.</summary>
     public const string ElementId = "sergin-task-schedules";
 
-    private const int OneOffTake = 5;
+    private const int RecentTake = 5;
 
     private IReadOnlyCollection<TaskScheduleListItem> tasks = [];
-    private IReadOnlyCollection<TaskRunListItem> oneOffRuns = [];
+    private IReadOnlyCollection<TaskRunListItem> recentRuns = [];
     private IReadOnlyDictionary<Guid, string> names = new Dictionary<Guid, string>();
     private TimeZoneInfo timeZone = TimeZoneInfo.Utc;
     private SerginProblem? problem;
@@ -210,18 +210,18 @@ public sealed partial class SerginTaskSchedulesSection : IDisposable
         problem = null;
         tasks = loaded.Value;
 
-        ErrorOr<IReadOnlyCollection<TaskRunListItem>> oneOff = TargetId is { } target
-            ? await Dispatcher.SendAsync(new GetOneOffRunsForTargetQuery(Schema, target, OneOffTake))
-            : await Dispatcher.SendAsync(new GetOneOffRunsForCollectionQuery(Schema, CollectionTaskName, CollectionScopeId, OneOffTake));
+        ErrorOr<IReadOnlyCollection<TaskRunListItem>> recent = TargetId is { } target
+            ? await Dispatcher.SendAsync(new GetRecentRunsForTargetQuery(Schema, target, RecentTake))
+            : await Dispatcher.SendAsync(new GetRecentRunsForCollectionQuery(Schema, CollectionTaskName, CollectionScopeId, RecentTake));
 
-        if (oneOff.IsError)
+        if (recent.IsError)
         {
-            ErrorPresenter.Notify(oneOff.Errors);
+            ErrorPresenter.Notify(recent.Errors);
             return false;
         }
 
-        oneOffRuns = oneOff.Value;
-        names = await Users.GetDisplayNamesAsync([.. oneOffRuns.Select(run => run.ActingUserId).Distinct()]);
+        recentRuns = recent.Value;
+        names = await Users.GetDisplayNamesAsync([.. recentRuns.Select(run => run.ActingUserId).Distinct()]);
 
         return true;
     }
@@ -256,7 +256,7 @@ public sealed partial class SerginTaskSchedulesSection : IDisposable
         loadedFor = (Schema, TargetId, TaskName, ScopeId);
         StopPolling();
         tasks = [];
-        oneOffRuns = [];
+        recentRuns = [];
         names = new Dictionary<Guid, string>();
         await ReloadAsync();
     }
@@ -289,7 +289,7 @@ public sealed partial class SerginTaskSchedulesSection : IDisposable
     /// <summary>Whether the section's poll timer is running (it is while a listed run is Running, never after disposal).</summary>
     public bool IsPolling => poller is not null;
 
-    private bool AnyRunning => oneOffRuns.Any(run => run.Status == TaskRunStatus.Running)
+    private bool AnyRunning => recentRuns.Any(run => run.Status == TaskRunStatus.Running)
         || tasks.Any(task => task.LastRunStatus == TaskRunStatus.Running);
 
     // A timer owned by the section: on only while a listed run is Running, off again once none is, and gone with the section.
@@ -381,7 +381,7 @@ public sealed partial class SerginTaskSchedulesSection : IDisposable
 
     private string NameOf(Guid userId) => TaskUiFormat.NameOf(names, userId);
 
-    private string OneOffSummaryText(TaskRunListItem run) => TaskUiFormat.RunSummary(Localizer, Formatter, run);
+    private string RunSummaryText(TaskRunListItem run) => TaskUiFormat.RunSummary(Localizer, Formatter, run);
 
     // A schedule and a one-off run are named by their command's view label (Read profile), as the activity indicator
     // names it; a command no view names shows its stable name, as stored.

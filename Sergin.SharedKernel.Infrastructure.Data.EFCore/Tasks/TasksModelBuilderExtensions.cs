@@ -101,7 +101,7 @@ public static class TasksModelBuilderExtensions
             item.HasIndex(x => new { x.Status, x.LastActivityAtUtc }).HasDatabaseName(StaleItemsIndexName)
                 .HasFilter("status IN ('Pending', 'Running', 'Retrying')");
 
-            // A record's one-off runs (the schedules section): the items over a target, each naming its run.
+            // A record's recent runs (the schedules section): the items over a target, each naming its run.
             item.HasIndex(x => new { x.TargetId, x.RunId });
         });
 

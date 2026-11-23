@@ -47,9 +47,9 @@ public static class TaskServiceExtensions
         services.AddTransient<IRequestHandler<GetTaskScheduleByIdQuery, ErrorOr<TaskScheduleResponse>>, GetTaskScheduleByIdQueryHandler>();
         services.AddTransient<IRequestHandler<GetTaskScheduleRunsQuery, ErrorOr<ListQueryResponse<TaskRunListItem>>>, GetTaskScheduleRunsQueryHandler>();
         services.AddTransient<IRequestHandler<GetTaskRunItemsQuery, ErrorOr<IReadOnlyCollection<TaskRunItemListItem>>>, GetTaskRunItemsQueryHandler>();
-        services.AddTransient<IRequestHandler<GetOneOffRunsForTargetQuery, ErrorOr<IReadOnlyCollection<TaskRunListItem>>>, GetOneOffRunsForTargetQueryHandler>();
+        services.AddTransient<IRequestHandler<GetRecentRunsForTargetQuery, ErrorOr<IReadOnlyCollection<TaskRunListItem>>>, GetRecentRunsForTargetQueryHandler>();
         services.AddTransient<IRequestHandler<GetTaskSchedulesForCollectionQuery, ErrorOr<IReadOnlyCollection<TaskScheduleListItem>>>, GetTaskSchedulesForCollectionQueryHandler>();
-        services.AddTransient<IRequestHandler<GetOneOffRunsForCollectionQuery, ErrorOr<IReadOnlyCollection<TaskRunListItem>>>, GetOneOffRunsForCollectionQueryHandler>();
+        services.AddTransient<IRequestHandler<GetRecentRunsForCollectionQuery, ErrorOr<IReadOnlyCollection<TaskRunListItem>>>, GetRecentRunsForCollectionQueryHandler>();
 
         // A user's own runs across every opted-in module: the directory over the per-context sources, and its query
         // (AddSerginCore registers them too, for a host where nothing opts in).

@@ -56,9 +56,9 @@ public static class TaskUiTexts
 
     public static TextDefinition EmptyInScope { get; } = category.Text("EmptyInScope", "Nothing is scheduled in this scope.");
 
-    public static TextDefinition OneOffRuns { get; } = category.Text("OneOffRuns", "Recent one-off runs");
+    public static TextDefinition RecentRuns { get; } = category.Text("RecentRuns", "Recent runs");
 
-    public static TextDefinition OneOffEmpty { get; } = category.Text("OneOffEmpty", "Nothing has been run once here yet.");
+    public static TextDefinition RecentRunsEmpty { get; } = category.Text("RecentRunsEmpty", "Nothing has run here yet.");
 
     public static TextDefinition Never { get; } = category.Text("Never", "Never run");
 

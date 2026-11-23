@@ -62,14 +62,14 @@
             </NoRecordsContent>
         </MudTable>
 
-        <MudText Typo="Typo.subtitle1" Class="mt-4 mb-1">@Localizer.Text(TaskUiTexts.OneOffRuns)</MudText>
-        @if (oneOffRuns.Count == 0)
+        <MudText Typo="Typo.subtitle1" Class="mt-4 mb-1">@Localizer.Text(TaskUiTexts.RecentRuns)</MudText>
+        @if (recentRuns.Count == 0)
         {
-            <MudText Typo="Typo.body2">@Localizer.Text(TaskUiTexts.OneOffEmpty)</MudText>
+            <MudText Typo="Typo.body2">@Localizer.Text(TaskUiTexts.RecentRunsEmpty)</MudText>
         }
         else
         {
-            <MudSimpleTable Dense="true" Elevation="0" Bordered="true" Class="sergin-one-off-runs">
+            <MudSimpleTable Dense="true" Elevation="0" Bordered="true" Class="sergin-recent-runs">
                 <thead>
                     <tr>
                         <th>@Localizer.Text(TaskUiTexts.Columns.Command)</th>
@@ -81,7 +81,7 @@
                     </tr>
                 </thead>
                 <tbody>
-                    @foreach (TaskRunListItem run in oneOffRuns)
+                    @foreach (TaskRunListItem run in recentRuns)
                     {
                         <tr>
                             <td><div class="d-flex align-center gap-2 sergin-scheduled-command">@if (CommandIcon(run.CommandName) is { } icon){<MudIcon Icon="@icon" Size="Size.Small" Color="Color.Primary" />}<span>@CommandText(run.CommandName)</span></div></td>
@@ -92,9 +92,9 @@
                                 <div class="d-flex align-center gap-2">
                                     @if (run.Status == TaskRunStatus.Running)
                                     {
-                                        <MudProgressCircular Indeterminate="true" Size="Size.Small" Color="Color.Primary" Class="sergin-one-off-progress" />
+                                        <MudProgressCircular Indeterminate="true" Size="Size.Small" Color="Color.Primary" Class="sergin-recent-run-progress" />
                                     }
-                                    <span>@OneOffSummaryText(run)</span>
+                                    <span>@RunSummaryText(run)</span>
                                 </div>
                             </td>
                             <td style="white-space: nowrap; text-align: right;">
@@ -105,7 +105,7 @@
                                 else if (run.Status == TaskRunStatus.Running)
                                 {
                                     <MudButton Size="Size.Small" Variant="Variant.Text" StartIcon="@Icons.Material.Outlined.Cancel"
-                                               Class="sergin-one-off-cancel" OnClick="@(() => CancelRunAsync(run.Id))">
+                                               Class="sergin-recent-run-cancel" OnClick="@(() => CancelRunAsync(run.Id))">
                                         @Localizer.Text(TaskUiTexts.Activity.Cancel)
                                     </MudButton>
                                 }

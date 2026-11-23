@@ -18,11 +18,11 @@ public sealed record GetTaskScheduleRunsQuery(string Schema, TaskScheduleId Sche
 
 public sealed record GetTaskRunItemsQuery(string Schema, Guid RunId) : IQuery<IReadOnlyCollection<TaskRunItemListItem>>;
 
-/// <summary>The latest one-off runs (no schedule) over one record.</summary>
-public sealed record GetOneOffRunsForTargetQuery(string Schema, Guid TargetId, int Take) : IQuery<IReadOnlyCollection<TaskRunListItem>>;
+/// <summary>The latest runs over one record, whatever started them (a schedule, Run now, Run once, a person).</summary>
+public sealed record GetRecentRunsForTargetQuery(string Schema, Guid TargetId, int Take) : IQuery<IReadOnlyCollection<TaskRunListItem>>;
 
-/// <summary>The latest one-off runs (no schedule) of one collection task, by its name, in one scope.</summary>
-public sealed record GetOneOffRunsForCollectionQuery(string Schema, string TaskName, Guid ScopeId, int Take) : IQuery<IReadOnlyCollection<TaskRunListItem>>;
+/// <summary>The latest runs of one collection task, by its name, in one scope, whatever started them.</summary>
+public sealed record GetRecentRunsForCollectionQuery(string Schema, string TaskName, Guid ScopeId, int Take) : IQuery<IReadOnlyCollection<TaskRunListItem>>;
 
 internal sealed class GetTaskSchedulesForTargetQueryHandler(ITaskQueries queries)
     : IQueryHandler<GetTaskSchedulesForTargetQuery, IReadOnlyCollection<TaskScheduleListItem>>
@@ -59,16 +59,16 @@ internal sealed class GetTaskRunItemsQueryHandler(ITaskQueries queries)
         queries.RunItemsAsync(request.Schema, request.RunId, cancellationToken);
 }
 
-internal sealed class GetOneOffRunsForTargetQueryHandler(ITaskQueries queries)
-    : IQueryHandler<GetOneOffRunsForTargetQuery, IReadOnlyCollection<TaskRunListItem>>
+internal sealed class GetRecentRunsForTargetQueryHandler(ITaskQueries queries)
+    : IQueryHandler<GetRecentRunsForTargetQuery, IReadOnlyCollection<TaskRunListItem>>
 {
-    public Task<ErrorOr<IReadOnlyCollection<TaskRunListItem>>> Handle(GetOneOffRunsForTargetQuery request, CancellationToken cancellationToken) =>
-        queries.OneOffRunsForTargetAsync(request.Schema, request.TargetId, request.Take, cancellationToken);
+    public Task<ErrorOr<IReadOnlyCollection<TaskRunListItem>>> Handle(GetRecentRunsForTargetQuery request, CancellationToken cancellationToken) =>
+        queries.RecentRunsForTargetAsync(request.Schema, request.TargetId, request.Take, cancellationToken);
 }
 
-internal sealed class GetOneOffRunsForCollectionQueryHandler(ITaskQueries queries)
-    : IQueryHandler<GetOneOffRunsForCollectionQuery, IReadOnlyCollection<TaskRunListItem>>
+internal sealed class GetRecentRunsForCollectionQueryHandler(ITaskQueries queries)
+    : IQueryHandler<GetRecentRunsForCollectionQuery, IReadOnlyCollection<TaskRunListItem>>
 {
-    public Task<ErrorOr<IReadOnlyCollection<TaskRunListItem>>> Handle(GetOneOffRunsForCollectionQuery request, CancellationToken cancellationToken) =>
-        queries.OneOffRunsForCollectionAsync(request.Schema, request.TaskName, request.ScopeId, request.Take, cancellationToken);
+    public Task<ErrorOr<IReadOnlyCollection<TaskRunListItem>>> Handle(GetRecentRunsForCollectionQuery request, CancellationToken cancellationToken) =>
+        queries.RecentRunsForCollectionAsync(request.Schema, request.TaskName, request.ScopeId, request.Take, cancellationToken);
 }
