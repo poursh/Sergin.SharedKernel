@@ -281,6 +281,16 @@ public static class TaskUiTexts
         public static TextDefinition AnyValue { get; } = runList.Text("AnyValue", "Any");
     }
 
+    /// <summary>The drawer's Tasks entry: the caption over it and its one link.</summary>
+    public static class Navigation
+    {
+        private static readonly TextCategory navigation = category.Child("Navigation");
+
+        public static TextDefinition Caption { get; } = navigation.Text("Caption", "Tasks");
+
+        public static TextDefinition TaskRuns { get; } = navigation.Text("TaskRuns", "Task runs");
+    }
+
     /// <summary>The cron picker.</summary>
     public static class Cron
     {

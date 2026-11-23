@@ -20,6 +20,7 @@ using Sergin.SharedKernel.Hosts.WebUi;
 using Sergin.SharedKernel.Hosts.WebUi.Localizations;
 using Sergin.SharedKernel.Hosts.WebUi.Users;
 using Sergin.SharedKernel.Infrastructure.Data.EFCore.Aggregates;
+using Sergin.SharedKernel.Infrastructure.Data.EFCore.Tasks;
 using Sergin.SharedKernel.Modules;
 using Sergin.SharedKernel.Presentation;
 using Sergin.SharedKernel.Presentation.Blazor.Aggregates;
@@ -27,6 +28,8 @@ using Sergin.SharedKernel.Presentation.Blazor.Home;
 using Sergin.SharedKernel.Presentation.Localizations;
 using Sergin.SharedKernel.Presentation.Blazor.Authentication;
 using Sergin.SharedKernel.Presentation.Blazor.Modules;
+using Sergin.SharedKernel.Presentation.Blazor.Navigation;
+using Sergin.SharedKernel.Presentation.Blazor.Tasks.Runs;
 
 namespace Microsoft.Extensions.Hosting;
 
@@ -126,7 +129,7 @@ public static class SerginWebUiExtensions
 
         AddSerginRequestLocalization(builder.Services);
 
-        builder.Services.AddSingleton(CreateUiModuleCatalog(modules));
+        builder.Services.AddSingleton(CreateUiModuleCatalog(modules, ShellEntriesFor(builder.Services)));
 
         SerginHomeBuilder homeBuilder = new();
 
@@ -160,17 +163,26 @@ public static class SerginWebUiExtensions
     // The catalogue reads every module's NavItems eagerly, and a module's nav entries reference its permission
     // definitions: a malformed definition surfaces here, as a nested TypeInitializationException that names only
     // the navigation class. Unwrap it to the class that actually failed.
-    private static SerginUiModuleCatalog CreateUiModuleCatalog(IReadOnlyCollection<ISerginModule> modules)
+    private static SerginUiModuleCatalog CreateUiModuleCatalog(
+        IReadOnlyCollection<ISerginModule> modules, IReadOnlyCollection<SerginShellNavEntry> shellEntries)
     {
         try
         {
-            return new SerginUiModuleCatalog([.. modules.OfType<ISerginWebUiModule>()]);
+            return new SerginUiModuleCatalog([.. modules.OfType<ISerginWebUiModule>()], shellEntries);
         }
         catch (TypeInitializationException exception)
         {
             throw StaticInitializationFailure.Describe("Composing the UI modules' navigation", exception);
         }
     }
+
+    /// <summary>
+    /// The drawer entries the shell contributes itself: the Tasks entry when a module opts into tasks (a
+    /// <see cref="TasksRegistration"/> is registered), none otherwise, so a host with no task module shows no dead link.
+    /// Read after <c>AddSerginCore</c>, which is what registers the modules' contexts.
+    /// </summary>
+    internal static IReadOnlyCollection<SerginShellNavEntry> ShellEntriesFor(IServiceCollection services) =>
+        services.Any(descriptor => descriptor.ServiceType == typeof(TasksRegistration)) ? [SerginTaskNavigation.Entry] : [];
 
     public static async Task<WebApplication> UseSerginWebUiAsync<TRootComponent>(
         this WebApplication app, IReadOnlyCollection<ISerginModule> modules)
@@ -277,52 +289,71 @@ public static class SerginWebUiExtensions
 
     private static void ValidateRoutePrefixes(SerginUiModuleCatalog catalog)
     {
-        List<string> violations = [];
-
-        foreach (ISerginWebUiModule module in catalog.Modules)
-        {
-            string prefix = $"/{module.Schema}/";
-
-            foreach (Type component in module.UiAssembly.GetExportedTypes())
-            {
-                if (!typeof(IComponent).IsAssignableFrom(component))
-                {
-                    continue;
-                }
-
-                foreach (RouteAttribute route in component.GetCustomAttributes<RouteAttribute>(inherit: false))
-                {
-                    if (!route.Template.StartsWith(prefix, StringComparison.Ordinal))
-                    {
-                        violations.Add($"  {component.FullName}: @page \"{route.Template}\" must start with \"{prefix}\"");
-                    }
-                }
-            }
-        }
+        IReadOnlyList<string> violations = RouteViolations(catalog, typeof(SerginUiModuleCatalog).Assembly);
 
         if (violations.Count > 0)
         {
             throw new InvalidOperationException(
-                "Module routable components must sit under their module's schema prefix, because Razor @page "
-                + "templates are compile-time constants and cannot be prefixed at map time the way "
-                + "MapGroup(schema) prefixes minimal-API endpoints:"
+                "Module routable components must sit under their module's schema prefix, and the shell's own pages "
+                + "under \"/sys/\" (or be the root \"/\"), because Razor @page templates are compile-time constants "
+                + "and cannot be prefixed at map time the way MapGroup(schema) prefixes minimal-API endpoints:"
                 + Environment.NewLine
                 + string.Join(Environment.NewLine, violations));
         }
     }
 
     /// <summary>
+    /// Every routable component whose template breaks its rule: a module's under <c>/{schema}/</c>, the shell's
+    /// (<paramref name="shellAssembly"/>) the root <c>/</c> or under <c>/sys/</c>, the schema no module may take.
+    /// </summary>
+    internal static IReadOnlyList<string> RouteViolations(SerginUiModuleCatalog catalog, Assembly shellAssembly)
+    {
+        List<string> violations = [];
+
+        foreach (ISerginWebUiModule module in catalog.Modules)
+        {
+            string prefix = $"/{module.Schema}/";
+
+            foreach ((Type component, RouteAttribute route) in RoutesOf(module.UiAssembly))
+            {
+                if (!route.Template.StartsWith(prefix, StringComparison.Ordinal))
+                {
+                    violations.Add($"  {component.FullName}: @page \"{route.Template}\" must start with \"{prefix}\"");
+                }
+            }
+        }
+
+        foreach ((Type component, RouteAttribute route) in RoutesOf(shellAssembly))
+        {
+            if (route.Template != "/" && !route.Template.StartsWith("/sys/", StringComparison.Ordinal))
+            {
+                violations.Add($"  {component.FullName}: shell @page \"{route.Template}\" must be \"/\" or start with \"/sys/\"");
+            }
+        }
+
+        return violations;
+    }
+
+    private static IEnumerable<(Type Component, RouteAttribute Route)> RoutesOf(Assembly assembly) =>
+        assembly.GetExportedTypes()
+            .Where(type => typeof(IComponent).IsAssignableFrom(type))
+            .SelectMany(type => type.GetCustomAttributes<RouteAttribute>(inherit: false).Select(route => (type, route)));
+
+    /// <summary>
     /// Every nav entry's required permission must be in the catalogue. The nav cannot hand a typo to the menu any
     /// more, but it can name a definition no aggregate registered, which no role could grant: the entry would never
     /// show, and the page behind it would refuse everyone.
     /// </summary>
-    private static void ValidateNavPermissions(SerginUiModuleCatalog catalog, PermissionCatalog permissions)
+    internal static void ValidateNavPermissions(SerginUiModuleCatalog catalog, PermissionCatalog permissions)
     {
         string[] violations =
         [
             .. catalog.Modules.SelectMany(module => module.NavItems
                 .Where(item => item.RequiredPermission is not null && !permissions.Contains(item.RequiredPermission))
                 .Select(item => $"  {module.GetType().FullName}: nav entry \"{item.Label.Default}\" requires {item.RequiredPermission}")),
+            .. catalog.ShellEntries.SelectMany(entry => entry.Items
+                .Where(item => item.RequiredPermission is not null && !permissions.Contains(item.RequiredPermission))
+                .Select(item => $"  shell: nav entry \"{item.Label.Default}\" requires {item.RequiredPermission}")),
         ];
 
         if (violations.Length > 0)
