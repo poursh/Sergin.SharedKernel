@@ -79,15 +79,26 @@ internal static class TaskUiFormat
     /// </summary>
     public static string RunSummary(IStringLocalizer localizer, ICultureFormatter formatter, TaskRunListItem run)
     {
+        ArgumentNullException.ThrowIfNull(run);
+
+        return RunSummary(localizer, formatter, StatusText(run.Status), new RunCounts(run.Total, run.Succeeded, run.Failed, run.Cancelled));
+    }
+
+    /// <summary>The same sentence from a status text and the run's counts, for a list that reads no stored status.</summary>
+    public static string RunSummary(IStringLocalizer localizer, ICultureFormatter formatter, TextDefinition status, RunCounts counts)
+    {
         var values = new
         {
-            Status = localizer.Text(StatusText(run.Status)),
-            Succeeded = formatter.Number(run.Succeeded),
-            Total = formatter.Number(run.Total),
-            Failed = formatter.Number(run.Failed),
-            Cancelled = formatter.Number(run.Cancelled),
+            Status = localizer.Text(status),
+            Succeeded = formatter.Number(counts.Succeeded),
+            Total = formatter.Number(counts.Total),
+            Failed = formatter.Number(counts.Failed),
+            Cancelled = formatter.Number(counts.Cancelled),
         };
 
-        return localizer.Text(run.Cancelled > 0 ? TaskUiTexts.Runs.SummaryWithCancelled : TaskUiTexts.Runs.Summary, values);
+        return localizer.Text(counts.Cancelled > 0 ? TaskUiTexts.Runs.SummaryWithCancelled : TaskUiTexts.Runs.Summary, values);
     }
 }
+
+/// <summary>A finished run's item counts, as its summary reads them.</summary>
+internal readonly record struct RunCounts(int Total, int Succeeded, int Failed, int Cancelled);

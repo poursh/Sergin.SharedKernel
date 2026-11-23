@@ -236,6 +236,44 @@ public static class TaskUiTexts
         public static TextDefinition CancelFailed { get; } = activity.Text("CancelFailed", "The run could not be cancelled.");
     }
 
+    /// <summary>
+    /// The Task runs page and its records dialog. The list's field labels and run outcomes are Application's
+    /// (<see cref="TaskTexts.RunList"/>), on the same category under <c>fields.*</c> and <c>values.*</c>.
+    /// </summary>
+    public static class RunList
+    {
+        private static readonly TextCategory runList = category.Child("RunList");
+
+        public static TextDefinition Heading { get; } = runList.Text("Title", "Task runs");
+
+        /// <summary>The module selector's label, shown when more than one module runs tasks.</summary>
+        public static TextDefinition Module { get; } = runList.Text("Module", "Module");
+
+        /// <summary>The column naming what a run ran on: its record, its record count or its scope.</summary>
+        public static TextDefinition Records { get; } = runList.Text("Records", "Records");
+
+        public static TextDefinition NoModule { get; } = runList.Text("NoModule", "No module runs tasks in this application.");
+
+        public static TextDefinition NoRuns { get; } = runList.Text("NoRuns", "No runs match.");
+
+        /// <summary>The records dialog's column of when each record finished.</summary>
+        public static TextDefinition FinishedAt { get; } = runList.Text("FinishedAt", "Finished");
+
+        public static TextDefinition TriggerManual { get; } = runList.Text("TriggerManual", "Started");
+
+        public static TextDefinition TriggerOnce { get; } = runList.Text("TriggerOnce", "Run once");
+
+        public static TextDefinition TriggerScheduleNow { get; } = runList.Text("TriggerScheduleNow", "Run now");
+
+        public static TextDefinition TriggerSchedule { get; } = runList.Text("TriggerSchedule", "Schedule");
+
+        /// <summary>A schedule's run: the trigger, then the schedule's cron as stored (schedules have no name).</summary>
+        public static TextDefinition TriggerWithSchedule { get; } = runList.Text("TriggerWithSchedule", "{Trigger} · {Schedule}");
+
+        /// <summary>A filter picker with nothing chosen.</summary>
+        public static TextDefinition AnyValue { get; } = runList.Text("AnyValue", "Any");
+    }
+
     /// <summary>The cron picker.</summary>
     public static class Cron
     {

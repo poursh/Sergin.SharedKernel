@@ -1,0 +1,31 @@
+@* One run's records: which succeeded, which failed, how many attempts each took and what the last one said; with
+   FinishedIn set, also when each finished. *@
+<MudSimpleTable Dense="true" Elevation="0" Bordered="true" Class="sergin-run-items">
+    <thead>
+        <tr>
+            <th>@Localizer.Text(TaskUiTexts.Runs.Target)</th>
+            <th>@Localizer.Text(TaskUiTexts.Runs.Status)</th>
+            <th>@Localizer.Text(TaskUiTexts.Runs.Attempts)</th>
+            <th>@Localizer.Text(TaskUiTexts.Runs.Error)</th>
+            @if (FinishedIn is not null)
+            {
+                <th>@Localizer.Text(TaskUiTexts.RunList.FinishedAt)</th>
+            }
+        </tr>
+    </thead>
+    <tbody>
+        @foreach (TaskRunItemListItem item in Items)
+        {
+            <tr>
+                <td>@TargetText(item)</td>
+                <td>@ItemStatusText(item)</td>
+                <td>@Formatter.Number(item.Attempts)</td>
+                <td>@item.ErrorDescription</td>
+                @if (FinishedIn is { } zone)
+                {
+                    <td>@FinishedText(item, zone)</td>
+                }
+            </tr>
+        }
+    </tbody>
+</MudSimpleTable>

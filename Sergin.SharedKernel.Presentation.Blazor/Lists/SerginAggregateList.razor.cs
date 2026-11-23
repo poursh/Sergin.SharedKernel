@@ -78,6 +78,10 @@ public sealed partial class SerginAggregateList<TItem>
     [Parameter]
     public TextDefinition? SearchPlaceholderText { get; set; }
 
+    /// <summary>What an empty table says, whatever the criteria; the shell's two texts when not set.</summary>
+    [Parameter]
+    public TextDefinition? NoRecordsText { get; set; }
+
     [Parameter]
     public int RowsPerPage { get; set; } = 10;
 

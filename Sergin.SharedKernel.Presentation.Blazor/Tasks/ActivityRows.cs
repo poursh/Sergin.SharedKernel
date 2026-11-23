@@ -197,9 +197,26 @@ internal static class ActivityRows
             ?? model.Children.SelectMany(child => child.Commands).FirstOrDefault(view => view.Request == command.RequestType);
     }
 
-    // A link only for one record of the root itself: a child target's page needs its root, and many targets have no one page.
+    /// <summary>
+    /// The detail link of a run's one record, as the activity row links it; null for any other run (see
+    /// <see cref="HrefOf(int, Guid?, TaskDescriptor?, AggregateViewModel?)"/>).
+    /// </summary>
+    public static string? RecordHref(string commandName, int total, Guid? targetId, TaskCatalog catalog, AggregateViewRegistry views)
+    {
+        ArgumentNullException.ThrowIfNull(catalog);
+        ArgumentNullException.ThrowIfNull(views);
+
+        TaskDescriptor? command = catalog.ByName(commandName);
+
+        return HrefOf(total, targetId, command, command is null ? null : views.Find(command.Root));
+    }
+
     private static string? HrefOf(ActivityItem item, TaskDescriptor? command, AggregateViewModel? model) =>
-        item.Total == 1 && item.TargetId is { } target && command?.TargetKind == CommandTargetKind.Entity && model is not null
+        HrefOf(item.Total, item.TargetId, command, model);
+
+    // A link only for one record of the root itself: a child target's page needs its root, and many targets have no one page.
+    private static string? HrefOf(int total, Guid? targetId, TaskDescriptor? command, AggregateViewModel? model) =>
+        total == 1 && targetId is { } target && command?.TargetKind == CommandTargetKind.Entity && model is not null
             ? model.Routes.Detail?.Invoke(target)
             : null;
 }
