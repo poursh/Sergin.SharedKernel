@@ -48,11 +48,6 @@ public sealed partial class SerginTaskRunsView : IAsyncDisposable
     private volatile bool disposed;
 
     private IReadOnlyList<Guid> actors = [];
-    private string? taskFilter;
-    private RunOutcome? statusFilter;
-    private Guid? startedByFilter;
-    private TaskRunTrigger? triggerFilter;
-    private DateRange? startedFilter;
 
     /// <summary>The schema asked for (the page's <c>?module=</c>); the first module when absent or not listed.</summary>
     [Parameter]
@@ -99,6 +94,21 @@ public sealed partial class SerginTaskRunsView : IAsyncDisposable
 
     [Inject]
     private ILogger<SerginTaskRunsView> Logger { get; set; } = default!;
+
+    /// <summary>The filter panel's Task field: a task's stored name.</summary>
+    internal string? TaskFilter { get; set; }
+
+    /// <summary>The filter panel's Status field.</summary>
+    internal RunOutcome? StatusFilter { get; set; }
+
+    /// <summary>The filter panel's Started by field.</summary>
+    internal Guid? StartedByFilter { get; set; }
+
+    /// <summary>The filter panel's Trigger field.</summary>
+    internal TaskRunTrigger? TriggerFilter { get; set; }
+
+    /// <summary>The filter panel's Started between field: whole days in the viewer's zone.</summary>
+    internal DateRange? StartedFilter { get; set; }
 
     /// <summary>Whether the last load listed a running run, which keeps the poll reloading.</summary>
     internal bool HasRunning { get; private set; }
@@ -265,32 +275,33 @@ public sealed partial class SerginTaskRunsView : IAsyncDisposable
         }
     }
 
-    private IReadOnlyList<SerginAppliedFilter> BuildFilters()
+    /// <summary>The filters the panel's fields make, each with its chip: what Apply sends.</summary>
+    internal IReadOnlyList<SerginAppliedFilter> BuildFilters()
     {
         List<SerginAppliedFilter> filters = [];
 
-        if (taskFilter is { } task)
+        if (TaskFilter is { } task)
         {
             filters.Add(new(TaskRunListFields.Task, FilteringType.equals, task, Chip(TaskTexts.RunList.Task, TaskText(task))));
         }
 
-        if (statusFilter is { } status)
+        if (StatusFilter is { } status)
         {
             filters.Add(new(TaskRunListFields.Status, FilteringType.equals, status.ToString(), Chip(TaskTexts.RunList.Status, OutcomeText(status))));
         }
 
-        if (startedByFilter is { } person)
+        if (StartedByFilter is { } person)
         {
             filters.Add(new(TaskRunListFields.StartedBy, FilteringType.equals, person.ToString(), Chip(TaskTexts.RunList.StartedBy, NameOf(person))));
         }
 
-        if (triggerFilter is { } trigger)
+        if (TriggerFilter is { } trigger)
         {
             filters.Add(new(
                 TaskRunListFields.Trigger, FilteringType.equals, trigger.ToString(), Chip(TaskTexts.RunList.Trigger, Localizer.Text(TaskRunRows.TriggerText(trigger)))));
         }
 
-        if (startedFilter is { } range && (range.Start is not null || range.End is not null))
+        if (StartedFilter is { } range && (range.Start is not null || range.End is not null))
         {
             // Whole days in the viewer's zone: from the start of the first day to the start of the day after the last.
             string? from = range.Start is { } start ? ToUtcIso(start.Date) : null;
@@ -308,19 +319,19 @@ public sealed partial class SerginTaskRunsView : IAsyncDisposable
         switch (filter.Id)
         {
             case TaskRunListFields.Task:
-                taskFilter = null;
+                TaskFilter = null;
                 break;
             case TaskRunListFields.Status:
-                statusFilter = null;
+                StatusFilter = null;
                 break;
             case TaskRunListFields.StartedBy:
-                startedByFilter = null;
+                StartedByFilter = null;
                 break;
             case TaskRunListFields.Trigger:
-                triggerFilter = null;
+                TriggerFilter = null;
                 break;
             default:
-                startedFilter = null;
+                StartedFilter = null;
                 break;
         }
     }
@@ -329,11 +340,11 @@ public sealed partial class SerginTaskRunsView : IAsyncDisposable
 
     private void ClearFilters()
     {
-        taskFilter = null;
-        statusFilter = null;
-        startedByFilter = null;
-        triggerFilter = null;
-        startedFilter = null;
+        TaskFilter = null;
+        StatusFilter = null;
+        StartedByFilter = null;
+        TriggerFilter = null;
+        StartedFilter = null;
     }
 
     private void OnModuleChanged(string? module) =>
@@ -373,8 +384,7 @@ public sealed partial class SerginTaskRunsView : IAsyncDisposable
 
     private string? RecordHref(TaskRunsListItem run) => ActivityRows.RecordHref(run.CommandName, run.Total, run.TargetId, Catalog, Views);
 
-    private string SummaryText(TaskRunsListItem run) =>
-        TaskUiFormat.RunSummary(Localizer, Formatter, TaskUiTexts.Runs.Completed, new RunCounts(run.Total, run.Succeeded, run.Failed, run.Cancelled));
+    private string SummaryText(TaskRunsListItem run) => TaskRunRows.Summary(Localizer, Formatter, run);
 
     private string Chip(FieldText field, string value) =>
         Localizer.Text(ShellTexts.Lists.FilterChip, new { Field = Localizer.Text(field.Label), Value = value });

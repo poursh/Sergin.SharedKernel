@@ -3,6 +3,7 @@ using Sergin.SharedKernel.Application.Tasks.Queries;
 using Sergin.SharedKernel.Domain.Tasks;
 using Sergin.SharedKernel.Modules;
 using Sergin.SharedKernel.Presentation.Blazor.Modules;
+using Sergin.SharedKernel.Presentation.Localizations;
 
 namespace Sergin.SharedKernel.Presentation.Blazor.Tasks.Runs;
 
@@ -89,6 +90,27 @@ internal static class TaskRunRows
         }
 
         return run.ScopeId is { } scope ? scopeName(scope) : recordsText(run.Total);
+    }
+
+    /// <summary>
+    /// A finished run's counts, under its outcome: how many records succeeded and failed, and how many were cancelled
+    /// when any were. No status word, since the outcome above already says it.
+    /// </summary>
+    public static string Summary(IStringLocalizer localizer, ICultureFormatter formatter, TaskRunsListItem run)
+    {
+        ArgumentNullException.ThrowIfNull(localizer);
+        ArgumentNullException.ThrowIfNull(formatter);
+        ArgumentNullException.ThrowIfNull(run);
+
+        var values = new
+        {
+            Succeeded = formatter.Number(run.Succeeded),
+            Total = formatter.Number(run.Total),
+            Failed = formatter.Number(run.Failed),
+            Cancelled = formatter.Number(run.Cancelled),
+        };
+
+        return localizer.Text(run.Cancelled > 0 ? TaskUiTexts.RunList.SummaryWithCancelled : TaskUiTexts.RunList.Summary, values);
     }
 
     /// <summary>The task's view label, else its stored name.</summary>

@@ -256,6 +256,13 @@ public static class TaskUiTexts
 
         public static TextDefinition NoRuns { get; } = runList.Text("NoRuns", "No runs match.");
 
+        /// <summary>A finished run's counts, under its outcome.</summary>
+        public static TextDefinition Summary { get; } = runList.Text("Summary", "{Succeeded} of {Total} succeeded, {Failed} failed");
+
+        /// <summary>A finished run's counts when some of its records were cancelled.</summary>
+        public static TextDefinition SummaryWithCancelled { get; } =
+            runList.Text("SummaryWithCancelled", "{Succeeded} of {Total} succeeded, {Failed} failed, {Cancelled} cancelled");
+
         /// <summary>The records dialog's column of when each record finished.</summary>
         public static TextDefinition FinishedAt { get; } = runList.Text("FinishedAt", "Finished");
 

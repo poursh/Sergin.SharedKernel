@@ -28,7 +28,7 @@
                 <FilterPanel>
                     <MudGrid Spacing="3">
                         <MudItem xs="12" sm="6" md="3">
-                            <MudSelect T="string" Label="@Localizer.Text(TaskTexts.RunList.Task.Label)" Placeholder="@AnyText" @bind-Value="taskFilter"
+                            <MudSelect T="string" Label="@Localizer.Text(TaskTexts.RunList.Task.Label)" Placeholder="@AnyText" @bind-Value="TaskFilter"
                                        Clearable="true" Variant="Variant.Outlined" Margin="Margin.Dense">
                                 @foreach (string task in TaskNames)
                                 {
@@ -37,7 +37,7 @@
                             </MudSelect>
                         </MudItem>
                         <MudItem xs="12" sm="6" md="3">
-                            <MudSelect T="RunOutcome?" Label="@Localizer.Text(TaskTexts.RunList.Status.Label)" Placeholder="@AnyText" @bind-Value="statusFilter"
+                            <MudSelect T="RunOutcome?" Label="@Localizer.Text(TaskTexts.RunList.Status.Label)" Placeholder="@AnyText" @bind-Value="StatusFilter"
                                        Clearable="true" Variant="Variant.Outlined" Margin="Margin.Dense">
                                 @foreach (RunOutcome outcome in Enum.GetValues<RunOutcome>())
                                 {
@@ -46,7 +46,7 @@
                             </MudSelect>
                         </MudItem>
                         <MudItem xs="12" sm="6" md="3">
-                            <MudSelect T="Guid?" Label="@Localizer.Text(TaskTexts.RunList.StartedBy.Label)" Placeholder="@AnyText" @bind-Value="startedByFilter"
+                            <MudSelect T="Guid?" Label="@Localizer.Text(TaskTexts.RunList.StartedBy.Label)" Placeholder="@AnyText" @bind-Value="StartedByFilter"
                                        Clearable="true" Variant="Variant.Outlined" Margin="Margin.Dense">
                                 @foreach (Guid actor in actors)
                                 {
@@ -55,7 +55,7 @@
                             </MudSelect>
                         </MudItem>
                         <MudItem xs="12" sm="6" md="3">
-                            <MudSelect T="TaskRunTrigger?" Label="@Localizer.Text(TaskTexts.RunList.Trigger.Label)" Placeholder="@AnyText" @bind-Value="triggerFilter"
+                            <MudSelect T="TaskRunTrigger?" Label="@Localizer.Text(TaskTexts.RunList.Trigger.Label)" Placeholder="@AnyText" @bind-Value="TriggerFilter"
                                        Clearable="true" Variant="Variant.Outlined" Margin="Margin.Dense">
                                 @foreach (TaskRunTrigger trigger in Triggers)
                                 {
@@ -64,7 +64,7 @@
                             </MudSelect>
                         </MudItem>
                         <MudItem xs="12" sm="6" md="3">
-                            <MudDateRangePicker Label="@Localizer.Text(TaskTexts.RunList.StartedAt.Label)" Culture="@Formatter.Culture" @bind-DateRange="startedFilter"
+                            <MudDateRangePicker Label="@Localizer.Text(TaskTexts.RunList.StartedAt.Label)" Culture="@Formatter.Culture" @bind-DateRange="StartedFilter"
                                                 Clearable="true" Variant="Variant.Outlined" Margin="Margin.Dense" />
                         </MudItem>
                     </MudGrid>
