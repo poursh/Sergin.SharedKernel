@@ -67,7 +67,7 @@ public sealed class AggregateViewBuilder<TRoot> : AggregateViewBuilder
         }
 
         ArgumentNullException.ThrowIfNull(detail);
-        DeclaredRoutes = new AggregateViewRoutes(list, detail, create, edit, DeclaredRoutes.ListUnderParent);
+        DeclaredRoutes = new AggregateViewRoutes(list, detail, create, edit, DeclaredRoutes.ListUnderParent, DeclaredRoutes.DetailUnderParent);
         return this;
     }
 
@@ -81,6 +81,20 @@ public sealed class AggregateViewBuilder<TRoot> : AggregateViewBuilder
         ArgumentNullException.ThrowIfNull(list);
         ListParent = typeof(TParent);
         DeclaredRoutes = DeclaredRoutes with { ListUnderParent = list };
+        return this;
+    }
+
+    /// <summary>
+    /// The detail route of a root that belongs to a parent (<see cref="BelongsTo{TParent, TResponse}"/>) and whose detail page
+    /// lives under the parent's, built from the parent's id and the record's (a role under its owner scope:
+    /// <c>(scopeId, id) =&gt; $"/ua/scopes/{scopeId}/roles/{id}"</c>), in place of <see cref="Routes"/>' detail. When the
+    /// parent is read as a tree, the generated detail and create views select the parent's node, so a page in the tree's
+    /// layout keeps the tree.
+    /// </summary>
+    public AggregateViewBuilder<TRoot> DetailUnderParent(Func<Guid, Guid, string> detail)
+    {
+        ArgumentNullException.ThrowIfNull(detail);
+        DeclaredRoutes = DeclaredRoutes with { DetailUnderParent = detail };
         return this;
     }
 

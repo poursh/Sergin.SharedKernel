@@ -239,7 +239,9 @@ public static class AggregateViewGuard
 
         AggregateViewRoutes routes = builder.DeclaredRoutes;
 
-        if ((routes.Detail is not null || routes.Edit is not null) && getOne is null)
+        EnsureDetailUnderParent(view);
+
+        if ((routes.Detail is not null || routes.DetailUnderParent is not null || routes.Edit is not null) && getOne is null)
         {
             throw Refuse(view, $"its routes promise a {builder.Root.Name} detail page, but no IGetOneQuery<{builder.Root.Name}, …> exists to load it.");
         }
@@ -261,6 +263,41 @@ public static class AggregateViewGuard
         if (routes.Edit is not null && update is null)
         {
             throw Refuse(view, $"its routes promise a {builder.Root.Name} edit form, but no IUpdateCommand<{builder.Root.Name}, …> exists to send.");
+        }
+    }
+
+    /// <summary>
+    /// A detail route under a parent (<c>DetailUnderParent</c>) needs the parent the record belongs to (<c>BelongsTo</c>),
+    /// replaces <c>Routes(detail: …)</c> rather than joining it, and carries both the parent's id and the record's.
+    /// </summary>
+    private static void EnsureDetailUnderParent(DeclaredView view)
+    {
+        AggregateViewBuilder builder = view.Builder;
+        string root = builder.Root.Name;
+
+        if (builder.DeclaredRoutes.DetailUnderParent is not { } detail)
+        {
+            return;
+        }
+
+        if (builder.DeclaredBelongsTo is null)
+        {
+            throw Refuse(view, $"DetailUnderParent(…) builds {root}'s detail route from a parent's id, but {root} declares no BelongsTo<TParent, …>(…) to read it from.");
+        }
+
+        if (builder.DeclaredRoutes.Detail is not null)
+        {
+            throw Refuse(view, $"{root} names its detail route twice: Routes(detail: …) and DetailUnderParent(…). Keep one.");
+        }
+
+        // Sampled with distinct ids: a route that drops either would send every record, or every parent, to one address.
+        var parent = Guid.Parse("33333333-3333-3333-3333-333333333333");
+        var id = Guid.Parse("44444444-4444-4444-4444-444444444444");
+        string route = detail(parent, id);
+
+        if (!route.Contains(parent.ToString(), StringComparison.OrdinalIgnoreCase) || !route.Contains(id.ToString(), StringComparison.OrdinalIgnoreCase))
+        {
+            throw Refuse(view, $"DetailUnderParent(…) builds \"{route}\" from the parent id {parent} and the id {id}, and it must carry both.");
         }
     }
 
@@ -761,7 +798,11 @@ public static class AggregateViewGuard
 
     private static IEnumerable<string> RoutesOf(AggregateViewRoutes routes)
     {
-        string?[] all = [routes.List, routes.ListUnderParent?.Invoke(Guid.Empty), routes.Create, routes.Detail?.Invoke(Guid.Empty), routes.Edit?.Invoke(Guid.Empty)];
+        string?[] all =
+        [
+            routes.List, routes.ListUnderParent?.Invoke(Guid.Empty), routes.Create, routes.Detail?.Invoke(Guid.Empty),
+            routes.DetailUnderParent?.Invoke(Guid.Empty, Guid.Empty), routes.Edit?.Invoke(Guid.Empty),
+        ];
         return all.OfType<string>();
     }
 
