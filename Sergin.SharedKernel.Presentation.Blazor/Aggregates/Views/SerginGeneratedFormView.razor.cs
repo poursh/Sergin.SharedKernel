@@ -101,7 +101,19 @@ public sealed partial class SerginGeneratedFormView<TRoot>
 
     // The parent a create form is given; an edit form has none.
     // The node the surrounding tree selects: the record on edit, the new record's parent on create (none selects nothing).
-    private string? TreeNode => IsEdit ? Id?.ToString() : ParentId?.ToString();
+    // A root under a parent read as a tree (BelongsTo) selects the parent's node on create, and nothing on edit.
+    private string? TreeNode
+    {
+        get
+        {
+            if (Model.Tree is null)
+            {
+                return CreateParentId?.ToString();
+            }
+
+            return IsEdit ? Id?.ToString() : ParentId?.ToString();
+        }
+    }
 
     // The tail the tree's trail shows on create: only a declared create title, which has no placeholder to fill.
     private TextDefinition? TreeTail => IsEdit ? null : Model.CreateTitle;
@@ -188,7 +200,7 @@ public sealed partial class SerginGeneratedFormView<TRoot>
         return [display is null ? new SerginBreadcrumb(Model.Singular, href) : SerginBreadcrumb.Data(display, href)];
     }
 
-    private string DetailHref(Guid id) => Model.Routes.Detail?.Invoke(id) ?? Model.Routes.List ?? "/";
+    private string DetailHref(Guid id) => Model.Routes.DetailOf(id, CreateParentId) ?? Model.Routes.List ?? "/";
 
     // The command the form's values build: the one the field validation reads and the submit sends.
     private object ToCommand() => Model.BuildForm(Id, values.Values);

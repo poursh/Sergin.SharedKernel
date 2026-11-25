@@ -4,6 +4,11 @@
 {
     <SerginTreeSelect Node="@Id.ToString()" />
 }
+else if (belongsToModel?.Tree is not null)
+{
+    @* A record under a parent read as a tree: the parent's node is selected, the record its tail. *@
+    <SerginTreeSelect Node="@ParentIdOfRecord?.ToString()" TailData="@(record is null ? null : DisplayText)" />
+}
 <SerginAggregateDetailView TitleText="Model.Singular" Trail="Trail" Problem="problem" Ready="@(record is not null)" Actions="Actions"
                            FieldsTitleData="@(record is null ? null : DisplayText)"
                            Overview="OverviewFragment" OverviewSummary="OverviewSummaryFragment" OverviewCollapsed="Model.DetailOverviewCollapsed">

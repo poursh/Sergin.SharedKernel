@@ -27,7 +27,25 @@ public sealed partial class SerginTreeSelect : IDisposable
     [Parameter]
     public TextDefinition? TailText { get; set; }
 
-    private SerginBreadcrumb? TailStep => TailText is { } text ? new SerginBreadcrumb(text) : null;
+    /// <summary>
+    /// What the page shows under the node as stored data (a record's name), as the trail's last step; used when
+    /// <see cref="TailText"/> is null.
+    /// </summary>
+    [Parameter]
+    public string? TailData { get; set; }
+
+    private SerginBreadcrumb? TailStep
+    {
+        get
+        {
+            if (TailText is { } text)
+            {
+                return new SerginBreadcrumb(text);
+            }
+
+            return string.IsNullOrEmpty(TailData) ? null : SerginBreadcrumb.Data(TailData);
+        }
+    }
 
     [CascadingParameter]
     private SerginTree? Tree { get; set; }
